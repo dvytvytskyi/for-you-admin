@@ -355,7 +355,7 @@ export default function CourseDetailPage() {
                         value={formData.order}
                         onChange={handleChange}
                         disabled={!isEditMode}
-                        min={0}
+                        min="0"
                         className={!isEditMode ? 'bg-gray-50 dark:bg-gray-800 cursor-default' : ''}
                       />
                     </div>
