@@ -20,7 +20,7 @@ export const authOptions: NextAuthOptions = {
             }
           )
           if (data.success && data.data.token) {
-            return { email: credentials?.email, token: data.data.token }
+            return { id: credentials?.email || '', email: credentials?.email, token: data.data.token }
           }
           return null
         } catch {
