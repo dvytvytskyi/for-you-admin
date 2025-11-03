@@ -45,7 +45,7 @@ const Button: React.FC<ButtonProps> = ({
         disabled ? "cursor-not-allowed opacity-50" : ""
       }`}
       onClick={onClick}
-      disabled={disabled}
+      disabled={!!disabled}
       {...rest}
     >
       {startIcon && <span className="flex items-center">{startIcon}</span>}

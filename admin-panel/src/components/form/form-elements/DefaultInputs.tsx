@@ -5,7 +5,6 @@ import Label from '../Label';
 import Input from '../input/InputField';
 import Select from '../Select';
 import { ChevronDownIcon, EyeCloseIcon, EyeIcon, TimeIcon } from '../../../icons';
-import DatePicker from '@/components/form/date-picker';
 
 export default function DefaultInputs() {
   const [showPassword, setShowPassword] = useState(false);
@@ -60,18 +59,6 @@ export default function DefaultInputs() {
               )}
             </button>
           </div>
-        </div>
-
-        <div>
-          <DatePicker
-            id="date-picker"
-            label="Date Picker Input"
-            placeholder="Select a date"
-            onChange={(dates, currentDateString) => {
-              // Handle your logic
-              console.log({ dates, currentDateString });
-            }}
-          />
         </div>
 
         <div>
