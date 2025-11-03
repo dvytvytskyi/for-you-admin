@@ -1,0 +1,320 @@
+import express from 'express';
+import { AppDataSource } from '../config/database';
+import { Country } from '../entities/Country';
+import { City } from '../entities/City';
+import { Area } from '../entities/Area';
+import { Facility } from '../entities/Facility';
+import { Developer } from '../entities/Developer';
+import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
+import { successResponse } from '../utils/response';
+
+const router = express.Router();
+
+router.use((req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey) return authenticateAPIKey(req, res, next);
+  return authenticateJWT(req, res, next);
+});
+
+router.get('/countries', async (req, res) => {
+  const countries = await AppDataSource.getRepository(Country).find({ relations: ['cities'] });
+  res.json(successResponse(countries));
+});
+
+router.get('/cities', async (req, res) => {
+  const { countryId } = req.query;
+  const where: any = countryId ? { countryId } : {};
+  const cities = await AppDataSource.getRepository(City).find({ where, relations: ['areas'] });
+  res.json(successResponse(cities));
+});
+
+router.get('/areas', async (req, res) => {
+  const { cityId } = req.query;
+  const where: any = cityId ? { cityId } : {};
+  const areas = await AppDataSource.getRepository(Area).find({ where });
+  res.json(successResponse(areas));
+});
+
+// Combined endpoint for locations (countries, cities, areas)
+router.get('/locations', async (req, res) => {
+  try {
+    const countries = await AppDataSource.getRepository(Country).find({ relations: ['cities'] });
+    const cities = await AppDataSource.getRepository(City).find({ relations: ['areas'] });
+    const areas = await AppDataSource.getRepository(Area).find();
+    
+    res.json(successResponse({
+      countries,
+      cities,
+      areas
+    }));
+  } catch (error: any) {
+    console.error('Error loading locations:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to load locations' });
+  }
+});
+
+router.post('/countries', async (req, res) => {
+  try {
+    const { nameEn, nameRu, nameAr, code } = req.body;
+    
+    if (!nameEn || !code) {
+      return res.status(400).json({ success: false, message: 'Country name (nameEn) and code are required' });
+    }
+    
+    const country = await AppDataSource.getRepository(Country).save({
+      nameEn: nameEn.trim(),
+      nameRu: nameRu || nameEn.trim(),
+      nameAr: nameAr || nameEn.trim(),
+      code: code.trim().toUpperCase(),
+    });
+    
+    res.json(successResponse(country));
+  } catch (error: any) {
+    console.error('Error creating country:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to create country' });
+  }
+});
+
+router.post('/cities', async (req, res) => {
+  try {
+    const { nameEn, nameRu, nameAr, countryId } = req.body;
+    
+    if (!nameEn || !countryId) {
+      return res.status(400).json({ success: false, message: 'City name (nameEn) and countryId are required' });
+    }
+    
+    const city = await AppDataSource.getRepository(City).save({
+      nameEn: nameEn.trim(),
+      nameRu: nameRu || nameEn.trim(),
+      nameAr: nameAr || nameEn.trim(),
+      countryId: countryId,
+    });
+    
+    res.json(successResponse(city));
+  } catch (error: any) {
+    console.error('Error creating city:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to create city' });
+  }
+});
+
+router.post('/areas', async (req, res) => {
+  try {
+    const { nameEn, nameRu, nameAr, cityId } = req.body;
+    
+    if (!nameEn || !cityId) {
+      return res.status(400).json({ success: false, message: 'Area name (nameEn) and cityId are required' });
+    }
+    
+    const area = await AppDataSource.getRepository(Area).save({
+      nameEn: nameEn.trim(),
+      nameRu: nameRu || nameEn.trim(),
+      nameAr: nameAr || nameEn.trim(),
+      cityId: cityId,
+    });
+    
+    res.json(successResponse(area));
+  } catch (error: any) {
+    console.error('Error creating area:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to create area' });
+  }
+});
+
+router.delete('/countries/:id', async (req, res) => {
+  try {
+    const country = await AppDataSource.getRepository(Country).findOne({
+      where: { id: req.params.id },
+    });
+    
+    if (!country) {
+      return res.status(404).json({ success: false, message: 'Country not found' });
+    }
+    
+    await AppDataSource.getRepository(Country).remove(country);
+    res.json(successResponse(null, 'Country deleted successfully'));
+  } catch (error: any) {
+    console.error('Error deleting country:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete country' });
+  }
+});
+
+router.delete('/cities/:id', async (req, res) => {
+  try {
+    const city = await AppDataSource.getRepository(City).findOne({
+      where: { id: req.params.id },
+    });
+    
+    if (!city) {
+      return res.status(404).json({ success: false, message: 'City not found' });
+    }
+    
+    await AppDataSource.getRepository(City).remove(city);
+    res.json(successResponse(null, 'City deleted successfully'));
+  } catch (error: any) {
+    console.error('Error deleting city:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete city' });
+  }
+});
+
+router.delete('/areas/:id', async (req, res) => {
+  try {
+    const area = await AppDataSource.getRepository(Area).findOne({
+      where: { id: req.params.id },
+    });
+    
+    if (!area) {
+      return res.status(404).json({ success: false, message: 'Area not found' });
+    }
+    
+    await AppDataSource.getRepository(Area).remove(area);
+    res.json(successResponse(null, 'Area deleted successfully'));
+  } catch (error: any) {
+    console.error('Error deleting area:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete area' });
+  }
+});
+
+router.get('/facilities', async (req, res) => {
+  const facilities = await AppDataSource.getRepository(Facility).find();
+  res.json(successResponse(facilities));
+});
+
+router.post('/facilities', async (req, res) => {
+  try {
+    const { nameEn, nameRu, nameAr, iconName } = req.body;
+    
+    if (!nameEn || typeof nameEn !== 'string' || !nameEn.trim()) {
+      return res.status(400).json({ success: false, message: 'Facility name (nameEn) is required' });
+    }
+    
+    const facility = await AppDataSource.getRepository(Facility).save({
+      nameEn: nameEn.trim(),
+      nameRu: nameRu || nameEn.trim(),
+      nameAr: nameAr || nameEn.trim(),
+      iconName: iconName || nameEn.toLowerCase().replace(/\s+/g, '-'),
+    });
+    
+    res.json(successResponse(facility));
+  } catch (error: any) {
+    console.error('Error creating facility:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to create facility' });
+  }
+});
+
+router.delete('/facilities/:id', async (req, res) => {
+  try {
+    const facility = await AppDataSource.getRepository(Facility).findOne({
+      where: { id: req.params.id },
+    });
+    
+    if (!facility) {
+      return res.status(404).json({ success: false, message: 'Facility not found' });
+    }
+    
+    await AppDataSource.getRepository(Facility).remove(facility);
+    res.json(successResponse(null, 'Facility deleted successfully'));
+  } catch (error: any) {
+    console.error('Error deleting facility:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete facility' });
+  }
+});
+
+router.get('/developers', async (req, res) => {
+  const developers = await AppDataSource.getRepository(Developer).find();
+  res.json(successResponse(developers));
+});
+
+router.post('/developers', async (req, res) => {
+  try {
+    const { name } = req.body;
+    
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Developer name is required' });
+    }
+    
+    // Check if developer with this name already exists
+    const existingDeveloper = await AppDataSource.getRepository(Developer).findOne({
+      where: { name: name.trim() },
+    });
+    
+    if (existingDeveloper) {
+      return res.status(409).json({ success: false, message: 'Developer with this name already exists' });
+    }
+    
+    const developer = await AppDataSource.getRepository(Developer).save({
+      name: name.trim(),
+    });
+    
+    res.json(successResponse(developer));
+  } catch (error: any) {
+    console.error('Error creating developer:', error);
+    
+    // Handle unique constraint violation
+    if (error.code === '23505' || error.message?.includes('UNIQUE constraint')) {
+      return res.status(409).json({ success: false, message: 'Developer with this name already exists' });
+    }
+    
+    res.status(500).json({ success: false, message: error.message || 'Failed to create developer' });
+  }
+});
+
+router.delete('/developers/:id', async (req, res) => {
+  try {
+    const developer = await AppDataSource.getRepository(Developer).findOne({
+      where: { id: req.params.id },
+    });
+    
+    if (!developer) {
+      return res.status(404).json({ success: false, message: 'Developer not found' });
+    }
+    
+    await AppDataSource.getRepository(Developer).remove(developer);
+    res.json(successResponse(null, 'Developer deleted successfully'));
+  } catch (error: any) {
+    console.error('Error deleting developer:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to delete developer' });
+  }
+});
+
+// Endpoint to clean up duplicate developers (keep only first occurrence of each name)
+router.post('/developers/cleanup-duplicates', async (req, res) => {
+  try {
+    const developerRepository = AppDataSource.getRepository(Developer);
+    const allDevelopers = await developerRepository.find({
+      order: { createdAt: 'ASC' }, // Keep the oldest one
+    });
+    
+    const seenNames = new Set<string>();
+    const duplicatesToDelete: Developer[] = [];
+    let kept = 0;
+    let deleted = 0;
+    
+    for (const dev of allDevelopers) {
+      const normalizedName = dev.name.trim().toLowerCase();
+      
+      if (seenNames.has(normalizedName)) {
+        duplicatesToDelete.push(dev);
+        deleted++;
+      } else {
+        seenNames.add(normalizedName);
+        kept++;
+      }
+    }
+    
+    if (duplicatesToDelete.length > 0) {
+      await developerRepository.remove(duplicatesToDelete);
+    }
+    
+    res.json(successResponse({
+      kept,
+      deleted,
+      totalBefore: allDevelopers.length,
+      totalAfter: kept,
+    }, `Removed ${deleted} duplicate developers, kept ${kept} unique developers`));
+  } catch (error: any) {
+    console.error('Error cleaning up duplicates:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to clean up duplicates' });
+  }
+});
+
+export default router;
+
