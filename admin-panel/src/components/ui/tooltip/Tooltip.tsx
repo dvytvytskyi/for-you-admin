@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 interface TooltipProps {
   children: React.ReactNode
   content: string
-  disabled?: boolean
+  disabled?: boolean | string
 }
 
 export const Tooltip: React.FC<TooltipProps> = ({ children, content, disabled = false }) => {
