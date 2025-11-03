@@ -439,7 +439,7 @@ GET /api/properties?propertyType=off-plan&developerId=123e4567-e89b-12d3-a456-42
 }
 ```
 
-### Area Object (поточна структура)
+### Area Object (оновлена структура)
 
 ```typescript
 {
@@ -455,16 +455,18 @@ GET /api/properties?propertyType=off-plan&developerId=123e4567-e89b-12d3-a456-42
   },
   nameEn: string,
   nameRu: string,
-  nameAr: string
+  nameAr: string,
+  description: string | null, // ✅ Додано
+  images: string[] | null // ✅ Додано (масив URL фото)
 }
 ```
 
-**⚠️ Рекомендації для розширення:**
-- Додати поле `description` (EN/RU тексти) - **поки відсутнє**
-- Додати поле `images` (масив фото для галереї) - **поки відсутнє**
-- Можливі додаткові поля: `coordinates` (lat/lng), `amenities`, `overview`
+**✅ Реалізовані розширення:**
+- ✅ Поле `description` (текст)
+- ✅ Поле `images` (масив URL фото)
+- ⚠️ Можливі додаткові поля: `coordinates` (lat/lng), `amenities`, `overview`
 
-### Developer Object (поточна структура)
+### Developer Object (оновлена структура)
 
 ```typescript
 {
@@ -472,17 +474,18 @@ GET /api/properties?propertyType=off-plan&developerId=123e4567-e89b-12d3-a456-42
   name: string (unique),
   logo: string (URL) | null,
   description: string | null,
+  images: string[] | null, // ✅ Додано (масив URL фото)
   createdAt: ISO 8601 date
 }
 ```
 
-**✅ Поля вже існують:**
-- `logo` - зберігається як URL (рядок)
-- `description` - вже існує
+**✅ Реалізовані поля:**
+- ✅ `logo` - зберігається як URL (рядок)
+- ✅ `description` - текст
+- ✅ `images` - масив URL фото для галереї
 
-**⚠️ Рекомендації для розширення:**
-- Додати поле `images` (масив фото для галереї) - **поки відсутнє**
-- Можливі додаткові поля: `website`, `contactEmail`, `phone`, `address`
+**⚠️ Можливі додаткові поля:**
+- `website`, `contactEmail`, `phone`, `address`
 
 ### News/Blog Post Object
 
@@ -596,13 +599,36 @@ GET /api/properties?propertyType=off-plan&developerId=123e4567-e89b-12d3-a456-42
 - Наразі логінізація виконується через видалення токена на клієнті
 - JWT токени stateless, тому немає необхідності в logout endpoint на сервері
 
-#### ❌ GET /api/auth/me
+#### ✅ GET /api/auth/me
 
-**Статус:** Не реалізовано
+**Опис:** Отримати інформацію про поточного авторизованого користувача.
 
-**Примітки:**
-- Потрібно додати endpoint для отримання поточного користувача
-- Можна використати middleware `authenticateJWT` для отримання user з токена
+**Автентифікація:** JWT Token
+
+**Headers:**
+```
+Authorization: Bearer <your_jwt_token>
+```
+
+**Відповідь:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid",
+    "email": "string",
+    "phone": "string",
+    "firstName": "string",
+    "lastName": "string",
+    "role": "CLIENT" | "BROKER" | "INVESTOR" | "ADMIN",
+    "status": "PENDING" | "ACTIVE" | "BLOCKED" | "REJECTED",
+    "licenseNumber": "string | null",
+    "avatar": "string (URL) | null",
+    "createdAt": "ISO 8601 date",
+    "updatedAt": "ISO 8601 date"
+  }
+}
+```
 
 ### Зберігання токенів
 
@@ -672,17 +698,72 @@ export enum UserRole {
 
 ### Collections (для Broker)
 
-**Статус:** ❌ Endpoints не реалізовані
+**Статус:** ✅ Endpoints реалізовані
 
-**Потрібні endpoints (не існують):**
-- ❌ GET /api/collections - список колекцій користувача
-- ❌ POST /api/collections - створити колекцію
-- ❌ PUT /api/collections/:id - оновити колекцію
-- ❌ DELETE /api/collections/:id - видалити колекцію
-- ❌ POST /api/collections/:id/properties - додати нерухомість
-- ❌ DELETE /api/collections/:id/properties/:propertyId - видалити нерухомість
+**Endpoints:**
+- ✅ GET /api/collections - список колекцій користувача
+- ✅ POST /api/collections - створити колекцію
+- ✅ PUT /api/collections/:id - оновити колекцію
+- ✅ DELETE /api/collections/:id - видалити колекцію
+- ✅ POST /api/collections/:id/properties - додати нерухомість
+- ✅ DELETE /api/collections/:id/properties/:propertyId - видалити нерухомість
 
-**Рекомендована структура Collection:**
+**Автентифікація:** JWT Token
+
+#### GET /api/collections
+Отримати всі колекції поточного користувача.
+
+**Відповідь:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "userId": "uuid",
+      "name": "string",
+      "description": "string | null",
+      "properties": [ /* масив Property objects */ ],
+      "createdAt": "ISO 8601 date",
+      "updatedAt": "ISO 8601 date"
+    }
+  ]
+}
+```
+
+#### POST /api/collections
+Створити нову колекцію.
+
+**Body:**
+```json
+{
+  "name": "string (required)",
+  "description": "string (optional)"
+}
+```
+
+#### PUT /api/collections/:id
+Оновити колекцію.
+
+**Body:**
+```json
+{
+  "name": "string (optional)",
+  "description": "string (optional)"
+}
+```
+
+#### POST /api/collections/:id/properties
+Додати нерухомість до колекції.
+
+**Body:**
+```json
+{
+  "propertyId": "uuid (required)"
+}
+```
+
+**Структура Collection:**
 ```typescript
 {
   id: string (UUID),
@@ -697,14 +778,51 @@ export enum UserRole {
 
 ### Liked Properties (Favorites)
 
-**Статус:** ❌ Endpoints не реалізовані
+**Статус:** ✅ Endpoints реалізовані
 
-**Потрібні endpoints (не існують):**
-- ❌ GET /api/favorites - список улюблених
-- ❌ POST /api/favorites/:propertyId - додати в улюблені
-- ❌ DELETE /api/favorites/:propertyId - видалити з улюблених
+**Endpoints:**
+- ✅ GET /api/favorites - список улюблених
+- ✅ POST /api/favorites/:propertyId - додати в улюблені
+- ✅ DELETE /api/favorites/:propertyId - видалити з улюблених
 
-**Рекомендована структура Favorite:**
+**Автентифікація:** JWT Token
+
+#### GET /api/favorites
+Отримати всі улюблені нерухомості поточного користувача.
+
+**Відповідь:**
+```json
+{
+  "success": true,
+  "data": [
+    /* масив Property objects з усіма зв'язаними даними */
+  ]
+}
+```
+
+#### POST /api/favorites/:propertyId
+Додати нерухомість в улюблені.
+
+**Відповідь:**
+```json
+{
+  "success": true,
+  "data": { /* Property object */ }
+}
+```
+
+#### DELETE /api/favorites/:propertyId
+Видалити нерухомість з улюблених.
+
+**Відповідь:**
+```json
+{
+  "success": true,
+  "message": "Favorite removed"
+}
+```
+
+**Структура Favorite (внутрішня):**
 ```typescript
 {
   id: string (UUID),
@@ -715,16 +833,73 @@ export enum UserRole {
 }
 ```
 
+**Примітки:**
+- Користувач може додати property тільки один раз (unique constraint на user_id + property_id)
+- GET повертає масив Property objects, а не Favorite objects
+
 ### Investments (для Investor)
 
-**Статус:** ❌ Endpoints не реалізовані
+**Статус:** ✅ Endpoints реалізовані
 
-**Потрібні endpoints (не існують):**
-- ❌ GET /api/investments - список інвестованої нерухомості
-- ❌ POST /api/investments - додати інвестицію
-- ❌ GET /api/investments/:id - деталі інвестиції
+**Endpoints:**
+- ✅ GET /api/investments - список інвестованої нерухомості
+- ✅ POST /api/investments - додати інвестицію
+- ✅ GET /api/investments/:id - деталі інвестиції
 
-**Рекомендована структура Investment:**
+**Автентифікація:** JWT Token (тільки для INVESTOR та ADMIN ролі)
+
+#### GET /api/investments
+Отримати всі інвестиції поточного користувача (тільки для Investor).
+
+**Відповідь:**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "uuid",
+      "userId": "uuid",
+      "propertyId": "uuid",
+      "property": { /* Property object */ },
+      "amount": "number (USD)",
+      "status": "pending" | "confirmed" | "completed" | "cancelled",
+      "date": "ISO 8601 date",
+      "notes": "string | null",
+      "createdAt": "ISO 8601 date",
+      "updatedAt": "ISO 8601 date"
+    }
+  ]
+}
+```
+
+#### POST /api/investments
+Створити нову інвестицію (тільки для Investor).
+
+**Body:**
+```json
+{
+  "propertyId": "uuid (required)",
+  "amount": "number (required, USD)",
+  "status": "pending" | "confirmed" | "completed" | "cancelled (optional, default: pending)",
+  "date": "ISO 8601 date (required)",
+  "notes": "string (optional)"
+}
+```
+
+#### GET /api/investments/:id
+Отримати деталі конкретної інвестиції.
+
+**Відповідь:**
+```json
+{
+  "success": true,
+  "data": {
+    /* Investment object з property та всіма зв'язаними даними */
+  }
+}
+```
+
+**Структура Investment:**
 ```typescript
 {
   id: string (UUID),
@@ -971,33 +1146,33 @@ curl -X GET "https://admin.foryou-realestate.com/api/properties/123e4567-e89b-12
 - GET /api/news/:id
 - GET /api/courses
 - GET /api/courses/:id
-- POST /api/auth/login
+- POST /api/auth/login (оновлено - підтримує БД користувачів)
 - POST /api/auth/register
+- **✅ GET /api/auth/me** - отримання поточного користувача
+- **✅ GET /api/collections** - список колекцій
+- **✅ POST /api/collections** - створити колекцію
+- **✅ PUT /api/collections/:id** - оновити колекцію
+- **✅ DELETE /api/collections/:id** - видалити колекцію
+- **✅ POST /api/collections/:id/properties** - додати нерухомість
+- **✅ DELETE /api/collections/:id/properties/:propertyId** - видалити нерухомість
+- **✅ GET /api/favorites** - список улюблених
+- **✅ POST /api/favorites/:propertyId** - додати в улюблені
+- **✅ DELETE /api/favorites/:propertyId** - видалити з улюблених
+- **✅ GET /api/investments** - список інвестицій (для Investor)
+- **✅ POST /api/investments** - створити інвестицію
+- **✅ GET /api/investments/:id** - деталі інвестиції
 - Автоматична конвертація цін (USD → AED)
 - Автоматична конвертація розмірів (sqm → sqft)
+- **✅ Розширені поля для Areas** (description, images)
+- **✅ Розширені поля для Developers** (images)
 
-### ❌ Не реалізовано (потрібно додати)
-- POST /api/auth/logout (не потрібен для JWT)
-- GET /api/auth/me (потрібно додати)
-- GET /api/collections (Collections для Broker)
-- POST /api/collections
-- PUT /api/collections/:id
-- DELETE /api/collections/:id
-- POST /api/collections/:id/properties
-- DELETE /api/collections/:id/properties/:propertyId
-- GET /api/favorites (Liked Properties)
-- POST /api/favorites/:propertyId
-- DELETE /api/favorites/:propertyId
-- GET /api/investments (Investments для Investor)
-- POST /api/investments
-- GET /api/investments/:id
-- Refresh token механізм
-- Rate limiting
-- WebSocket для real-time синхронізації
-- Webhook система
-- Розширені поля для Areas (description, images)
-- Розширені поля для Developers (images)
-- Swagger/OpenAPI документація
+### ❌ Не реалізовано (опціональні функції)
+- POST /api/auth/logout (не потрібен для JWT - stateless токени)
+- Refresh token механізм (можна додати при потребі)
+- Rate limiting (рекомендується для production)
+- WebSocket для real-time синхронізації (опціонально)
+- Webhook система (опціонально для автоматизації)
+- Swagger/OpenAPI документація (є вбудована документація в адмінці)
 
 ---
 
