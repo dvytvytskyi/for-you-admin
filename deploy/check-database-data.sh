@@ -18,7 +18,7 @@ echo "🔍 Перевірка даних в БД..."
 echo ""
 
 # Використовуємо правильну назву БД контейнера
-DB_CONTAINER="for-you-admin-panel-postgres"
+DB_CONTAINER="for-you-admin-panel-postgres-prod"
 
 # Перевірка чи існує контейнер
 if ! docker ps -a --format "{{.Names}}" | grep -q "^${DB_CONTAINER}$"; then

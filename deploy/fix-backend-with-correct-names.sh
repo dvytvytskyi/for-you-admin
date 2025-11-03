@@ -15,7 +15,7 @@ fi
 cd ${PROJECT_DIR}
 
 # Правильні назви з вашого проекту
-DB_CONTAINER="for-you-admin-panel-postgres"
+DB_CONTAINER="for-you-admin-panel-postgres-prod"
 BACKEND_CONTAINER="for-you-admin-panel-backend-prod"
 NETWORK="for-you-network"
 
