@@ -221,18 +221,50 @@ X-API-Key: your_api_key
 
 ### ✅ GET /api/properties
 
-**Опис:** Отримати список нерухомості з опціональною фільтрацією.
+**Опис:** Отримати список нерухомості з розширеною фільтрацією.
 
 **Автентифікація:** JWT Token або API Key
 
 **Query Parameters:**
+
+**Базові фільтри:**
 - `propertyType` (string, optional): `"off-plan"` або `"secondary"`
 - `developerId` (uuid, optional): ID девелопера для фільтрації
 - `cityId` (uuid, optional): ID міста для фільтрації
+- `areaId` (uuid, optional): ID району (area) для фільтрації
 
-**Приклад запиту:**
+**Розширені фільтри:**
+- `bedrooms` (string, optional): Кількість спалень (multiselect - можна передати кілька значень через кому, наприклад: `"1,2,3"` або масив `["1","2","3"]`)
+  - Для `off-plan`: перевіряє чи значення попадає в діапазон `bedroomsFrom` - `bedroomsTo`
+  - Для `secondary`: перевіряє точне значення `bedrooms`
+- `sizeFrom` (number, optional): Мінімальний розмір в sqm (для off-plan перевіряє `sizeFrom`, для secondary перевіряє `size`)
+- `sizeTo` (number, optional): Максимальний розмір в sqm (для off-plan перевіряє `sizeFrom`, для secondary перевіряє `size`)
+- `priceFrom` (number, optional): Мінімальна ціна в USD (для off-plan перевіряє `priceFrom`, для secondary перевіряє `price`)
+- `priceTo` (number, optional): Максимальна ціна в USD (для off-plan перевіряє `priceFrom`, для secondary перевіряє `price`)
+- `search` (string, optional): Текстовий пошук по назві (`name`) та опису (`description`) нерухомості (case-insensitive)
+
+**Приклади запитів:**
 ```
+# Базові фільтри
 GET /api/properties?propertyType=off-plan&developerId=123e4567-e89b-12d3-a456-426614174000
+
+# Фільтр по району
+GET /api/properties?areaId=123e4567-e89b-12d3-a456-426614174000
+
+# Фільтр по кількості спалень (multiselect)
+GET /api/properties?bedrooms=1,2,3
+
+# Фільтр по розміру
+GET /api/properties?sizeFrom=50&sizeTo=150
+
+# Фільтр по ціні
+GET /api/properties?priceFrom=100000&priceTo=500000
+
+# Текстовий пошук
+GET /api/properties?search=luxury
+
+# Комбінований фільтр
+GET /api/properties?propertyType=off-plan&cityId=123&bedrooms=2,3&sizeFrom=80&priceTo=400000&search=apartment
 ```
 
 **Структура відповіді:**

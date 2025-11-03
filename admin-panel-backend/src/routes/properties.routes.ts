@@ -15,11 +15,26 @@ router.use((req, res, next) => {
 
 router.get('/', async (req, res) => {
   try {
-    const { propertyType, developerId, cityId } = req.query;
+    const { 
+      propertyType, 
+      developerId, 
+      cityId, 
+      areaId,
+      bedrooms,
+      sizeFrom,
+      sizeTo,
+      priceFrom,
+      priceTo,
+      search
+    } = req.query;
+    
     const where: any = {};
+    
+    // Базові фільтри
     if (propertyType) where.propertyType = propertyType;
     if (developerId) where.developerId = developerId;
     if (cityId) where.cityId = cityId;
+    if (areaId) where.areaId = areaId;
 
     // Перевірка чи підключено до БД
     if (!AppDataSource.isInitialized) {
@@ -30,10 +45,98 @@ router.get('/', async (req, res) => {
       });
     }
 
-    const properties = await AppDataSource.getRepository(Property).find({
-      where,
-      relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
+    // Базовий query builder для гнучкої фільтрації
+    const queryBuilder = AppDataSource.getRepository(Property)
+      .createQueryBuilder('property')
+      .leftJoinAndSelect('property.country', 'country')
+      .leftJoinAndSelect('property.city', 'city')
+      .leftJoinAndSelect('property.area', 'area')
+      .leftJoinAndSelect('property.developer', 'developer')
+      .leftJoinAndSelect('property.facilities', 'facilities')
+      .leftJoinAndSelect('property.units', 'units');
+
+    // Застосовуємо базові фільтри
+    Object.keys(where).forEach(key => {
+      queryBuilder.andWhere(`property.${key} = :${key}`, { [key]: where[key] });
     });
+
+    // Фільтр по кількості спалень (multiselect - можна передати кілька значень через кому)
+    if (bedrooms) {
+      const bedroomsArray = Array.isArray(bedrooms) ? bedrooms : bedrooms.toString().split(',');
+      const bedroomsConditions = bedroomsArray.map((bed: string, index: number) => {
+        const bedNum = parseInt(bed.trim(), 10);
+        if (isNaN(bedNum)) return null;
+        
+        // Для off-plan: перевіряємо bedroomsFrom та bedroomsTo
+        // Для secondary: перевіряємо bedrooms
+        return `(
+          (property.propertyType = 'off-plan' AND property.bedroomsFrom <= :bed${index} AND property.bedroomsTo >= :bed${index})
+          OR
+          (property.propertyType = 'secondary' AND property.bedrooms = :bed${index})
+        )`;
+      }).filter(Boolean);
+      
+      if (bedroomsConditions.length > 0) {
+        queryBuilder.andWhere(`(${bedroomsConditions.join(' OR ')})`);
+        bedroomsArray.forEach((bed: string, index: number) => {
+          const bedNum = parseInt(bed.trim(), 10);
+          if (!isNaN(bedNum)) {
+            queryBuilder.setParameter(`bed${index}`, bedNum);
+          }
+        });
+      }
+    }
+
+    // Фільтр по розміру (sizeFrom/sizeTo)
+    if (sizeFrom) {
+      const sizeFromNum = parseFloat(sizeFrom.toString());
+      if (!isNaN(sizeFromNum)) {
+        queryBuilder.andWhere(
+          `(property.sizeFrom >= :sizeFrom OR property.size >= :sizeFrom)`,
+          { sizeFrom: sizeFromNum }
+        );
+      }
+    }
+    if (sizeTo) {
+      const sizeToNum = parseFloat(sizeTo.toString());
+      if (!isNaN(sizeToNum)) {
+        queryBuilder.andWhere(
+          `(property.sizeFrom <= :sizeTo OR property.size <= :sizeTo)`,
+          { sizeTo: sizeToNum }
+        );
+      }
+    }
+
+    // Фільтр по ціні (priceFrom/priceTo)
+    if (priceFrom) {
+      const priceFromNum = parseFloat(priceFrom.toString());
+      if (!isNaN(priceFromNum)) {
+        queryBuilder.andWhere(
+          `(property.priceFrom >= :priceFrom OR property.price >= :priceFrom)`,
+          { priceFrom: priceFromNum }
+        );
+      }
+    }
+    if (priceTo) {
+      const priceToNum = parseFloat(priceTo.toString());
+      if (!isNaN(priceToNum)) {
+        queryBuilder.andWhere(
+          `(property.priceFrom <= :priceTo OR property.price <= :priceTo)`,
+          { priceTo: priceToNum }
+        );
+      }
+    }
+
+    // Текстовий пошук (search) - пошук по name та description
+    if (search) {
+      const searchTerm = `%${search.toString().toLowerCase()}%`;
+      queryBuilder.andWhere(
+        `(LOWER(property.name) LIKE :search OR LOWER(property.description) LIKE :search)`,
+        { search: searchTerm }
+      );
+    }
+
+    const properties = await queryBuilder.getMany();
 
     const propertiesWithConversions = properties.map(p => ({
       ...p,
