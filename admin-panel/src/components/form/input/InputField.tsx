@@ -1,23 +1,12 @@
 import React, { FC } from "react";
 
-interface InputProps {
+interface InputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'onKeyDown'> {
   type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
-  id?: string;
-  name?: string;
-  placeholder?: string;
-  defaultValue?: string | number;
-  value?: string | number;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  className?: string;
-  min?: string;
-  max?: string;
-  step?: string | number;
-  disabled?: boolean;
   success?: boolean;
   error?: boolean;
   hint?: string; // Optional hint text
-  required?: boolean;
 }
 
 const Input: FC<InputProps> = ({
