@@ -17,7 +17,18 @@ cd ${PROJECT_DIR}
 echo "🔍 Перевірка даних в БД..."
 echo ""
 
-DB_CONTAINER="for-you-admin-panel-postgres-prod"
+# Знаходимо БД контейнер автоматично
+DB_CONTAINER=$(docker ps -a --format "{{.Names}}" | grep -i postgres | grep -i admin | head -1)
+if [ -z "$DB_CONTAINER" ]; then
+    DB_CONTAINER=$(docker ps -a --format "{{.Names}}" | grep -i postgres | head -1)
+fi
+
+if [ -z "$DB_CONTAINER" ]; then
+    echo "❌ БД контейнер не знайдено!"
+    exit 1
+fi
+
+echo "Використовується БД контейнер: ${DB_CONTAINER}"
 
 # 1. Перевірка підключення до БД
 echo "🗄️  Перевірка підключення до БД:"
