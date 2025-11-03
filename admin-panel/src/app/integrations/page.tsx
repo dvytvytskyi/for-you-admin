@@ -310,7 +310,7 @@ export default function IntegrationsPage() {
                 value={newKeyName}
                 onChange={(e) => setNewKeyName(e.target.value)}
                 placeholder="e.g., Production Website, Mobile App"
-                onKeyPress={(e) => {
+                onKeyDown={(e) => {
                   if (e.key === 'Enter' && !creating && newKeyName.trim()) {
                     handleCreate()
                   }
