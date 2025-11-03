@@ -10,12 +10,66 @@ const router = express.Router();
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
 
+  // Спочатку перевіряємо через env (для старого адміна)
   if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-    const token = jwt.sign({ email }, process.env.ADMIN_JWT_SECRET!, { expiresIn: '7d' });
+    // Шукаємо користувача в БД або створюємо токен з email
+    const adminUser = await AppDataSource.getRepository(User).findOne({
+      where: { email },
+    });
+    
+    const payload = adminUser 
+      ? { id: adminUser.id, email, role: adminUser.role }
+      : { email, role: 'ADMIN' };
+    
+    const token = jwt.sign(payload, process.env.ADMIN_JWT_SECRET!, { expiresIn: '7d' });
     return res.json(successResponse({ token }, 'Login successful'));
   }
 
-  return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  // Перевіряємо в БД для реєстрованих користувачів
+  const user = await AppDataSource.getRepository(User).findOne({
+    where: { email },
+  });
+
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+  if (!isValidPassword) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  const token = jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    process.env.ADMIN_JWT_SECRET!,
+    { expiresIn: '7d' }
+  );
+
+  const { passwordHash: _, ...userWithoutPassword } = user;
+  return res.json(successResponse({ token, user: userWithoutPassword }, 'Login successful'));
+});
+
+router.get('/me', authenticateJWT, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+
+    const user = await AppDataSource.getRepository(User).findOne({
+      where: { id: userId },
+      select: ['id', 'email', 'phone', 'firstName', 'lastName', 'role', 'status', 'licenseNumber', 'avatar', 'createdAt', 'updatedAt'],
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.json(successResponse(user));
+  } catch (error: any) {
+    console.error('Error fetching user:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch user' });
+  }
 });
 
 router.post('/register', async (req, res) => {

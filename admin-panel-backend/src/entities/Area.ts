@@ -21,5 +21,11 @@ export class Area {
 
   @Column()
   nameAr!: string;
+
+  @Column('text', { nullable: true })
+  description?: string;
+
+  @Column('simple-array', { nullable: true })
+  images?: string[]; // Масив URL фото
 }
 

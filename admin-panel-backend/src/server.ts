@@ -15,6 +15,9 @@ import usersRoutes from './routes/users.routes';
 import uploadRoutes from './routes/upload.routes';
 import apiKeysRoutes from './routes/api-keys.routes';
 import publicRoutes from './routes/public.routes';
+import collectionsRoutes from './routes/collections.routes';
+import favoritesRoutes from './routes/favorites.routes';
+import investmentsRoutes from './routes/investments.routes';
 
 dotenv.config();
 
@@ -37,6 +40,9 @@ app.use('/api/support', supportRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/public', publicRoutes);
+app.use('/api/collections', collectionsRoutes);
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/investments', investmentsRoutes);
 
 // Root route
 app.get('/', (req, res) => {
