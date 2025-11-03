@@ -18,12 +18,27 @@ router.post('/login', async (req, res) => {
       where: { email },
     });
     
+    // Завжди створюємо токен з id (якщо користувач не знайдений в БД, створюємо ід з email)
     const payload = adminUser 
       ? { id: adminUser.id, email, role: adminUser.role }
-      : { email, role: 'ADMIN' };
+      : { id: 'admin-env-user', email, role: 'ADMIN' };
     
     const token = jwt.sign(payload, process.env.ADMIN_JWT_SECRET!, { expiresIn: '7d' });
-    return res.json(successResponse({ token }, 'Login successful'));
+    
+    // Якщо користувач не знайдений в БД, повертаємо мінімальні дані
+    if (!adminUser) {
+      return res.json(successResponse({ 
+        token,
+        user: { 
+          email, 
+          role: 'ADMIN',
+          status: 'ACTIVE'
+        } 
+      }, 'Login successful'));
+    }
+    
+    const { passwordHash: _, ...userWithoutPassword } = adminUser;
+    return res.json(successResponse({ token, user: userWithoutPassword }, 'Login successful'));
   }
 
   // Перевіряємо в БД для реєстрованих користувачів
