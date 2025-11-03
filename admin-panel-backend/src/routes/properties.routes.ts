@@ -14,27 +14,45 @@ router.use((req, res, next) => {
 });
 
 router.get('/', async (req, res) => {
-  const { propertyType, developerId, cityId } = req.query;
-  const where: any = {};
-  if (propertyType) where.propertyType = propertyType;
-  if (developerId) where.developerId = developerId;
-  if (cityId) where.cityId = cityId;
+  try {
+    const { propertyType, developerId, cityId } = req.query;
+    const where: any = {};
+    if (propertyType) where.propertyType = propertyType;
+    if (developerId) where.developerId = developerId;
+    if (cityId) where.cityId = cityId;
 
-  const properties = await AppDataSource.getRepository(Property).find({
-    where,
-    relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
-  });
+    // Перевірка чи підключено до БД
+    if (!AppDataSource.isInitialized) {
+      console.error('Database not initialized');
+      return res.status(500).json({
+        success: false,
+        message: 'Database connection not initialized',
+      });
+    }
 
-  const propertiesWithConversions = properties.map(p => ({
-    ...p,
-    priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
-    priceAED: p.price ? Conversions.usdToAed(p.price) : null,
-    sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
-    sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
-    sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
-  }));
+    const properties = await AppDataSource.getRepository(Property).find({
+      where,
+      relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
+    });
 
-  res.json(successResponse(propertiesWithConversions));
+    const propertiesWithConversions = properties.map(p => ({
+      ...p,
+      priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
+      priceAED: p.price ? Conversions.usdToAed(p.price) : null,
+      sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
+      sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
+      sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
+    }));
+
+    res.json(successResponse(propertiesWithConversions));
+  } catch (error: any) {
+    console.error('Error fetching properties:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch properties',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
+  }
 });
 
 router.get('/:id', async (req, res) => {
