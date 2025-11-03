@@ -17,14 +17,14 @@ cd ${PROJECT_DIR}
 echo "🔍 Перевірка даних в БД..."
 echo ""
 
-# Знаходимо БД контейнер автоматично
-DB_CONTAINER=$(docker ps -a --format "{{.Names}}" | grep -i postgres | grep -i admin | head -1)
-if [ -z "$DB_CONTAINER" ]; then
-    DB_CONTAINER=$(docker ps -a --format "{{.Names}}" | grep -i postgres | head -1)
-fi
+# Використовуємо правильну назву БД контейнера
+DB_CONTAINER="for-you-admin-panel-postgres"
 
-if [ -z "$DB_CONTAINER" ]; then
-    echo "❌ БД контейнер не знайдено!"
+# Перевірка чи існує контейнер
+if ! docker ps -a --format "{{.Names}}" | grep -q "^${DB_CONTAINER}$"; then
+    echo "❌ БД контейнер ${DB_CONTAINER} не знайдено!"
+    echo "Доступні контейнери:"
+    docker ps -a --format "{{.Names}}" | grep -i postgres
     exit 1
 fi
 
