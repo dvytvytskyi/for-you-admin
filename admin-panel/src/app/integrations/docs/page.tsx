@@ -619,9 +619,13 @@ export default function APIDocumentationPage() {
     return 'Authorization: Bearer <your_jwt_token>\n// OR\nX-API-Key: <your_api_key>\nX-API-Secret: <your_api_secret>'
   }
 
+  // Використовуємо правильний API URL з env або автоматично визначаємо
   const baseUrl = typeof window !== 'undefined' 
-    ? window.location.origin.replace(/:\d+$/, ':4000')
-    : 'http://localhost:4000'
+    ? (process.env.NEXT_PUBLIC_API_URL || window.location.origin + '/api')
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api')
+  
+  // Видаляємо /api з кінця, якщо вже є, бо endpoints вже містять /api
+  const apiBaseUrl = baseUrl.replace(/\/api$/, '') + '/api'
 
   return (
     <div className="space-y-6">
