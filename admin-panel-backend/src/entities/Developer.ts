@@ -14,6 +14,9 @@ export class Developer {
   @Column('text', { nullable: true })
   description!: string;
 
+  @Column('simple-array', { nullable: true })
+  images?: string[]; // Масив URL фото
+
   @CreateDateColumn()
   createdAt!: Date;
 }

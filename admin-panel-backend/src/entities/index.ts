@@ -15,6 +15,9 @@ export { NewsContent } from './NewsContent';
 export { SupportRequest } from './SupportRequest';
 export { SupportResponse } from './SupportResponse';
 export { ApiKey } from './ApiKey';
+export { Collection } from './Collection';
+export { Favorite } from './Favorite';
+export { Investment, InvestmentStatus } from './Investment';
 
 // Array of all entities for TypeORM DataSource
 import { User } from './User';
@@ -33,6 +36,9 @@ import { NewsContent } from './NewsContent';
 import { SupportRequest } from './SupportRequest';
 import { SupportResponse } from './SupportResponse';
 import { ApiKey } from './ApiKey';
+import { Collection } from './Collection';
+import { Favorite } from './Favorite';
+import { Investment } from './Investment';
 
 export const entities = [
   User,
@@ -51,5 +57,8 @@ export const entities = [
   SupportRequest,
   SupportResponse,
   ApiKey,
+  Collection,
+  Favorite,
+  Investment,
 ];
 
