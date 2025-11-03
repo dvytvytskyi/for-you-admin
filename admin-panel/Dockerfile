@@ -13,7 +13,9 @@ RUN npm ci
 COPY . .
 
 # Додаємо мінімальні env змінні для build
-ENV NEXT_PUBLIC_API_URL=http://localhost:4000/api
+# NEXT_PUBLIC_API_URL передається через build arg або .env.production
+ARG NEXT_PUBLIC_API_URL=https://admin.foryou-realestate.com/api
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Білдимо Next.js додаток
