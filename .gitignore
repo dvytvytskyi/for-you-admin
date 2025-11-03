@@ -1,0 +1,53 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production builds
+.next/
+out/
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Database
+*.dump
+*.sql
+!admin-panel-backend/src/migrations/*.sql
+
+# Uploads
+admin-panel-backend/uploads/*
+!admin-panel-backend/uploads/.gitkeep
+
+# Docker
+.docker/
+
+# Backups
+backups/
+*.backup
+
+# Temporary files
+tmp/
+temp/
