@@ -236,7 +236,7 @@ export default function AddCoursePage() {
                     placeholder="0"
                     value={formData.order}
                     onChange={handleChange}
-                    min={0}
+                    min="0"
                   />
                 </div>
               </div>
