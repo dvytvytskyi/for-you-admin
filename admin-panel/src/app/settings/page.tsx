@@ -587,7 +587,7 @@ function DevelopersTab({ developers, onReload }: any) {
               }
             }}
             className="flex-1"
-            onKeyPress={(e) => {
+            onKeyDown={(e) => {
               if (e.key === 'Enter' && newDeveloper.trim() && !addingDeveloper) {
                 handleAdd()
               }
@@ -1107,7 +1107,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
           placeholder={`${activeSection === 'countries' ? 'Country' : activeSection === 'cities' ? 'City' : 'Area'} name`}
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
-          onKeyPress={(e) => {
+          onKeyDown={(e) => {
             if (e.key === 'Enter') {
               handleAdd()
             }
