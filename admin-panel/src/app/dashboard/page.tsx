@@ -49,105 +49,46 @@ export default function DashboardPage() {
 
   const loadStats = async () => {
     try {
-      const [propertiesRes, developersRes, facilitiesRes, locationsRes] = await Promise.all([
-        api.get('/properties'),
+      const [propertiesStatsRes, developersRes, facilitiesRes, locationsRes] = await Promise.all([
+        api.get('/properties/stats').catch(() => ({ data: { data: {} } })),
         api.get('/settings/developers').catch(() => ({ data: { data: [] } })),
         api.get('/settings/facilities').catch(() => ({ data: { data: [] } })),
         api.get('/settings/locations').catch(() => ({ data: { data: [] } })),
       ])
 
-      const properties = propertiesRes.data.data || []
+      const propertiesStats = propertiesStatsRes.data.data || {}
       const developers = developersRes.data.data || []
       const facilities = facilitiesRes.data.data || []
       const locations = locationsRes.data.data || {}
 
-
-      // Calculate basic stats
-      const offPlan = properties.filter((p: any) => p.propertyType === 'off-plan')
-      const secondary = properties.filter((p: any) => p.propertyType === 'secondary')
-
-      // Calculate prices
-      const prices = properties
-        .map((p: any) => p.price || p.priceFrom)
-        .filter((p: any) => p && p > 0)
-      
-      const minPrice = prices.length > 0 ? Math.min(...prices) : 0
-      const maxPrice = prices.length > 0 ? Math.max(...prices) : 0
-
       // Properties by type
       const propertiesByType = {
         categories: ['Off-Plan', 'Secondary'],
-        series: [offPlan.length, secondary.length],
+        series: [propertiesStats.offPlanProperties || 0, propertiesStats.secondaryProperties || 0],
       }
 
       // Properties by city
-      const locationMap = new Map<string, number>()
-      properties.forEach((p: any) => {
-        // Get city name from loaded city object
-        if (p.city) {
-          const cityName = p.city?.nameEn || p.city?.nameRu || p.city?.nameAr || null
-          if (cityName) {
-            locationMap.set(cityName, (locationMap.get(cityName) || 0) + 1)
-          }
-        }
-      })
-      
-      const topLocations = Array.from(locationMap.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-      
       const propertiesByLocation = {
-        categories: topLocations.map(([name]) => name),
-        series: topLocations.map(([, value]) => value),
+        categories: (propertiesStats.topCities || []).map((city: any) => city.name),
+        series: (propertiesStats.topCities || []).map((city: any) => city.count),
       }
 
-      // Properties by bedrooms (for off-plan)
-      const bedroomsMap = new Map<string, number>()
-      offPlan.forEach((p: any) => {
-        if (p.bedroomsFrom && p.bedroomsTo) {
-          const range = `${p.bedroomsFrom}-${p.bedroomsTo}`
-          bedroomsMap.set(range, (bedroomsMap.get(range) || 0) + 1)
-        } else if (p.bedroomsFrom) {
-          const label = `${p.bedroomsFrom}+`
-          bedroomsMap.set(label, (bedroomsMap.get(label) || 0) + 1)
-        }
-      })
-      const bedroomsSorted = Array.from(bedroomsMap.entries())
-        .sort((a, b) => {
-          const aNum = parseInt(a[0]) || 0
-          const bNum = parseInt(b[0]) || 0
-          return aNum - bNum
-        })
-      
+      // Properties by bedrooms
       const propertiesByBedrooms = {
-        categories: bedroomsSorted.map(([name]) => name + ' Beds'),
-        series: bedroomsSorted.map(([, value]) => value),
+        categories: (propertiesStats.bedroomsDistribution || []).map((bed: any) => bed.name),
+        series: (propertiesStats.bedroomsDistribution || []).map((bed: any) => bed.count),
       }
 
       // Unit types distribution
-      const unitTypesMap = new Map<string, number>()
-      properties.forEach((p: any) => {
-        if (p.units && Array.isArray(p.units)) {
-          p.units.forEach((unit: any) => {
-            const type = unit.type || 'Unknown'
-            const typeName = type.charAt(0).toUpperCase() + type.slice(1)
-            unitTypesMap.set(typeName, (unitTypesMap.get(typeName) || 0) + 1)
-          })
-        }
-      })
-      const unitTypesSorted = Array.from(unitTypesMap.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-      
       const unitTypes = {
-        categories: unitTypesSorted.map(([name]) => name),
-        series: unitTypesSorted.map(([, value]) => value),
+        categories: (propertiesStats.unitTypesDistribution || []).map((unit: any) => unit.name),
+        series: (propertiesStats.unitTypesDistribution || []).map((unit: any) => unit.count),
       }
 
       setStats({
-        totalProperties: properties.length,
-        offPlanProperties: offPlan.length,
-        secondaryProperties: secondary.length,
+        totalProperties: propertiesStats.totalProperties || 0,
+        offPlanProperties: propertiesStats.offPlanProperties || 0,
+        secondaryProperties: propertiesStats.secondaryProperties || 0,
         totalDevelopers: developers.length,
         totalFacilities: facilities.length,
         totalLocations: {
@@ -155,13 +96,13 @@ export default function DashboardPage() {
           cities: locations.cities?.length || 0,
           areas: locations.areas?.length || 0,
         },
-        minPrice,
-        maxPrice,
+        minPrice: propertiesStats.minPrice || 0,
+        maxPrice: propertiesStats.maxPrice || 0,
       })
 
       setChartData({
         propertiesByType,
-        propertiesByLocation,
+        propertiesByLocation: propertiesByLocation.categories.length > 0 ? propertiesByLocation : { categories: ['No data'], series: [0] },
         propertiesByBedrooms: propertiesByBedrooms.categories.length > 0 ? propertiesByBedrooms : { categories: ['No data'], series: [0] },
         unitTypes: unitTypes.categories.length > 0 ? unitTypes : { categories: ['No data'], series: [0] },
       })
