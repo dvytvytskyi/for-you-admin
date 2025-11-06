@@ -52,76 +52,93 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
     ]);
 
     // Transform properties with conversions
-    const transformedProperties = properties.map(p => ({
-      id: p.id,
-      propertyType: p.propertyType,
-      name: p.name,
-      description: p.description,
-      price: p.price,
-      priceFrom: p.priceFrom,
-      priceAED: p.price ? Conversions.usdToAed(p.price) : null,
-      priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
-      size: p.size,
-      sizeFrom: p.sizeFrom,
-      sizeTo: p.sizeTo,
-      sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
-      sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
-      sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
-      bedrooms: p.bedrooms,
-      bedroomsFrom: p.bedroomsFrom,
-      bedroomsTo: p.bedroomsTo,
-      bathrooms: p.bathrooms,
-      bathroomsFrom: p.bathroomsFrom,
-      bathroomsTo: p.bathroomsTo,
-      paymentPlan: p.paymentPlan,
-      latitude: p.latitude,
-      longitude: p.longitude,
-      country: p.country ? {
-        id: p.country.id,
-        nameEn: p.country.nameEn,
-        nameRu: p.country.nameRu,
-        nameAr: p.country.nameAr,
-        code: p.country.code,
-      } : null,
-      city: p.city ? {
-        id: p.city.id,
-        nameEn: p.city.nameEn,
-        nameRu: p.city.nameRu,
-        nameAr: p.city.nameAr,
-      } : null,
-      area: p.area ? {
-        id: p.area.id,
-        nameEn: p.area.nameEn,
-        nameRu: p.area.nameRu,
-        nameAr: p.area.nameAr,
-      } : null,
-      developer: p.developer ? {
-        id: p.developer.id,
-        name: p.developer.name,
-      } : null,
-      facilities: p.facilities?.map(f => ({
-        id: f.id,
-        nameEn: f.nameEn,
-        nameRu: f.nameRu,
-        nameAr: f.nameAr,
-        iconName: f.iconName,
-      })) || [],
-      units: p.units?.map(u => ({
-        id: u.id,
-        unitId: u.unitId,
-        type: u.type,
-        price: u.price,
-        priceAED: u.price ? Conversions.usdToAed(u.price) : null,
-        totalSize: u.totalSize,
-        totalSizeSqft: u.totalSize ? Conversions.sqmToSqft(u.totalSize) : null,
-        balconySize: u.balconySize,
-        balconySizeSqft: u.balconySize ? Conversions.sqmToSqft(u.balconySize) : null,
-        planImage: u.planImage,
-      })) || [],
-      photos: p.photos || [],
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-    }));
+    const transformedProperties = properties.map(p => {
+      // Для off-plan properties: area має бути рядком "areaName, cityName"
+      // Для secondary properties: area залишається об'єктом
+      let areaField: any = null;
+      if (p.area) {
+        if (p.propertyType === 'off-plan') {
+          // Для off-plan: формат "areaName, cityName" (наприклад "JVC, Dubai")
+          const areaName = p.area.nameEn || '';
+          const cityName = p.city?.nameEn || '';
+          areaField = cityName ? `${areaName}, ${cityName}` : areaName;
+        } else {
+          // Для secondary: об'єкт як раніше
+          areaField = {
+            id: p.area.id,
+            nameEn: p.area.nameEn,
+            nameRu: p.area.nameRu,
+            nameAr: p.area.nameAr,
+          };
+        }
+      }
+
+      return {
+        id: p.id,
+        propertyType: p.propertyType,
+        name: p.name,
+        description: p.description,
+        price: p.price,
+        priceFrom: p.priceFrom,
+        priceAED: p.price ? Conversions.usdToAed(p.price) : null,
+        priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
+        size: p.size,
+        sizeFrom: p.sizeFrom,
+        sizeTo: p.sizeTo,
+        sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
+        sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
+        sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
+        bedrooms: p.bedrooms,
+        bedroomsFrom: p.bedroomsFrom,
+        bedroomsTo: p.bedroomsTo,
+        bathrooms: p.bathrooms,
+        bathroomsFrom: p.bathroomsFrom,
+        bathroomsTo: p.bathroomsTo,
+        paymentPlan: p.paymentPlan,
+        latitude: p.latitude,
+        longitude: p.longitude,
+        country: p.country ? {
+          id: p.country.id,
+          nameEn: p.country.nameEn,
+          nameRu: p.country.nameRu,
+          nameAr: p.country.nameAr,
+          code: p.country.code,
+        } : null,
+        city: p.city ? {
+          id: p.city.id,
+          nameEn: p.city.nameEn,
+          nameRu: p.city.nameRu,
+          nameAr: p.city.nameAr,
+        } : null,
+        area: areaField,
+        developer: p.developer ? {
+          id: p.developer.id,
+          name: p.developer.name,
+        } : null,
+        facilities: p.facilities?.map(f => ({
+          id: f.id,
+          nameEn: f.nameEn,
+          nameRu: f.nameRu,
+          nameAr: f.nameAr,
+          iconName: f.iconName,
+        })) || [],
+        units: p.units?.map(u => ({
+          id: u.id,
+          unitId: u.unitId,
+          type: u.type,
+          price: u.price,
+          priceAED: u.price ? Conversions.usdToAed(u.price) : null,
+          totalSize: u.totalSize,
+          totalSizeSqft: u.totalSize ? Conversions.sqmToSqft(u.totalSize) : null,
+          balconySize: u.balconySize,
+          balconySizeSqft: u.balconySize ? Conversions.sqmToSqft(u.balconySize) : null,
+          planImage: u.planImage,
+        })) || [],
+        photos: p.photos || [],
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      };
+    });
 
     const secondaryCount = transformedProperties.filter(p => p.propertyType === 'secondary').length;
     const offPlanCount = transformedProperties.filter(p => p.propertyType === 'off-plan').length;
@@ -175,6 +192,9 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
             code: a.city.country.code,
           } : null,
         } : null,
+        description: a.description || null,
+        infrastructure: a.infrastructure || null,
+        images: a.images || null,
       })),
       developers: developers.map(d => ({
         id: d.id,
@@ -312,6 +332,132 @@ router.get('/courses/:id', authenticateApiKeyWithSecret, async (req, res) => {
   } catch (error: any) {
     console.error('Error fetching course:', error);
     res.status(500).json(errorResponse('Failed to fetch course', error.message));
+  }
+});
+
+// GET /api/public/areas - Get all areas with project counts
+router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    console.log('[Public API] GET /api/public/areas request:', {
+      hasApiKey: !!req.apiKey,
+      apiKeyName: req.apiKey?.name,
+      cityId: req.query.cityId,
+    });
+
+    const { cityId } = req.query;
+
+    // Знаходимо всі areas
+    const where: any = {};
+    if (cityId) {
+      where.cityId = cityId;
+    }
+
+    const areas = await AppDataSource.getRepository(Area).find({
+      where,
+      relations: ['city', 'city.country'],
+      order: { nameEn: 'ASC' },
+    });
+
+    // Отримуємо підрахунок properties по areas через SQL агрегацію (більш ефективно)
+    const areaIds = areas.map(a => a.id);
+    
+    // Підрахунок через SQL запит для кращої продуктивності
+    let countsQuery: any[] = [];
+    if (areaIds.length > 0) {
+      countsQuery = await AppDataSource
+        .getRepository(Property)
+        .createQueryBuilder('property')
+        .select('property.areaId', 'areaId')
+        .addSelect('COUNT(property.id)', 'total')
+        .addSelect(
+          "SUM(CASE WHEN property.propertyType = 'off-plan' THEN 1 ELSE 0 END)",
+          'offPlan'
+        )
+        .addSelect(
+          "SUM(CASE WHEN property.propertyType = 'secondary' THEN 1 ELSE 0 END)",
+          'secondary'
+        )
+        .where('property.areaId IN (:...areaIds)', { areaIds })
+        .groupBy('property.areaId')
+        .getRawMany();
+    }
+
+    // Створюємо мапу для швидкого доступу
+    const areaPropertyCounts = new Map<string, {
+      total: number;
+      offPlan: number;
+      secondary: number;
+    }>();
+
+    // Ініціалізуємо всі areas з нульовими значеннями
+    areas.forEach(area => {
+      areaPropertyCounts.set(area.id, {
+        total: 0,
+        offPlan: 0,
+        secondary: 0,
+      });
+    });
+
+    // Заповнюємо мапу з результатів SQL запиту
+    countsQuery.forEach((row: any) => {
+      areaPropertyCounts.set(row.areaId, {
+        total: parseInt(row.total, 10) || 0,
+        offPlan: parseInt(row.offPlan, 10) || 0,
+        secondary: parseInt(row.secondary, 10) || 0,
+      });
+    });
+
+    // Формуємо відповідь з підрахунками
+    const areasWithCounts = areas.map(area => {
+      const counts = areaPropertyCounts.get(area.id) || {
+        total: 0,
+        offPlan: 0,
+        secondary: 0,
+      };
+
+      return {
+        id: area.id,
+        nameEn: area.nameEn,
+        nameRu: area.nameRu,
+        nameAr: area.nameAr,
+        cityId: area.cityId,
+        city: area.city ? {
+          id: area.city.id,
+          nameEn: area.city.nameEn,
+          nameRu: area.city.nameRu,
+          nameAr: area.city.nameAr,
+          countryId: area.city.countryId,
+          country: area.city.country ? {
+            id: area.city.country.id,
+            nameEn: area.city.country.nameEn,
+            nameRu: area.city.country.nameRu,
+            nameAr: area.city.country.nameAr,
+            code: area.city.country.code,
+          } : null,
+        } : null,
+        projectsCount: {
+          total: counts.total,
+          offPlan: counts.offPlan,
+          secondary: counts.secondary,
+        },
+        description: area.description,
+        infrastructure: area.infrastructure,
+        images: area.images,
+      };
+    });
+
+    // Фільтруємо areas без projects (опціонально, можна залишити всі)
+    // const areasWithProjects = areasWithCounts.filter(a => a.projectsCount.total > 0);
+
+    console.log('[Public API] ✅ Areas response sent:', {
+      totalAreas: areasWithCounts.length,
+      areasWithProjects: areasWithCounts.filter(a => a.projectsCount.total > 0).length,
+    });
+
+    res.json(successResponse(areasWithCounts));
+  } catch (error: any) {
+    console.error('Error fetching areas:', error);
+    res.status(500).json(errorResponse('Failed to fetch areas', error.message));
   }
 });
 
