@@ -50,7 +50,9 @@ router.get('/', async (req: AuthRequest, res) => {
       priceTo,
       search,
       sortBy,
-      sortOrder
+      sortOrder,
+      page,
+      limit
     } = req.query;
     
     const where: any = {};
@@ -178,6 +180,18 @@ router.get('/', async (req: AuthRequest, res) => {
       queryBuilder.orderBy('property.createdAt', 'DESC');
     }
 
+    // Пагінація - ЗАВЖДИ застосовуємо для безпеки (щоб не завантажувати всі 26+ тисяч записів)
+    // Якщо параметри не передані, використовуємо значення за замовчуванням
+    const pageNum = page ? parseInt(page.toString(), 10) : 1;
+    const limitNum = limit ? parseInt(limit.toString(), 10) : 100;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Отримуємо загальну кількість записів перед пагінацією
+    const totalCount = await queryBuilder.getCount();
+
+    // ЗАВЖДИ застосовуємо пагінацію для безпеки
+    queryBuilder.skip(skip).take(limitNum);
+
     const properties = await queryBuilder.getMany();
 
     console.log('[Properties API] Query results:', {
@@ -211,15 +225,136 @@ router.get('/', async (req: AuthRequest, res) => {
 
     console.log('[Properties API] ✅ Response sent:', {
       totalProperties: propertiesWithConversions.length,
+      totalCount,
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(totalCount / limitNum),
     });
 
-    res.json(successResponse(propertiesWithConversions));
+    // ЗАВЖДИ повертаємо формат з пагінацією для безпеки
+    res.json(successResponse({
+      data: propertiesWithConversions,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limitNum),
+      },
+    }));
   } catch (error: any) {
     console.error('Error fetching properties:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch properties',
       error: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
+  }
+});
+
+// Statistics endpoint - must be before /:id route
+router.get('/stats', async (req: AuthRequest, res) => {
+  try {
+    const propertyRepo = AppDataSource.getRepository(Property);
+
+    // Get counts by type using aggregation
+    const [offPlanCount, secondaryCount] = await Promise.all([
+      propertyRepo.count({ where: { propertyType: 'off-plan' } }),
+      propertyRepo.count({ where: { propertyType: 'secondary' } }),
+    ]);
+
+    // Get price statistics using query builder
+    const priceStats = await propertyRepo
+      .createQueryBuilder('property')
+      .select([
+        'MIN(CASE WHEN property.propertyType = \'off-plan\' THEN property.priceFrom ELSE property.price END) as minPrice',
+        'MAX(CASE WHEN property.propertyType = \'off-plan\' THEN property.priceFrom ELSE property.price END) as maxPrice',
+      ])
+      .where('(property.propertyType = \'off-plan\' AND property.priceFrom IS NOT NULL) OR (property.propertyType = \'secondary\' AND property.price IS NOT NULL)')
+      .getRawOne();
+
+    // Get top cities with property counts
+    const topCities = await propertyRepo
+      .createQueryBuilder('property')
+      .leftJoin('property.city', 'city')
+      .select('city.nameEn', 'cityName')
+      .addSelect('COUNT(property.id)', 'count')
+      .groupBy('city.id, city.nameEn')
+      .orderBy('COUNT(property.id)', 'DESC')
+      .limit(5)
+      .getRawMany();
+
+    // Get bedrooms distribution for off-plan
+    const bedroomsStats = await propertyRepo
+      .createQueryBuilder('property')
+      .select([
+        'property.bedroomsFrom',
+        'property.bedroomsTo',
+        'COUNT(property.id) as count',
+      ])
+      .where('property.propertyType = :type', { type: 'off-plan' })
+      .andWhere('(property.bedroomsFrom IS NOT NULL OR property.bedroomsTo IS NOT NULL)')
+      .groupBy('property.bedroomsFrom, property.bedroomsTo')
+      .getRawMany();
+
+    // Get unit types distribution
+    const unitTypesStats = await propertyRepo
+      .createQueryBuilder('property')
+      .leftJoin('property.units', 'unit')
+      .select('unit.type', 'type')
+      .addSelect('COUNT(unit.id)', 'count')
+      .where('unit.type IS NOT NULL')
+      .groupBy('unit.type')
+      .orderBy('COUNT(unit.id)', 'DESC')
+      .limit(5)
+      .getRawMany();
+
+    // Format bedrooms stats
+    const bedroomsMap = new Map<string, number>();
+    bedroomsStats.forEach((stat: any) => {
+      const from = stat.property_bedroomsFrom;
+      const to = stat.property_bedroomsTo;
+      let label = '';
+      if (from && to) {
+        label = `${from}-${to}`;
+      } else if (from) {
+        label = `${from}+`;
+      }
+      if (label) {
+        bedroomsMap.set(label, parseInt(stat.count, 10));
+      }
+    });
+
+    const bedroomsSorted = Array.from(bedroomsMap.entries())
+      .sort((a, b) => {
+        const aNum = parseInt(a[0]) || 0;
+        const bNum = parseInt(b[0]) || 0;
+        return aNum - bNum;
+      });
+
+    res.json(successResponse({
+      totalProperties: offPlanCount + secondaryCount,
+      offPlanProperties: offPlanCount,
+      secondaryProperties: secondaryCount,
+      minPrice: priceStats?.minPrice ? parseFloat(priceStats.minPrice) : 0,
+      maxPrice: priceStats?.maxPrice ? parseFloat(priceStats.maxPrice) : 0,
+      topCities: topCities.map((city: any) => ({
+        name: city.cityName,
+        count: parseInt(city.count, 10),
+      })),
+      bedroomsDistribution: bedroomsSorted.map(([name, count]) => ({
+        name: name + ' Beds',
+        count,
+      })),
+      unitTypesDistribution: unitTypesStats.map((stat: any) => ({
+        name: (stat.type || 'Unknown').charAt(0).toUpperCase() + (stat.type || 'Unknown').slice(1),
+        count: parseInt(stat.count, 10),
+      })),
+    }));
+  } catch (error: any) {
+    console.error('Error fetching properties stats:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch properties stats',
     });
   }
 });

@@ -12,13 +12,19 @@ import Pagination from '@/components/tables/Pagination'
 export default function PropertiesPage() {
   const router = useRouter()
   const [properties, setProperties] = useState<any[]>([])
-  const [filteredProperties, setFilteredProperties] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>('off-plan')
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(100)
+  const [totalCount, setTotalCount] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({})
+
+  // Скидаємо сторінку на 1 при зміні типу проекту або пошуку
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [propertyType, searchQuery])
 
   useEffect(() => {
     loadProperties()
@@ -27,12 +33,7 @@ export default function PropertiesPage() {
       top: 0,
       behavior: 'smooth'
     })
-  }, [propertyType])
-
-  useEffect(() => {
-    filterProperties()
-    setCurrentPage(1) // Reset to first page when search changes
-  }, [searchQuery, properties])
+  }, [propertyType, currentPage, searchQuery])
 
   // Scroll to top when page changes
   useEffect(() => {
@@ -45,50 +46,49 @@ export default function PropertiesPage() {
   const loadProperties = async () => {
     setLoading(true)
     try {
-      const { data } = await api.get('/properties')
-      // Filter by property type
-      const filtered = data.data.filter((prop: any) => prop.propertyType === propertyType)
-      setProperties(filtered)
-      setFilteredProperties(filtered)
-      setCurrentPage(1)
+      // Формуємо параметри для запиту
+      const params: any = {
+        propertyType: propertyType,
+        page: currentPage.toString(),
+        limit: itemsPerPage.toString(),
+      }
+      
+      // Додаємо пошук, якщо є
+      if (searchQuery) {
+        params.search = searchQuery
+      }
+
+      // Використовуємо params як другий аргумент axios.get для правильного форматування
+      const { data } = await api.get('/properties', { params })
+      
+      // Бекенд ЗАВЖДИ повертає структуру з пагінацією
+      if (data.data?.data && data.data?.pagination) {
+        // Нова структура з пагінацією
+        setProperties(data.data.data)
+        setTotalCount(data.data.pagination.total)
+        setTotalPages(data.data.pagination.totalPages)
+      } else if (data.data && Array.isArray(data.data)) {
+        // Fallback для старої структури (якщо бекенд ще не оновлений)
+        console.warn('Backend returned old format without pagination')
+        setProperties(data.data)
+        setTotalCount(data.data.length)
+        setTotalPages(Math.ceil(data.data.length / itemsPerPage))
+      } else {
+        // Помилка або порожня відповідь
+        console.error('Unexpected response format:', data)
+        setProperties([])
+        setTotalCount(0)
+        setTotalPages(1)
+      }
     } catch (error) {
       console.error('Error loading properties:', error)
+      setProperties([])
+      setTotalCount(0)
+      setTotalPages(1)
     } finally {
       setLoading(false)
     }
   }
-
-  const filterProperties = () => {
-    let filtered = [...properties]
-
-    // Search filter
-    if (searchQuery) {
-      filtered = filtered.filter(
-        (prop) =>
-          prop.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          prop.id?.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    }
-
-    setFilteredProperties(filtered)
-  }
-
-  // Pagination
-  const totalPages = Math.max(1, Math.ceil(filteredProperties.length / itemsPerPage))
-  const startIndex = (currentPage - 1) * itemsPerPage
-  const endIndex = startIndex + itemsPerPage
-  const paginatedProperties = filteredProperties.slice(startIndex, endIndex)
-  
-  // Debug log
-  console.log('Pagination debug:', {
-    filteredPropertiesLength: filteredProperties.length,
-    itemsPerPage,
-    totalPages,
-    currentPage,
-    startIndex,
-    endIndex,
-    paginatedPropertiesLength: paginatedProperties.length,
-  })
 
   return (
     <div className="space-y-6">
@@ -209,14 +209,14 @@ export default function PropertiesPage() {
                       Loading...
                     </TableCell>
                   </TableRow>
-                ) : paginatedProperties.length === 0 ? (
+                ) : properties.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="px-5 py-8 text-center text-gray-500">
                       {searchQuery ? 'No properties found' : 'No properties'}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedProperties.map((property) => (
+                  properties.map((property) => (
                     <TableRow 
                       key={property.id} 
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
@@ -346,11 +346,11 @@ export default function PropertiesPage() {
       {/* Pagination */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          {filteredProperties.length > 0
-            ? `Showing ${startIndex + 1} to ${Math.min(endIndex, filteredProperties.length)} of ${filteredProperties.length} properties`
+          {totalCount > 0
+            ? `Showing ${(currentPage - 1) * itemsPerPage + 1} to ${Math.min(currentPage * itemsPerPage, totalCount)} of ${totalCount} properties`
             : 'No properties found'}
         </p>
-        {totalPages > 0 && (
+        {totalPages > 1 && (
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
