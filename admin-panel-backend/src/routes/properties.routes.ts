@@ -1,6 +1,6 @@
 import express from 'express';
 import { AppDataSource } from '../config/database';
-import { Property } from '../entities/Property';
+import { Property, PropertyType } from '../entities/Property';
 import { authenticateJWT, authenticateApiKeyWithSecret, AuthRequest } from '../middleware/auth';
 import { successResponse } from '../utils/response';
 import { Conversions } from '../utils/conversions';
@@ -258,8 +258,8 @@ router.get('/stats', async (req: AuthRequest, res) => {
 
     // Get counts by type using aggregation
     const [offPlanCount, secondaryCount] = await Promise.all([
-      propertyRepo.count({ where: { propertyType: 'off-plan' } }),
-      propertyRepo.count({ where: { propertyType: 'secondary' } }),
+      propertyRepo.count({ where: { propertyType: PropertyType.OFF_PLAN } }),
+      propertyRepo.count({ where: { propertyType: PropertyType.SECONDARY } }),
     ]);
 
     // Get price statistics using query builder
@@ -291,7 +291,7 @@ router.get('/stats', async (req: AuthRequest, res) => {
         'property.bedroomsTo',
         'COUNT(property.id) as count',
       ])
-      .where('property.propertyType = :type', { type: 'off-plan' })
+      .where('property.propertyType = :type', { type: PropertyType.OFF_PLAN })
       .andWhere('(property.bedroomsFrom IS NOT NULL OR property.bedroomsTo IS NOT NULL)')
       .groupBy('property.bedroomsFrom, property.bedroomsTo')
       .getRawMany();
