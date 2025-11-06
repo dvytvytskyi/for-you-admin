@@ -1400,28 +1400,64 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
       const response = await api.get(`/settings/areas/${area.id}`).catch(() => ({ data: { data: area } }))
       const fullArea = response.data?.data || area
       
+      // Обробляємо description (може бути об'єктом або рядком)
+      let descriptionObj = { title: '', description: '' }
+      if (fullArea.description) {
+        if (typeof fullArea.description === 'object') {
+          descriptionObj = {
+            title: fullArea.description.title || '',
+            description: fullArea.description.description || ''
+          }
+        } else if (typeof fullArea.description === 'string') {
+          descriptionObj = {
+            title: fullArea.nameEn || '',
+            description: fullArea.description
+          }
+        }
+      }
+      
+      // Обробляємо infrastructure (може бути об'єктом або рядком)
+      let infrastructureObj = { title: '', description: '' }
+      if (fullArea.infrastructure) {
+        if (typeof fullArea.infrastructure === 'object') {
+          infrastructureObj = {
+            title: fullArea.infrastructure.title || '',
+            description: fullArea.infrastructure.description || ''
+          }
+        } else if (typeof fullArea.infrastructure === 'string') {
+          infrastructureObj = {
+            title: 'Infrastructure',
+            description: fullArea.infrastructure
+          }
+        }
+      }
+      
+      // Обробляємо images (має бути масивом)
+      let imagesArray: string[] = []
+      if (fullArea.images) {
+        if (Array.isArray(fullArea.images)) {
+          imagesArray = fullArea.images
+        } else if (typeof fullArea.images === 'string') {
+          imagesArray = [fullArea.images]
+        }
+      }
+      
       setEditingArea(fullArea)
-      setAreaDescription({
-        title: fullArea.description?.title || fullArea.description?.title || '',
-        description: fullArea.description?.description || fullArea.description || ''
-      })
-      setAreaInfrastructure({
-        title: fullArea.infrastructure?.title || fullArea.infrastructure?.title || '',
-        description: fullArea.infrastructure?.description || fullArea.infrastructure || ''
-      })
-      setAreaImages(Array.isArray(fullArea.images) ? fullArea.images : (fullArea.images ? [fullArea.images] : []))
+      setAreaDescription(descriptionObj)
+      setAreaInfrastructure(infrastructureObj)
+      setAreaImages(imagesArray)
       setShowEditAreaModal(true)
     } catch (error: any) {
       console.error('Error loading area details:', error)
       // Якщо помилка, все одно відкриваємо модальне вікно з тими даними, що є
       setEditingArea(area)
       setAreaDescription({
-        title: area.description?.title || '',
-        description: area.description?.description || ''
+        title: typeof area.description === 'object' ? (area.description?.title || '') : '',
+        description: typeof area.description === 'object' ? (area.description?.description || '') : (typeof area.description === 'string' ? area.description : '')
       })
       setAreaInfrastructure({
-        title: area.infrastructure?.title || '',
-        description: area.infrastructure?.description || ''
+        title: typeof area.infrastructure === 'object' ? (area.infrastructure?.title || '') : '',
+        description: typeof area.infrastructure === 'object' ? (area.infrastructure?.description || '') : (typeof area.infrastructure === 'string' ? area.infrastructure : '')
       })
       setAreaImages(Array.isArray(area.images) ? area.images : (area.images ? [area.images] : []))
       setShowEditAreaModal(true)
