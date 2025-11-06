@@ -187,14 +187,27 @@ router.get('/', async (req: AuthRequest, res) => {
       propertyTypeFilter: propertyType,
     });
 
-    const propertiesWithConversions = properties.map(p => ({
-      ...p,
-      priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
-      priceAED: p.price ? Conversions.usdToAed(p.price) : null,
-      sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
-      sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
-      sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
-    }));
+    const propertiesWithConversions = properties.map(p => {
+      // Для off-plan properties: area має бути рядком "areaName, cityName"
+      // Для secondary properties: area залишається об'єктом
+      let areaField: any = p.area;
+      if (p.area && p.propertyType === 'off-plan') {
+        // Для off-plan: формат "areaName, cityName" (наприклад "JVC, Dubai")
+        const areaName = p.area.nameEn || '';
+        const cityName = p.city?.nameEn || '';
+        areaField = cityName ? `${areaName}, ${cityName}` : areaName;
+      }
+
+      return {
+        ...p,
+        area: areaField,
+        priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
+        priceAED: p.price ? Conversions.usdToAed(p.price) : null,
+        sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
+        sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
+        sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
+      };
+    });
 
     console.log('[Properties API] ✅ Response sent:', {
       totalProperties: propertiesWithConversions.length,
