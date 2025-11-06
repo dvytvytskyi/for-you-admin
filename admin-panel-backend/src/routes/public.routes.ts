@@ -1,7 +1,6 @@
 import express from 'express';
 import { AppDataSource } from '../config/database';
 import { Property } from '../entities/Property';
-import { ApiKey } from '../entities/ApiKey';
 import { Country } from '../entities/Country';
 import { City } from '../entities/City';
 import { Area } from '../entities/Area';
@@ -10,46 +9,24 @@ import { Facility } from '../entities/Facility';
 import { Course } from '../entities/Course';
 import { successResponse, errorResponse } from '../utils/response';
 import { Conversions } from '../utils/conversions';
+import { authenticateApiKeyWithSecret, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-// Middleware to authenticate API key
-const authenticateApiKey = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const apiKey = req.headers['x-api-key'] as string;
-  const apiSecret = req.headers['x-api-secret'] as string;
-
-  if (!apiKey || !apiSecret) {
-    return res.status(401).json(errorResponse('API key and secret are required'));
-  }
-
+// GET /api/public/data - Get all public data (returns ALL properties from ALL areas, no filtering)
+router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    const key = await AppDataSource.getRepository(ApiKey).findOne({
-      where: { apiKey, apiSecret, isActive: true },
+    console.log('[Public API] GET /api/public/data request:', {
+      hasApiKey: !!req.apiKey,
+      apiKeyName: req.apiKey?.name,
     });
 
-    if (!key) {
-      return res.status(403).json(errorResponse('Invalid API key or secret'));
-    }
-
-    // Update last used timestamp
-    key.lastUsedAt = new Date();
-    await AppDataSource.getRepository(ApiKey).save(key);
-
-    (req as any).apiKey = key;
-    next();
-  } catch (error: any) {
-    console.error('Error authenticating API key:', error);
-    return res.status(500).json(errorResponse('Authentication error'));
-  }
-};
-
-// GET /api/public/data - Get all public data
-router.get('/data', authenticateApiKey, async (req, res) => {
-  try {
+    // Fetch ALL properties without any areaId filtering - this is intentional for client-side filtering
     const [properties, countries, cities, areas, developers, facilities, courses] = await Promise.all([
       AppDataSource.getRepository(Property).find({
         relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
         order: { createdAt: 'DESC' },
+        // No where clause - returns all properties from all areas
       }),
       AppDataSource.getRepository(Country).find({
         order: { nameEn: 'ASC' },
@@ -146,6 +123,15 @@ router.get('/data', authenticateApiKey, async (req, res) => {
       updatedAt: p.updatedAt,
     }));
 
+    const secondaryCount = transformedProperties.filter(p => p.propertyType === 'secondary').length;
+    const offPlanCount = transformedProperties.filter(p => p.propertyType === 'off-plan').length;
+    
+    console.log('[Public API] ✅ Response sent:', {
+      totalProperties: transformedProperties.length,
+      secondaryProperties: secondaryCount,
+      offPlanProperties: offPlanCount,
+    });
+
     res.json(successResponse({
       properties: transformedProperties,
       countries: countries.map(c => ({
@@ -230,6 +216,8 @@ router.get('/data', authenticateApiKey, async (req, res) => {
       })),
       meta: {
         totalProperties: transformedProperties.length,
+        totalSecondaryProperties: secondaryCount,
+        totalOffPlanProperties: offPlanCount,
         totalCountries: countries.length,
         totalCities: cities.length,
         totalAreas: areas.length,
@@ -246,7 +234,7 @@ router.get('/data', authenticateApiKey, async (req, res) => {
 });
 
 // GET /api/public/courses - Get all courses (public access with API key)
-router.get('/courses', authenticateApiKey, async (req, res) => {
+router.get('/courses', authenticateApiKeyWithSecret, async (req, res) => {
   try {
     const courses = await AppDataSource.getRepository(Course).find({
       relations: ['contents', 'links'],
@@ -285,7 +273,7 @@ router.get('/courses', authenticateApiKey, async (req, res) => {
 });
 
 // GET /api/public/courses/:id - Get single course by ID
-router.get('/courses/:id', authenticateApiKey, async (req, res) => {
+router.get('/courses/:id', authenticateApiKeyWithSecret, async (req, res) => {
   try {
     const course = await AppDataSource.getRepository(Course).findOne({
       where: { id: req.params.id },
