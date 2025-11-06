@@ -1394,18 +1394,38 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
     setShowDeleteModal(true)
   }
 
-  const handleEditAreaClick = (area: any) => {
-    setEditingArea(area)
-    setAreaDescription({
-      title: area.description?.title || '',
-      description: area.description?.description || ''
-    })
-    setAreaInfrastructure({
-      title: area.infrastructure?.title || '',
-      description: area.infrastructure?.description || ''
-    })
-    setAreaImages(area.images || [])
-    setShowEditAreaModal(true)
+  const handleEditAreaClick = async (area: any) => {
+    try {
+      // Завантажуємо повні дані району з API для отримання актуальних description, infrastructure, images
+      const response = await api.get(`/settings/areas/${area.id}`).catch(() => ({ data: { data: area } }))
+      const fullArea = response.data?.data || area
+      
+      setEditingArea(fullArea)
+      setAreaDescription({
+        title: fullArea.description?.title || fullArea.description?.title || '',
+        description: fullArea.description?.description || fullArea.description || ''
+      })
+      setAreaInfrastructure({
+        title: fullArea.infrastructure?.title || fullArea.infrastructure?.title || '',
+        description: fullArea.infrastructure?.description || fullArea.infrastructure || ''
+      })
+      setAreaImages(Array.isArray(fullArea.images) ? fullArea.images : (fullArea.images ? [fullArea.images] : []))
+      setShowEditAreaModal(true)
+    } catch (error: any) {
+      console.error('Error loading area details:', error)
+      // Якщо помилка, все одно відкриваємо модальне вікно з тими даними, що є
+      setEditingArea(area)
+      setAreaDescription({
+        title: area.description?.title || '',
+        description: area.description?.description || ''
+      })
+      setAreaInfrastructure({
+        title: area.infrastructure?.title || '',
+        description: area.infrastructure?.description || ''
+      })
+      setAreaImages(Array.isArray(area.images) ? area.images : (area.images ? [area.images] : []))
+      setShowEditAreaModal(true)
+    }
   }
 
   const handleCloseEditAreaModal = () => {
