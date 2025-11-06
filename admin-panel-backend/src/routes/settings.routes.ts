@@ -29,10 +29,56 @@ router.get('/cities', async (req, res) => {
 });
 
 router.get('/areas', async (req, res) => {
-  const { cityId } = req.query;
-  const where: any = cityId ? { cityId } : {};
-  const areas = await AppDataSource.getRepository(Area).find({ where });
-  res.json(successResponse(areas));
+  try {
+    const { cityId } = req.query;
+    
+    // Use raw query to get areas with description, infrastructure, images
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    
+    try {
+      let whereClause = '';
+      const whereParams: any[] = [];
+      if (cityId) {
+        whereClause = 'WHERE area."cityId" = $1';
+        whereParams.push(cityId);
+      }
+      
+      const areasRaw = await queryRunner.query(`
+        SELECT 
+          area.id,
+          area."cityId",
+          area."nameEn",
+          area."nameRu",
+          area."nameAr",
+          area.description,
+          area.infrastructure,
+          area.images
+        FROM areas area
+        ${whereClause}
+        ORDER BY area."nameEn" ASC
+      `, whereParams);
+      
+      // Convert raw results to Area-like objects
+      const areas = areasRaw.map((row: any) => ({
+        id: row.id,
+        cityId: row.cityId,
+        nameEn: row.nameEn,
+        nameRu: row.nameRu,
+        nameAr: row.nameAr,
+        description: row.description || null,
+        infrastructure: row.infrastructure || null,
+        images: row.images || null,
+      }));
+      
+      res.json(successResponse(areas));
+    } finally {
+      await queryRunner.release();
+    }
+  } catch (error: any) {
+    console.error('Error loading areas:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to load areas' });
+  }
 });
 
 // Combined endpoint for locations (countries, cities, areas)
@@ -40,13 +86,47 @@ router.get('/locations', async (req, res) => {
   try {
     const countries = await AppDataSource.getRepository(Country).find({ relations: ['cities'] });
     const cities = await AppDataSource.getRepository(City).find({ relations: ['areas'] });
-    const areas = await AppDataSource.getRepository(Area).find();
     
-    res.json(successResponse({
-      countries,
-      cities,
-      areas
-    }));
+    // Use raw query to get areas with description, infrastructure, images
+    // (handles case when columns might not exist in some environments)
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    
+    try {
+      const areasRaw = await queryRunner.query(`
+        SELECT 
+          area.id,
+          area."cityId",
+          area."nameEn",
+          area."nameRu",
+          area."nameAr",
+          area.description,
+          area.infrastructure,
+          area.images
+        FROM areas area
+        ORDER BY area."nameEn" ASC
+      `);
+      
+      // Convert raw results to Area-like objects
+      const areas = areasRaw.map((row: any) => ({
+        id: row.id,
+        cityId: row.cityId,
+        nameEn: row.nameEn,
+        nameRu: row.nameRu,
+        nameAr: row.nameAr,
+        description: row.description || null,
+        infrastructure: row.infrastructure || null,
+        images: row.images || null,
+      }));
+      
+      res.json(successResponse({
+        countries,
+        cities,
+        areas
+      }));
+    } finally {
+      await queryRunner.release();
+    }
   } catch (error: any) {
     console.error('Error loading locations:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to load locations' });
@@ -152,6 +232,56 @@ router.delete('/cities/:id', async (req, res) => {
   } catch (error: any) {
     console.error('Error deleting city:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to delete city' });
+  }
+});
+
+// GET /settings/areas/:id - Get single area by ID
+router.get('/areas/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Use raw query to get area with description, infrastructure, images
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    
+    try {
+      const areaRaw = await queryRunner.query(`
+        SELECT 
+          area.id,
+          area."cityId",
+          area."nameEn",
+          area."nameRu",
+          area."nameAr",
+          area.description,
+          area.infrastructure,
+          area.images
+        FROM areas area
+        WHERE area.id = $1
+      `, [id]);
+      
+      if (areaRaw.length === 0) {
+        return res.status(404).json({ success: false, message: 'Area not found' });
+      }
+      
+      const row = areaRaw[0];
+      const area = {
+        id: row.id,
+        cityId: row.cityId,
+        nameEn: row.nameEn,
+        nameRu: row.nameRu,
+        nameAr: row.nameAr,
+        description: row.description || null,
+        infrastructure: row.infrastructure || null,
+        images: row.images || null,
+      };
+      
+      res.json(successResponse(area));
+    } finally {
+      await queryRunner.release();
+    }
+  } catch (error: any) {
+    console.error('Error loading area:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to load area' });
   }
 });
 
