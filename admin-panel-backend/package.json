@@ -11,7 +11,14 @@
     "migration:run": "typeorm-ts-node-esm migration:run",
     "seed": "ts-node-dev src/seeds/seed.ts",
     "import:properties": "ts-node-dev src/scripts/importProperties.ts",
-    "create:api-keys-table": "ts-node-dev src/scripts/createApiKeysTable.ts"
+    "create:api-keys-table": "ts-node-dev src/scripts/createApiKeysTable.ts",
+    "diagnostic:properties": "ts-node-dev src/scripts/check-properties-diagnostic.ts",
+    "redistribute:areas": "ts-node-dev src/scripts/redistribute-properties-areas.ts",
+    "import:secondary": "ts-node-dev src/scripts/importSecondaryProperties.ts",
+    "check:secondary": "ts-node-dev src/scripts/check-secondary-count.ts",
+    "test:api-auth": "ts-node-dev src/scripts/test-api-auth.ts",
+    "create:test-api-key": "ts-node-dev src/scripts/create-test-api-key.ts",
+    "check:api-keys-detail": "ts-node-dev src/scripts/check-api-keys-detail.ts"
   },
   "keywords": [],
   "author": "",

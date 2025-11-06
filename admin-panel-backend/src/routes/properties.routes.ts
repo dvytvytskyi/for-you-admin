@@ -1,20 +1,43 @@
 import express from 'express';
 import { AppDataSource } from '../config/database';
 import { Property } from '../entities/Property';
-import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
+import { authenticateJWT, authenticateApiKeyWithSecret, AuthRequest } from '../middleware/auth';
 import { successResponse } from '../utils/response';
 import { Conversions } from '../utils/conversions';
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey) return authenticateAPIKey(req, res, next);
+// Support both JWT and API Key/Secret authentication
+router.use((req: AuthRequest, res, next) => {
+  const apiKey = req.headers['x-api-key'] as string;
+  const apiSecret = req.headers['x-api-secret'] as string;
+  
+  // If both API key and secret are provided, use API Key/Secret authentication
+  if (apiKey && apiSecret) {
+    // authenticateApiKeyWithSecret is async and handles errors internally
+    authenticateApiKeyWithSecret(req, res, next).catch((error) => {
+      console.error('Error in authenticateApiKeyWithSecret:', error);
+      // Error should already be handled in middleware, but just in case
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Authentication error' });
+      }
+    });
+    return;
+  }
+  
+  // Otherwise, use JWT authentication
   return authenticateJWT(req, res, next);
 });
 
-router.get('/', async (req, res) => {
+router.get('/', async (req: AuthRequest, res) => {
   try {
+    console.log('[Properties API] GET /api/properties request:', {
+      query: req.query,
+      propertyType: req.query.propertyType,
+      hasApiKey: !!req.apiKey,
+      authMethod: req.apiKey ? 'API Key' : (req.user ? 'JWT' : 'Unknown'),
+    });
+
     const { 
       propertyType, 
       developerId, 
@@ -157,6 +180,13 @@ router.get('/', async (req, res) => {
 
     const properties = await queryBuilder.getMany();
 
+    console.log('[Properties API] Query results:', {
+      totalProperties: properties.length,
+      secondaryProperties: properties.filter(p => p.propertyType === 'secondary').length,
+      offPlanProperties: properties.filter(p => p.propertyType === 'off-plan').length,
+      propertyTypeFilter: propertyType,
+    });
+
     const propertiesWithConversions = properties.map(p => ({
       ...p,
       priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
@@ -165,6 +195,10 @@ router.get('/', async (req, res) => {
       sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
       sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
     }));
+
+    console.log('[Properties API] ✅ Response sent:', {
+      totalProperties: propertiesWithConversions.length,
+    });
 
     res.json(successResponse(propertiesWithConversions));
   } catch (error: any) {
