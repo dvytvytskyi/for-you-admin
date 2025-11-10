@@ -35,7 +35,9 @@
     "check:developers": "ts-node-dev src/scripts/check-developers-data.ts",
     "import:developers": "ts-node-dev src/scripts/import-developers-data.ts",
     "remove:developers-without-data": "ts-node-dev src/scripts/remove-developers-without-data.ts",
-    "remove:developers-without-data:apply": "ts-node-dev src/scripts/remove-developers-without-data.ts --apply"
+    "remove:developers-without-data:apply": "ts-node-dev src/scripts/remove-developers-without-data.ts --apply",
+    "count:properties": "ts-node-dev src/scripts/count-properties.ts",
+    "test:developers-endpoint": "ts-node-dev src/scripts/test-developers-endpoint.ts"
   },
   "keywords": [],
   "author": "",
