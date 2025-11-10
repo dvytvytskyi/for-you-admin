@@ -554,5 +554,119 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
   }
 });
 
+// GET /api/public/developers - Get all developers with project counts
+router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    console.log('[Public API] GET /api/public/developers request:', {
+      hasApiKey: !!req.apiKey,
+      apiKeyName: req.apiKey?.name,
+    });
+
+    // Отримуємо всіх developers
+    const developers = await AppDataSource.getRepository(Developer).find({
+      order: { name: 'ASC' },
+    });
+
+    // Отримуємо підрахунок properties по developers через SQL агрегацію
+    const developerIds = developers.map(d => d.id);
+    
+    // Підрахунок через SQL запит для кращої продуктивності
+    let countsQuery: any[] = [];
+    if (developerIds.length > 0) {
+      countsQuery = await AppDataSource
+        .getRepository(Property)
+        .createQueryBuilder('property')
+        .select('property.developerId', 'developerId')
+        .addSelect('COUNT(property.id)', 'total')
+        .addSelect(
+          "SUM(CASE WHEN property.propertyType = 'off-plan' THEN 1 ELSE 0 END)",
+          'offPlan'
+        )
+        .addSelect(
+          "SUM(CASE WHEN property.propertyType = 'secondary' THEN 1 ELSE 0 END)",
+          'secondary'
+        )
+        .where('property.developerId IN (:...developerIds)', { developerIds })
+        .groupBy('property.developerId')
+        .getRawMany();
+    }
+
+    // Створюємо мапу для швидкого доступу
+    const developerPropertyCounts = new Map<string, {
+      total: number;
+      offPlan: number;
+      secondary: number;
+    }>();
+
+    // Ініціалізуємо всі developers з нульовими значеннями
+    developers.forEach(developer => {
+      developerPropertyCounts.set(developer.id, {
+        total: 0,
+        offPlan: 0,
+        secondary: 0,
+      });
+    });
+
+    // Заповнюємо мапу з результатів SQL запиту
+    countsQuery.forEach((row: any) => {
+      developerPropertyCounts.set(row.developerId, {
+        total: parseInt(row.total, 10) || 0,
+        offPlan: parseInt(row.offPlan, 10) || 0,
+        secondary: parseInt(row.secondary, 10) || 0,
+      });
+    });
+
+    // Формуємо відповідь з підрахунками
+    const developersWithCounts = developers.map(developer => {
+      const counts = developerPropertyCounts.get(developer.id) || {
+        total: 0,
+        offPlan: 0,
+        secondary: 0,
+      };
+
+      // Парсимо description як JSON, якщо це можливо, інакше повертаємо як рядок
+      let descriptionField: any = null;
+      if (developer.description) {
+        try {
+          // Спробуємо парсити як JSON
+          const parsed = JSON.parse(developer.description);
+          if (typeof parsed === 'object' && parsed !== null) {
+            descriptionField = parsed;
+          } else {
+            descriptionField = developer.description;
+          }
+        } catch {
+          // Якщо не JSON, повертаємо як рядок
+          descriptionField = developer.description;
+        }
+      }
+
+      return {
+        id: developer.id,
+        name: developer.name,
+        logo: developer.logo || null,
+        description: descriptionField,
+        images: developer.images || null,
+        projectsCount: {
+          total: counts.total,
+          offPlan: counts.offPlan,
+          secondary: counts.secondary,
+        },
+        createdAt: developer.createdAt,
+      };
+    });
+
+    console.log('[Public API] ✅ Developers response sent:', {
+      totalDevelopers: developersWithCounts.length,
+      developersWithProjects: developersWithCounts.filter(d => d.projectsCount.total > 0).length,
+    });
+
+    res.json(successResponse(developersWithCounts));
+  } catch (error: any) {
+    console.error('Error fetching developers:', error);
+    res.status(500).json(errorResponse('Failed to fetch developers', error.message));
+  }
+});
+
 export default router;
 
