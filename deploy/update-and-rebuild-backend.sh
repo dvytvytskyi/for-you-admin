@@ -62,14 +62,37 @@ docker-compose -f docker-compose.prod.yml build admin-panel-backend || {
 
 echo ""
 echo "🛑 Зупинка та видалення старого контейнера..."
+# Використовуємо docker-compose down для повного видалення, щоб уникнути помилки ContainerConfig
 docker-compose -f docker-compose.prod.yml stop admin-panel-backend 2>/dev/null || true
 docker rm -f for-you-admin-panel-backend-prod 2>/dev/null || true
+# Видаляємо всі контейнери з таким ім'ям
+docker ps -a | grep for-you-admin-panel-backend-prod | awk '{print $1}' | xargs -r docker rm -f 2>/dev/null || true
 
 echo ""
 echo "🔄 Запуск нового контейнера..."
-docker-compose -f docker-compose.prod.yml up -d admin-panel-backend || {
-    echo "❌ Помилка запуску бекенду"
-    exit 1
+# Використовуємо --force-recreate щоб гарантувати створення нового контейнера
+docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-deps admin-panel-backend || {
+    echo "❌ Помилка запуску бекенду через docker-compose"
+    echo "   Спробуємо через прямий docker run..."
+    
+    # Fallback: використовуємо прямий docker run
+    DB_PASSWORD=$(grep "DB_PASSWORD" .env 2>/dev/null | cut -d '=' -f2 || echo "admin123")
+    NETWORK="admin-panel_admin-network"
+    IMAGE_NAME="admin-panel_admin-panel-backend:latest"
+    
+    docker run -d \
+      --name for-you-admin-panel-backend-prod \
+      --restart unless-stopped \
+      -p 127.0.0.1:4000:4000 \
+      --network ${NETWORK} \
+      -e NODE_ENV=production \
+      -e DATABASE_URL="postgresql://admin:${DB_PASSWORD}@for-you-admin-panel-postgres-prod:5432/admin_panel" \
+      -v ${PROJECT_DIR}/admin-panel-backend/uploads:/app/uploads \
+      --env-file ${PROJECT_DIR}/admin-panel-backend/.env \
+      ${IMAGE_NAME} || {
+        echo "❌ Помилка запуску через docker run"
+        exit 1
+      }
 }
 
 echo ""
