@@ -180,17 +180,21 @@ router.get('/', async (req: AuthRequest, res) => {
       queryBuilder.orderBy('property.createdAt', 'DESC');
     }
 
-    // Пагінація - ЗАВЖДИ застосовуємо для безпеки (щоб не завантажувати всі 26+ тисяч записів)
-    // Якщо параметри не передані, використовуємо значення за замовчуванням
+    // Пагінація - фронтенд завжди передає page та limit через infinite scroll
+    // Якщо параметри не передані, використовуємо мінімальні значення для безпеки
     const pageNum = page ? parseInt(page.toString(), 10) : 1;
-    const limitNum = limit ? parseInt(limit.toString(), 10) : 100;
-    const skip = (pageNum - 1) * limitNum;
+    const limitNum = limit ? parseInt(limit.toString(), 10) : 20; // Мінімальний limit якщо не передано
+    
+    // Максимальний limit для безпеки (на випадок якщо хтось передасть дуже велике значення)
+    const MAX_LIMIT = 100;
+    const finalLimit = Math.min(limitNum, MAX_LIMIT);
+    const skip = (pageNum - 1) * finalLimit;
 
     // Отримуємо загальну кількість записів перед пагінацією
     const totalCount = await queryBuilder.getCount();
 
-    // ЗАВЖДИ застосовуємо пагінацію для безпеки
-    queryBuilder.skip(skip).take(limitNum);
+    // Застосовуємо пагінацію
+    queryBuilder.skip(skip).take(finalLimit);
 
     const properties = await queryBuilder.getMany();
 
@@ -224,22 +228,20 @@ router.get('/', async (req: AuthRequest, res) => {
     });
 
     console.log('[Properties API] ✅ Response sent:', {
-      totalProperties: propertiesWithConversions.length,
-      totalCount,
+      loadedProperties: propertiesWithConversions.length,
+      totalCount, // Загальна кількість з урахуванням фільтрів
       page: pageNum,
-      limit: limitNum,
-      totalPages: Math.ceil(totalCount / limitNum),
+      requestedLimit: limitNum,
+      actualLimit: finalLimit,
     });
 
-    // ЗАВЖДИ повертаємо формат з пагінацією для безпеки
+    // Повертаємо формат з пагінацією
+    // total - загальна кількість всіх properties з урахуванням фільтрів (НЕ кількість завантажених)
     res.json(successResponse({
       data: propertiesWithConversions,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total: totalCount,
-        totalPages: Math.ceil(totalCount / limitNum),
-      },
+      total: totalCount, // Загальна кількість з урахуванням фільтрів
+      page: pageNum,
+      limit: finalLimit,
     }));
   } catch (error: any) {
     console.error('Error fetching properties:', error);

@@ -5,132 +5,127 @@ import { Property } from '../entities/Property';
 
 async function removeDevelopersWithoutData() {
   try {
-    console.log('🔄 Connecting to database...');
     await AppDataSource.initialize();
-    console.log('✅ Database connected\n');
+    console.log('✅ Підключено до БД\n');
 
-    const developerRepository = AppDataSource.getRepository(Developer);
-    const propertyRepository = AppDataSource.getRepository(Property);
+    const developerRepo = AppDataSource.getRepository(Developer);
+    const propertyRepo = AppDataSource.getRepository(Property);
 
-    // Get all developers
-    const allDevelopers = await developerRepository.find();
-    console.log(`📊 Total developers in database: ${allDevelopers.length}\n`);
+    // Знаходимо всіх developers
+    const allDevelopers = await developerRepo.find();
 
-    // Find developers without data
-    const developersWithoutData: Developer[] = [];
-    const developersWithData: Developer[] = [];
+    console.log(`📊 Всього developers: ${allDevelopers.length}\n`);
 
-    for (const dev of allDevelopers) {
-      const hasLogo = !!dev.logo;
-      const hasDescription = !!dev.description;
+    // Знаходимо developers без даних (без logo, images, description)
+    const developersToRemove = allDevelopers.filter(dev => {
+      const hasLogo = dev.logo && dev.logo.trim() !== '';
       const hasImages = dev.images && dev.images.length > 0;
+      const hasDescription = dev.description && dev.description.trim() !== '';
 
-      if (!hasLogo && !hasDescription && !hasImages) {
-        developersWithoutData.push(dev);
-      } else {
-        developersWithData.push(dev);
-      }
-    }
+      return !hasLogo && !hasImages && !hasDescription;
+    });
 
-    console.log(`📊 Statistics:`);
-    console.log(`  ✅ Developers with data: ${developersWithData.length}`);
-    console.log(`  ❌ Developers without data: ${developersWithoutData.length}\n`);
+    console.log(`🗑️  Developers для видалення: ${developersToRemove.length}\n`);
 
-    if (developersWithoutData.length === 0) {
-      console.log('✅ All developers have data. Nothing to remove.');
+    if (developersToRemove.length === 0) {
+      console.log('✅ Немає developers для видалення');
       await AppDataSource.destroy();
-      return;
+      process.exit(0);
     }
 
-    // Check which developers are used in properties
-    console.log('🔍 Checking which developers are used in properties...\n');
-    
-    const developersToRemove: Developer[] = [];
-    const developersInUse: Array<{ developer: Developer; propertyCount: number }> = [];
+    // Показуємо список developers для видалення
+    console.log('📋 Список developers для видалення:');
+    for (let i = 0; i < developersToRemove.length; i++) {
+      const dev = developersToRemove[i];
 
-    for (const dev of developersWithoutData) {
-      const propertyCount = await propertyRepository.count({
+      // Перевіряємо, чи є у них properties
+      const propertiesCount = await propertyRepo.count({
         where: { developerId: dev.id },
       });
 
-      if (propertyCount > 0) {
-        developersInUse.push({ developer: dev, propertyCount });
-      } else {
-        developersToRemove.push(dev);
-      }
+      console.log(`   ${i + 1}. ${dev.name} (ID: ${dev.id.substring(0, 8)}...) - Properties: ${propertiesCount}`);
     }
 
-    console.log(`📊 Analysis:`);
-    console.log(`  ✅ Can be removed safely: ${developersToRemove.length}`);
-    console.log(`  ⚠️  Used in properties: ${developersInUse.length}\n`);
+    console.log('\n⚠️  УВАГА: Ці developers будуть видалені з бази даних!');
+    console.log('   Якщо у них є properties, developerId буде встановлено в null\n');
 
-    if (developersInUse.length > 0) {
-      console.log('⚠️  Developers used in properties (will set developerId = NULL):');
-      developersInUse.slice(0, 10).forEach(({ developer, propertyCount }) => {
-        console.log(`  - ${developer.name}: used in ${propertyCount} properties`);
+    // Перевіряємо, чи є properties у цих developers
+    let hasProperties = false;
+    for (const dev of developersToRemove) {
+      const count = await propertyRepo.count({
+        where: { developerId: dev.id },
       });
-      if (developersInUse.length > 10) {
-        console.log(`  ... and ${developersInUse.length - 10} more\n`);
-      } else {
-        console.log('');
+      if (count > 0) {
+        hasProperties = true;
+        console.log(`   ⚠️  ${dev.name} має ${count} properties - developerId буде встановлено в null`);
       }
     }
 
-    // Ask for confirmation (in production, we'll use --apply flag)
-    const args = process.argv.slice(2);
-    const shouldApply = args.includes('--apply');
+    if (hasProperties) {
+      console.log('\n   Properties з цими developers будуть оновлені (developerId = null)');
+    }
+
+    // Перевіряємо аргумент командного рядка для підтвердження
+    const shouldApply = process.argv.includes('--apply');
 
     if (!shouldApply) {
-      console.log('⚠️  DRY RUN MODE - No changes will be made');
-      console.log('   To apply changes, run with --apply flag\n');
-      console.log(`📋 Summary:`);
-      console.log(`  - Will remove: ${developersToRemove.length} developers`);
-      console.log(`  - Will set developerId = NULL for: ${developersInUse.length} developers`);
-      console.log(`  - Total developers to remove: ${developersWithoutData.length}`);
-      console.log(`  - Developers that will remain: ${developersWithData.length}\n`);
+      console.log('\n📝 Для застосування змін запустіть скрипт з флагом --apply:');
+      console.log('   npm run remove:developers-without-data:apply');
       await AppDataSource.destroy();
-      return;
+      process.exit(0);
     }
 
-    console.log('🚀 Applying changes...\n');
+    console.log('\n🗑️  Видалення developers...\n');
 
-    // First, set developerId = NULL for properties that use developers without data
-    let propertiesUpdated = 0;
-    for (const { developer, propertyCount } of developersInUse) {
-      await propertyRepository.update(
-        { developerId: developer.id },
+    let removedCount = 0;
+    let updatedPropertiesCount = 0;
+
+    for (const dev of developersToRemove) {
+      try {
+        // Оновлюємо properties, щоб встановити developerId = null
+        const properties = await propertyRepo.find({
+          where: { developerId: dev.id },
+        });
+
+        if (properties.length > 0) {
+          await propertyRepo.update(
+            { developerId: dev.id },
         { developerId: null as any }
       );
-      propertiesUpdated += propertyCount;
-      console.log(`  ✓ Set developerId = NULL for ${propertyCount} properties (${developer.name})`);
+          updatedPropertiesCount += properties.length;
+          console.log(`   ✓ Оновлено ${properties.length} properties для ${dev.name}`);
     }
 
-    if (propertiesUpdated > 0) {
-      console.log(`\n  ✅ Updated ${propertiesUpdated} properties\n`);
-    }
-
-    // Now remove all developers without data
-    let removedCount = 0;
-    for (const dev of developersWithoutData) {
-      await developerRepository.remove(dev);
+        // Видаляємо developer
+        await developerRepo.remove(dev);
       removedCount++;
-      if (removedCount % 10 === 0) {
-        console.log(`  ✓ Removed ${removedCount} developers...`);
+        console.log(`   ✓ Видалено: ${dev.name}`);
+      } catch (error: any) {
+        console.error(`   ❌ Помилка при видаленні ${dev.name}: ${error.message}`);
       }
     }
 
-    console.log(`\n✅ Successfully removed ${removedCount} developers\n`);
+    console.log('\n📊 Підсумок:');
+    console.log(`   ✅ Видалено developers: ${removedCount}`);
+    console.log(`   ✅ Оновлено properties: ${updatedPropertiesCount}`);
 
-    // Final count
-    const finalCount = await developerRepository.count();
-    console.log(`📊 Final statistics:`);
-    console.log(`  ✅ Developers remaining: ${finalCount}`);
-    console.log(`  ✅ All remaining developers have data (logo, description, or images)\n`);
+    // Показуємо фінальну статистику
+    const remainingDevelopers = await developerRepo.find();
+    const withLogo = remainingDevelopers.filter(d => d.logo && d.logo.trim() !== '').length;
+    const withImages = remainingDevelopers.filter(d => d.images && d.images.length > 0).length;
+    const withDescription = remainingDevelopers.filter(d => d.description && d.description.trim() !== '').length;
+
+    console.log('\n📈 Фінальна статистика:');
+    console.log(`   Всього developers: ${remainingDevelopers.length}`);
+    console.log(`   З логотипом: ${withLogo} (${((withLogo / remainingDevelopers.length) * 100).toFixed(1)}%)`);
+    console.log(`   З images: ${withImages} (${((withImages / remainingDevelopers.length) * 100).toFixed(1)}%)`);
+    console.log(`   З description: ${withDescription} (${((withDescription / remainingDevelopers.length) * 100).toFixed(1)}%)`);
 
     await AppDataSource.destroy();
-    console.log('✅ Done');
+    console.log('\n✅ Готово!');
+    process.exit(0);
   } catch (error: any) {
-    console.error('❌ Error removing developers:', error);
+    console.error('❌ Помилка:', error);
     if (AppDataSource.isInitialized) {
       await AppDataSource.destroy();
     }
@@ -139,4 +134,3 @@ async function removeDevelopersWithoutData() {
 }
 
 removeDevelopersWithoutData();
-

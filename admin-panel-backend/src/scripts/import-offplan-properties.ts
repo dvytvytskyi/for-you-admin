@@ -91,16 +91,32 @@ async function importOffPlanProperties() {
     const facilityRepository = AppDataSource.getRepository(Facility);
 
     // Read updated-offplan.json file
-    const jsonPath = path.resolve(__dirname, '../../../updated-offplan.json');
-    if (!fs.existsSync(jsonPath)) {
-      throw new Error(`File not found: ${jsonPath}`);
+    // Try multiple possible paths
+    const possiblePaths = [
+      path.resolve(__dirname, '../../../updated-offplan.json'),
+      path.resolve(process.cwd(), 'updated-offplan.json'),
+      '/app/updated-offplan.json',
+      path.join(process.cwd(), 'updated-offplan.json'),
+    ];
+    
+    let jsonPath: string | null = null;
+    for (const possiblePath of possiblePaths) {
+      if (fs.existsSync(possiblePath)) {
+        jsonPath = possiblePath;
+        break;
+      }
+    }
+    
+    if (!jsonPath) {
+      throw new Error(`File not found. Tried: ${possiblePaths.join(', ')}`);
     }
 
     console.log('📖 Reading JSON file...');
     const jsonContent = fs.readFileSync(jsonPath, 'utf-8').trim();
     const parsedData: ParsedData = JSON.parse(jsonContent);
 
-    console.log(`📊 Found ${parsedData.properties.length} off-plan properties to import`);
+    const totalProperties = parsedData.properties.length;
+    console.log(`📊 Found ${totalProperties} off-plan properties to import\n`);
 
     // Cache for entities
     const countryCache = new Map<string, Country>();
@@ -250,17 +266,20 @@ async function importOffPlanProperties() {
                 developer = foundByName;
               } else {
                 // Create new developer
-                developer = await developerRepository.save({
+                const newDeveloper = developerRepository.create({
                   id: propertyData.developer.id,
                   name: propertyData.developer.name,
-                  logo: propertyData.developer.logo || null,
+                  logo: propertyData.developer.logo || undefined,
                 });
+                developer = await developerRepository.save(newDeveloper);
                 console.log(`   └─ Created developer: ${propertyData.developer.name}`);
               }
             }
             developerCache.set(propertyData.developer.id, developer);
           }
-          developerId = developer.id;
+          if (developer) {
+            developerId = developer.id;
+          }
         }
 
         // Convert photos from array of objects to array of URLs
@@ -274,7 +293,7 @@ async function importOffPlanProperties() {
         }
 
         // Create property
-        const property = propertyRepository.create({
+        const propertyDataToSave: Partial<Property> = {
           id: propertyData.id,
           propertyType: PropertyType.OFF_PLAN,
           name: propertyData.name,
@@ -285,18 +304,18 @@ async function importOffPlanProperties() {
           areaId: area.id,
           latitude: propertyData.latitude,
           longitude: propertyData.longitude,
-          developerId: developerId || null,
+          developerId: developerId || undefined,
           priceFrom: propertyData.priceFrom,
-          bedroomsFrom: propertyData.bedroomsFrom || null,
-          bedroomsTo: propertyData.bedroomsTo || null,
-          bathroomsFrom: propertyData.bathroomsFrom || null,
-          bathroomsTo: propertyData.bathroomsTo || null,
-          sizeFrom: propertyData.sizeFrom || null,
-          sizeTo: propertyData.sizeTo || null,
-          paymentPlan: propertyData.paymentPlan || null,
-        });
-
-        const savedProperty = await propertyRepository.save(property);
+          bedroomsFrom: propertyData.bedroomsFrom ?? undefined,
+          bedroomsTo: propertyData.bedroomsTo ?? undefined,
+          bathroomsFrom: propertyData.bathroomsFrom ?? undefined,
+          bathroomsTo: propertyData.bathroomsTo ?? undefined,
+          sizeFrom: propertyData.sizeFrom ?? undefined,
+          sizeTo: propertyData.sizeTo ?? undefined,
+          paymentPlan: propertyData.paymentPlan ?? undefined,
+        };
+        const property = propertyRepository.create(propertyDataToSave);
+        const savedProperty = await propertyRepository.save(property) as unknown as Property;
 
         // Process units if they exist
         if (propertyData.units && Array.isArray(propertyData.units) && propertyData.units.length > 0) {
@@ -354,8 +373,17 @@ async function importOffPlanProperties() {
         }
 
         successCount++;
-        if ((i + 1) % 100 === 0) {
-          console.log(`   ✅ Processed ${i + 1}/${parsedData.properties.length} properties...`);
+        // Show progress every 10 items or at milestones
+        const current = i + 1;
+        const total = parsedData.properties.length;
+        const percentage = Math.round((current / total) * 100);
+        
+        if (current % 10 === 0 || current === 1 || current === total) {
+          const progressBar = '█'.repeat(Math.floor(percentage / 2)) + '░'.repeat(50 - Math.floor(percentage / 2));
+          process.stdout.write(`\r   📊 [${progressBar}] ${current}/${total} (${percentage}%) - ✅ ${successCount} | ❌ ${errorCount}`);
+          if (current === total) {
+            process.stdout.write('\n');
+          }
         }
       } catch (error: any) {
         errorCount++;
@@ -365,7 +393,7 @@ async function importOffPlanProperties() {
       }
     }
 
-    console.log('\n📈 Import Summary:');
+    console.log('\n\n📈 Import Summary:');
     console.log(`   ✅ Success: ${successCount}`);
     console.log(`   ❌ Errors: ${errorCount}`);
 
