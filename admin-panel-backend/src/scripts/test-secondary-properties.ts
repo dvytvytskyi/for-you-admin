@@ -52,7 +52,7 @@ async function testSecondaryProperties() {
         'photos (масив)': Array.isArray(sampleSecondary.photos),
       };
 
-      console.log('\n   Перевірка обов'язкових полів:');
+      console.log('\n   Перевірка обов\'язкових полів:');
       let allValid = true;
       for (const [field, isValid] of Object.entries(checks)) {
         const status = isValid ? '✅' : '❌';
@@ -61,9 +61,9 @@ async function testSecondaryProperties() {
       }
 
       if (allValid) {
-        console.log('\n   ✅ Всі обов'язкові поля присутні');
+        console.log('\n   ✅ Всі обов\'язкові поля присутні');
       } else {
-        console.log('\n   ❌ Деякі обов'язкові поля відсутні');
+        console.log('\n   ❌ Деякі обов\'язкові поля відсутні');
       }
 
       // Перевірка структури area
