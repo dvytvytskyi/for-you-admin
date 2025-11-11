@@ -66,46 +66,47 @@ docker-compose -f docker-compose.prod.yml build admin-panel-backend || {
 }
 
 echo ""
-echo "📦 Перевірка компіляції TypeScript..."
-# TypeScript вже скомпільовано при build, але перевіримо
-docker exec for-you-admin-panel-backend-prod test -d dist && echo "✅ Директорія dist існує" || {
-    echo "⚠️  Директорія dist не існує, компілюємо..."
-    docker exec for-you-admin-panel-backend-prod npm run build 2>&1 || {
-        echo "❌ Помилка компіляції TypeScript"
-        exit 1
-    }
+echo "⏳ Очікування запуску контейнера (15 секунд)..."
+sleep 15
+
+echo ""
+echo "📁 Крок 4: Копіювання all_properties.json в контейнер..."
+# Чекаємо, поки контейнер запуститься
+for i in {1..10}; do
+    if docker exec for-you-admin-panel-backend-prod test -d /app 2>/dev/null; then
+        break
+    fi
+    echo "   Очікування запуску контейнера... ($i/10)"
+    sleep 2
+done
+
+# Копіюємо файл в контейнер
+docker cp ${PROJECT_DIR}/all_properties.json for-you-admin-panel-backend-prod:/app/all_properties.json || {
+    echo "❌ Не вдалося скопіювати файл в контейнер"
+    exit 1
+}
+echo "✅ all_properties.json скопійовано в контейнер (/app/all_properties.json)"
+
+# Перевіряємо, що файл на місці
+docker exec for-you-admin-panel-backend-prod test -f /app/all_properties.json && echo "✅ Файл перевірено в контейнері" || {
+    echo "❌ Файл не знайдено в контейнері після копіювання"
+    exit 1
 }
 
 echo ""
-echo "📁 Перевірка наявності all_properties.json в контейнері..."
-docker exec for-you-admin-panel-backend-prod test -f /app/all_properties.json && echo "✅ Файл знайдено в /app/all_properties.json" || {
-    echo "⚠️  Файл не знайдено в /app/all_properties.json"
-    echo "   Копіюємо файл в контейнер..."
-    docker cp ${PROJECT_DIR}/all_properties.json for-you-admin-panel-backend-prod:/app/all_properties.json || {
-        echo "❌ Не вдалося скопіювати файл в контейнер"
-        exit 1
-    }
-    echo "✅ Файл скопійовано в контейнер"
-}
-
-echo ""
-echo "🛑 Крок 4: Зупинка старого контейнера..."
+echo "🛑 Крок 3.1: Зупинка старого контейнера..."
 docker-compose -f docker-compose.prod.yml stop admin-panel-backend 2>/dev/null || true
 docker rm -f for-you-admin-panel-backend-prod 2>/dev/null || true
 
 echo ""
-echo "🔄 Крок 5: Запуск нового контейнера..."
+echo "🔄 Крок 3.2: Запуск нового контейнера..."
 docker-compose -f docker-compose.prod.yml up -d --force-recreate --no-deps admin-panel-backend || {
     echo "❌ Помилка запуску бекенду"
     exit 1
 }
 
 echo ""
-echo "⏳ Очікування запуску контейнера (15 секунд)..."
-sleep 15
-
-echo ""
-echo "📊 Крок 6: Перевірка статистики БД ДО оновлення..."
+echo "📊 Крок 5: Перевірка статистики БД ДО оновлення..."
 # Спробуємо виконати через node dist/... (production)
 docker exec for-you-admin-panel-backend-prod node dist/scripts/count-properties.js 2>&1 | tail -10 || {
     echo "⚠️  Скрипт не знайдено в dist/, перевіряємо чи скомпільовано..."
@@ -119,7 +120,7 @@ docker exec for-you-admin-panel-backend-prod node dist/scripts/count-properties.
 }
 
 echo ""
-echo "🧹 Крок 7: Очищення СТАРИХ off-plan properties..."
+echo "🧹 Крок 6: Очищення СТАРИХ off-plan properties..."
 echo "⚠️  УВАГА: Видаляємо ТІЛЬКИ off-plan properties!"
 echo "   Secondary properties НЕ будуть зачіплені!"
 # Спочатку пробуємо через скрипт
@@ -134,7 +135,7 @@ docker exec for-you-admin-panel-backend-prod node dist/scripts/clear-offplan-pro
 }
 
 echo ""
-echo "📥 Крок 8: Імпорт НОВИХ off-plan properties з all_properties.json..."
+echo "📥 Крок 7: Імпорт НОВИХ off-plan properties з all_properties.json..."
 echo "   Це може зайняти 5-10 хвилин..."
 docker exec for-you-admin-panel-backend-prod node dist/scripts/import-all-properties.js 2>&1 || {
     echo "❌ Помилка імпорту properties"
@@ -149,11 +150,11 @@ docker exec for-you-admin-panel-backend-prod node dist/scripts/import-all-proper
 }
 
 echo ""
-echo "📊 Крок 9: Перевірка статистики БД ПІСЛЯ оновлення..."
+echo "📊 Крок 8: Перевірка статистики БД ПІСЛЯ оновлення..."
 docker exec for-you-admin-panel-backend-prod node dist/scripts/count-properties.js 2>&1 | tail -10 || true
 
 echo ""
-echo "🔄 Крок 10: Перезапуск бекенду для застосування змін..."
+echo "🔄 Крок 9: Перезапуск бекенду для застосування змін..."
 docker-compose -f docker-compose.prod.yml restart admin-panel-backend
 
 echo ""
