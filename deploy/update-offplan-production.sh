@@ -67,8 +67,25 @@ docker-compose -f docker-compose.prod.yml build admin-panel-backend || {
 
 echo ""
 echo "📦 Перевірка компіляції TypeScript..."
-docker exec for-you-admin-panel-backend-prod npm run build 2>&1 || {
-    echo "⚠️  Компіляція не вдалася, але продовжуємо (можливо вже скомпільовано)"
+# TypeScript вже скомпільовано при build, але перевіримо
+docker exec for-you-admin-panel-backend-prod test -d dist && echo "✅ Директорія dist існує" || {
+    echo "⚠️  Директорія dist не існує, компілюємо..."
+    docker exec for-you-admin-panel-backend-prod npm run build 2>&1 || {
+        echo "❌ Помилка компіляції TypeScript"
+        exit 1
+    }
+}
+
+echo ""
+echo "📁 Перевірка наявності all_properties.json в контейнері..."
+docker exec for-you-admin-panel-backend-prod test -f /app/all_properties.json && echo "✅ Файл знайдено в /app/all_properties.json" || {
+    echo "⚠️  Файл не знайдено в /app/all_properties.json"
+    echo "   Копіюємо файл в контейнер..."
+    docker cp ${PROJECT_DIR}/all_properties.json for-you-admin-panel-backend-prod:/app/all_properties.json || {
+        echo "❌ Не вдалося скопіювати файл в контейнер"
+        exit 1
+    }
+    echo "✅ Файл скопійовано в контейнер"
 }
 
 echo ""
