@@ -1,93 +1,106 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../config/database';
-import { Area } from '../entities/Area';
 import { Property, PropertyType } from '../entities/Property';
+import { Area } from '../entities/Area';
+import * as fs from 'fs';
+import * as path from 'path';
+
+interface AreaStats {
+  areaName: string;
+  areaId: string;
+  cityName: string;
+  projectCount: number;
+}
 
 async function countOffPlanByArea() {
   try {
+    console.log('🔄 Connecting to database...');
     await AppDataSource.initialize();
-    console.log('✅ Підключено до БД\n');
+    console.log('✅ Database connected\n');
 
-    const areaRepo = AppDataSource.getRepository(Area);
-    const propertyRepo = AppDataSource.getRepository(Property);
+    const propertyRepository = AppDataSource.getRepository(Property);
+    const areaRepository = AppDataSource.getRepository(Area);
 
-    // Отримуємо всі areas
-    const allAreas = await areaRepo.find({
-      order: { nameEn: 'ASC' },
+    // Get all off-plan properties with area relation
+    const offPlanProperties = await propertyRepository.find({
+      where: { propertyType: PropertyType.OFF_PLAN },
+      relations: ['area', 'city'],
     });
 
-    console.log(`📊 Всього areas: ${allAreas.length}\n`);
-    console.log('🔍 Підрахунок off-plan properties по areas...\n');
+    console.log(`📊 Found ${offPlanProperties.length} off-plan properties\n`);
 
-    const results: Array<{
-      areaId: string;
-      areaName: string;
-      projectsCount: number;
-    }> = [];
+    // Group by area
+    const areaMap = new Map<string, AreaStats>();
 
-    // Підраховуємо off-plan properties для кожного area
-    for (const area of allAreas) {
-      const count = await propertyRepo.count({
-        where: {
-          areaId: area.id,
-          propertyType: PropertyType.OFF_PLAN,
-        },
-      });
+    for (const property of offPlanProperties) {
+      if (!property.area) {
+        continue; // Skip properties without area
+      }
 
-      if (count > 0) {
-        results.push({
-          areaId: area.id,
-          areaName: area.nameEn,
-          projectsCount: count,
+      const areaKey = property.area.id;
+      const areaName = property.area.nameEn || 'Unknown';
+      const cityName = property.city?.nameEn || 'Unknown';
+
+      if (!areaMap.has(areaKey)) {
+        areaMap.set(areaKey, {
+          areaName,
+          areaId: areaKey,
+          cityName,
+          projectCount: 0,
         });
       }
+
+      const stats = areaMap.get(areaKey)!;
+      stats.projectCount++;
     }
 
-    // Сортуємо за кількістю проектів (від більшого до меншого)
-    results.sort((a, b) => b.projectsCount - a.projectsCount);
+    // Convert to array and sort by project count (descending)
+    const areaStats: AreaStats[] = Array.from(areaMap.values())
+      .sort((a, b) => b.projectCount - a.projectCount);
 
-    // Формуємо markdown контент
-    let markdown = '# Підрахунок off-plan проектів по areas\n\n';
-    markdown += `**Загальна кількість areas з off-plan проектами:** ${results.length}\n\n`;
-    markdown += `**Загальна кількість off-plan проектів:** ${results.reduce((sum, r) => sum + r.projectsCount, 0)}\n\n`;
-    markdown += '---\n\n';
-    markdown += '| Area ID | Area Name | Кількість проектів |\n';
-    markdown += '|---------|-----------|---------------------|\n';
+    console.log('📋 Areas with off-plan projects:\n');
+    console.log('='.repeat(80));
+    console.log(`${'Area Name'.padEnd(40)} ${'City'.padEnd(20)} ${'Projects'.padStart(10)}`);
+    console.log('='.repeat(80));
 
-    for (const result of results) {
-      markdown += `| \`${result.areaId}\` | ${result.areaName} | **${result.projectsCount}** |\n`;
+    let totalProjects = 0;
+    for (const stats of areaStats) {
+      console.log(
+        `${stats.areaName.padEnd(40)} ${stats.cityName.padEnd(20)} ${stats.projectCount.toString().padStart(10)}`
+      );
+      totalProjects += stats.projectCount;
     }
 
-    markdown += '\n---\n\n';
-    markdown += '## Топ-20 areas за кількістю off-plan проектів\n\n';
+    console.log('='.repeat(80));
+    console.log(`${'TOTAL'.padEnd(40)} ${''.padEnd(20)} ${totalProjects.toString().padStart(10)}`);
+    console.log('='.repeat(80));
+    console.log(`\n📊 Total areas: ${areaStats.length}`);
+    console.log(`📊 Total projects: ${totalProjects}\n`);
 
-    const top20 = results.slice(0, 20);
-    for (let i = 0; i < top20.length; i++) {
-      const result = top20[i];
-      markdown += `${i + 1}. **${result.areaName}** - ${result.projectsCount} проектів\n`;
+    // Save to markdown file
+    const outputPath = path.resolve(process.cwd(), 'offplan-areas-stats.md');
+    let markdown = '# Off-Plan Projects by Area\n\n';
+    markdown += `**Total Areas:** ${areaStats.length}\n`;
+    markdown += `**Total Projects:** ${totalProjects}\n\n`;
+    markdown += '| Area Name | City | Projects |\n';
+    markdown += '|-----------|------|----------|\n';
+
+    for (const stats of areaStats) {
+      markdown += `| ${stats.areaName} | ${stats.cityName} | ${stats.projectCount} |\n`;
     }
 
-    // Зберігаємо у файл
-    const fs = require('fs');
-    const path = require('path');
-    // Зберігаємо в корінь проекту
-    const outputPath = path.join(__dirname, '../../../area-projects.md');
     fs.writeFileSync(outputPath, markdown, 'utf-8');
+    console.log(`✅ Statistics saved to: ${outputPath}`);
 
-    console.log('📊 Результати:');
-    console.log(`   Всього areas з off-plan проектами: ${results.length}`);
-    console.log(`   Загальна кількість off-plan проектів: ${results.reduce((sum, r) => sum + r.projectsCount, 0)}`);
-    console.log('\n📋 Топ-10 areas:');
-    results.slice(0, 10).forEach((r, i) => {
-      console.log(`   ${i + 1}. ${r.areaName}: ${r.projectsCount} проектів`);
-    });
-
-    console.log(`\n✅ Результати збережено у файл: ${outputPath}`);
+    // Also save as JSON
+    const jsonPath = path.resolve(process.cwd(), 'offplan-areas-stats.json');
+    fs.writeFileSync(jsonPath, JSON.stringify(areaStats, null, 2), 'utf-8');
+    console.log(`✅ JSON data saved to: ${jsonPath}\n`);
 
     await AppDataSource.destroy();
     process.exit(0);
   } catch (error: any) {
-    console.error('❌ Помилка:', error);
+    console.error('❌ Error counting off-plan by area:', error);
     if (AppDataSource.isInitialized) {
       await AppDataSource.destroy();
     }
@@ -96,4 +109,3 @@ async function countOffPlanByArea() {
 }
 
 countOffPlanByArea();
-

@@ -42,7 +42,14 @@
     "import:offplan": "ts-node-dev src/scripts/import-offplan-properties.ts",
     "import:all-properties": "ts-node-dev src/scripts/import-all-properties.ts",
     "check:secondary-duplicates": "ts-node-dev src/scripts/check-secondary-duplicates.ts",
-    "remove:secondary-duplicates": "ts-node-dev src/scripts/remove-secondary-duplicates.ts"
+    "remove:secondary-duplicates": "ts-node-dev src/scripts/remove-secondary-duplicates.ts",
+    "migrate:area-images": "ts-node-dev src/scripts/migrate-area-images-to-cloudinary.ts",
+    "count:offplan-areas": "ts-node-dev src/scripts/count-offplan-by-area.ts",
+    "list:all-areas": "ts-node-dev src/scripts/list-all-areas.ts",
+    "count:areas-from-json": "ts-node-dev src/scripts/count-areas-from-json.ts",
+    "list:areas-simple": "ts-node-dev src/scripts/simple-list-areas.ts",
+    "cleanup:areas": "ts-node-dev src/scripts/cleanup-unused-areas.ts",
+    "check:no-coordinates": "ts-node-dev src/scripts/check-properties-without-coordinates.ts"
   },
   "keywords": [],
   "author": "",

@@ -148,34 +148,185 @@ function extractPhotos(details: AllPropertiesJson['properties'][0]['details']): 
   return [...new Set(allPhotos.filter(Boolean))];
 }
 
-// Helper function to parse coordinates
-function parseCoordinates(coordinates: string): { lat: number; lng: number } | null {
-  try {
-    const [lat, lng] = coordinates.split(',').map(coord => parseFloat(coord.trim()));
-    if (isNaN(lat) || isNaN(lng)) {
-      return null;
+// Helper function to parse coordinates with fallback
+function parseCoordinates(
+  coordinates?: string,
+  details?: AllPropertiesJson['properties'][0]['details'],
+  basicInfo?: AllPropertiesJson['properties'][0]['basic_info']
+): { lat: number; lng: number } | null {
+  // Try 1: Main coordinates parameter
+  if (coordinates) {
+    try {
+      const [lat, lng] = coordinates.split(',').map(coord => parseFloat(coord.trim()));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        return { lat, lng };
+      }
+    } catch {
+      // Continue to next try
     }
-    return { lat, lng };
-  } catch {
-    return null;
-  }
-}
-
-// Helper function to extract bedrooms from unit blocks
-function extractBedrooms(unitBlocks?: AllPropertiesJson['properties'][0]['details']['unit_blocks']): { from: number | null; to: number | null } {
-  if (!unitBlocks || unitBlocks.length === 0) {
-    return { from: null, to: null };
   }
 
-  const bedrooms: number[] = [];
-  unitBlocks.forEach(block => {
-    if (block && block.name) {
-      const match = block.name.match(/(\d+)\s*bedroom/i);
-      if (match) {
-        bedrooms.push(parseInt(match[1]));
+  // Try 2: details.coordinates
+  if (details?.coordinates) {
+    try {
+      const [lat, lng] = String(details.coordinates).split(',').map(coord => parseFloat(coord.trim()));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        return { lat, lng };
+      }
+    } catch {
+      // Continue to next try
+    }
+  }
+
+  // Try 3: basicInfo.coordinates
+  if (basicInfo?.coordinates) {
+    try {
+      const [lat, lng] = String(basicInfo.coordinates).split(',').map(coord => parseFloat(coord.trim()));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        return { lat, lng };
+      }
+    } catch {
+      // Continue to next try
+    }
+  }
+
+  // Try 4: Check if coordinates are in a different format (object with lat/lng)
+  if (details && typeof details === 'object') {
+    const detailsAny = details as any;
+    if (detailsAny.latitude && detailsAny.longitude) {
+      const lat = parseFloat(String(detailsAny.latitude));
+      const lng = parseFloat(String(detailsAny.longitude));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        return { lat, lng };
       }
     }
-  });
+    if (detailsAny.lat && detailsAny.lng) {
+      const lat = parseFloat(String(detailsAny.lat));
+      const lng = parseFloat(String(detailsAny.lng));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        return { lat, lng };
+      }
+    }
+  }
+
+  if (basicInfo && typeof basicInfo === 'object') {
+    const basicInfoAny = basicInfo as any;
+    if (basicInfoAny.latitude && basicInfoAny.longitude) {
+      const lat = parseFloat(String(basicInfoAny.latitude));
+      const lng = parseFloat(String(basicInfoAny.longitude));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        return { lat, lng };
+      }
+    }
+    if (basicInfoAny.lat && basicInfoAny.lng) {
+      const lat = parseFloat(String(basicInfoAny.lat));
+      const lng = parseFloat(String(basicInfoAny.lng));
+      if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+        return { lat, lng };
+      }
+    }
+  }
+
+  return null;
+}
+
+// Helper function to extract price with fallback logic
+function extractPrice(
+  details?: AllPropertiesJson['properties'][0]['details'],
+  basicInfo?: AllPropertiesJson['properties'][0]['basic_info']
+): number | null {
+  // Try 1: details.min_price_aed or basicInfo.min_price_aed
+  const minPriceAED = details?.min_price_aed || basicInfo?.min_price_aed;
+  if (minPriceAED && minPriceAED > 0) {
+    return minPriceAED / 3.673; // AED to USD
+  }
+
+  // Try 2: Extract from unit_blocks - find minimum price
+  if (details?.unit_blocks && details.unit_blocks.length > 0) {
+    const prices: number[] = [];
+    details.unit_blocks.forEach(block => {
+      if (block) {
+        const priceAED = block.units_price_from_aed || block.units_price_from;
+        if (priceAED && priceAED > 0) {
+          prices.push(priceAED / 3.673); // AED to USD
+        }
+      }
+    });
+    if (prices.length > 0) {
+      return Math.min(...prices);
+    }
+  }
+
+  // Try 3: Extract from unit_availability
+  if (details?.unit_availability && details.unit_availability.length > 0) {
+    const prices: number[] = [];
+    details.unit_availability.forEach(building => {
+      if (building.units) {
+        building.units.forEach(unit => {
+          const priceAED = unit.price_from_aed || unit.price_from;
+          if (priceAED && priceAED > 0) {
+            prices.push(priceAED / 3.673); // AED to USD
+          }
+        });
+      }
+    });
+    if (prices.length > 0) {
+      return Math.min(...prices);
+    }
+  }
+
+  return null;
+}
+
+// Helper function to extract bedrooms with fallback logic
+function extractBedrooms(
+  unitBlocks?: AllPropertiesJson['properties'][0]['details']['unit_blocks'],
+  details?: AllPropertiesJson['properties'][0]['details'],
+  basicInfo?: AllPropertiesJson['properties'][0]['basic_info']
+): { from: number | null; to: number | null } {
+  const bedrooms: number[] = [];
+
+  // Try 1: Extract from unit_blocks name
+  if (unitBlocks && unitBlocks.length > 0) {
+    unitBlocks.forEach(block => {
+      if (block && block.name) {
+        const match = block.name.match(/(\d+)\s*bedroom/i);
+        if (match) {
+          bedrooms.push(parseInt(match[1]));
+        }
+      }
+      // Also try bedroom_type if available
+      if (block && block.bedroom_type) {
+        const match = String(block.bedroom_type).match(/(\d+)/);
+        if (match) {
+          bedrooms.push(parseInt(match[1]));
+        }
+      }
+    });
+  }
+
+  // Try 2: Extract from unit_availability
+  if (details?.unit_availability && details.unit_availability.length > 0) {
+    details.unit_availability.forEach(building => {
+      if (building.units) {
+        building.units.forEach(unit => {
+          if (unit.bedroom_type) {
+            const match = String(unit.bedroom_type).match(/(\d+)/);
+            if (match) {
+              bedrooms.push(parseInt(match[1]));
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // Try 3: Search in description or other text fields
+  const description = details?.overview || basicInfo?.description || '';
+  const descMatch = description.match(/(\d+)\s*(?:bedroom|bed)/i);
+  if (descMatch) {
+    bedrooms.push(parseInt(descMatch[1]));
+  }
 
   if (bedrooms.length === 0) {
     return { from: null, to: null };
@@ -187,29 +338,83 @@ function extractBedrooms(unitBlocks?: AllPropertiesJson['properties'][0]['detail
   };
 }
 
-// Helper function to extract size from unit blocks
-function extractSize(unitBlocks?: AllPropertiesJson['properties'][0]['details']['unit_blocks']): { from: number | null; to: number | null } {
-  if (!unitBlocks || unitBlocks.length === 0) {
-    return { from: null, to: null };
+// Helper function to extract size with fallback logic
+function extractSize(
+  unitBlocks?: AllPropertiesJson['properties'][0]['details']['unit_blocks'],
+  details?: AllPropertiesJson['properties'][0]['details'],
+  basicInfo?: AllPropertiesJson['properties'][0]['basic_info']
+): { from: number | null; to: number | null } {
+  const sizes: number[] = [];
+
+  // Try 1: Extract from unit_blocks (already in m²)
+  if (unitBlocks && unitBlocks.length > 0) {
+    unitBlocks.forEach(block => {
+      if (block) {
+        if (block.units_area_from_m2) {
+          const size = parseFloat(block.units_area_from_m2);
+          if (!isNaN(size) && size > 0) {
+            sizes.push(size);
+          }
+        }
+        if (block.units_area_to_m2) {
+          const size = parseFloat(block.units_area_to_m2);
+          if (!isNaN(size) && size > 0) {
+            sizes.push(size);
+          }
+        }
+      }
+    });
   }
 
-  const sizes: number[] = [];
-  unitBlocks.forEach(block => {
-    if (block) {
-      if (block.units_area_from_m2) {
-        const size = parseFloat(block.units_area_from_m2);
-        if (!isNaN(size)) {
-          sizes.push(size);
-        }
-      }
-      if (block.units_area_to_m2) {
-        const size = parseFloat(block.units_area_to_m2);
-        if (!isNaN(size)) {
-          sizes.push(size);
-        }
-      }
+  // Try 2: Extract from details.min_area / max_area (in sqft, convert to m²)
+  if (details?.min_area) {
+    const size = parseFloat(String(details.min_area));
+    if (!isNaN(size) && size > 0) {
+      sizes.push(size / 10.764); // sqft to m²
     }
-  });
+  }
+  if (details?.max_area) {
+    const size = parseFloat(String(details.max_area));
+    if (!isNaN(size) && size > 0) {
+      sizes.push(size / 10.764); // sqft to m²
+    }
+  }
+
+  // Try 3: Extract from unit_availability (in sqft, convert to m²)
+  if (details?.unit_availability && details.unit_availability.length > 0) {
+    details.unit_availability.forEach(building => {
+      if (building.units) {
+        building.units.forEach(unit => {
+          if (unit.area_from) {
+            const size = parseFloat(String(unit.area_from));
+            if (!isNaN(size) && size > 0) {
+              sizes.push(size / 10.764); // sqft to m²
+            }
+          }
+          if (unit.area_to) {
+            const size = parseFloat(String(unit.area_to));
+            if (!isNaN(size) && size > 0) {
+              sizes.push(size / 10.764); // sqft to m²
+            }
+          }
+        });
+      }
+    });
+  }
+
+  // Try 4: Extract from basicInfo if available
+  if (basicInfo?.min_area) {
+    const size = parseFloat(String(basicInfo.min_area));
+    if (!isNaN(size) && size > 0) {
+      sizes.push(size / 10.764); // sqft to m²
+    }
+  }
+  if (basicInfo?.max_area) {
+    const size = parseFloat(String(basicInfo.max_area));
+    if (!isNaN(size) && size > 0) {
+      sizes.push(size / 10.764); // sqft to m²
+    }
+  }
 
   if (sizes.length === 0) {
     return { from: null, to: null };
@@ -371,16 +576,19 @@ async function importAllProperties() {
         const areaName = details?.area || basicInfo?.area;
         const countryName = details?.country;
         const cityName = details?.city || 'Dubai'; // Default to Dubai
-        const coordinates = details?.coordinates || basicInfo?.coordinates;
 
-        if (!name || !areaName || !countryName || !coordinates) {
-          errors.push(`Property ${i + 1}: Missing required fields`);
+        if (!name || !areaName || !countryName) {
+          errors.push(`Property ${i + 1}: Missing required fields (name, area, or country)`);
           errorCount++;
           continue;
         }
 
-        // Parse coordinates
-        const coords = parseCoordinates(coordinates);
+        // Parse coordinates with fallback (coordinates can be in multiple places)
+        const coords = parseCoordinates(
+          details?.coordinates || basicInfo?.coordinates,
+          details,
+          basicInfo
+        );
         if (!coords) {
           errors.push(`Property ${i + 1} (${name}): Invalid coordinates`);
           errorCount++;
@@ -502,15 +710,14 @@ async function importAllProperties() {
           }
         }
 
-        // Extract price
-        const minPriceAED = details?.min_price_aed || basicInfo?.min_price_aed;
-        const priceFrom = minPriceAED ? minPriceAED / 3.673 : null; // AED to USD
+        // Extract price with fallback logic
+        const priceFrom = extractPrice(details, basicInfo);
 
-        // Extract bedrooms
-        const bedrooms = extractBedrooms(details?.unit_blocks);
+        // Extract bedrooms with fallback logic
+        const bedrooms = extractBedrooms(details?.unit_blocks, details, basicInfo);
 
-        // Extract size
-        const size = extractSize(details?.unit_blocks);
+        // Extract size with fallback logic
+        const size = extractSize(details?.unit_blocks, details, basicInfo);
 
         // Format payment plan
         const paymentPlan = formatPaymentPlan(details?.payment_plans);
