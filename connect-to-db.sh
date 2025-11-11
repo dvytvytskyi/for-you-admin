@@ -33,3 +33,4 @@ echo ""
 
 docker exec -it for-you-admin-panel-postgres-new psql -U admin -d admin_panel
 
+
