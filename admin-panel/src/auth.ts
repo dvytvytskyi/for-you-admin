@@ -12,8 +12,13 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         try {
+          // Визначаємо API URL (server-side, тому використовуємо тільки env)
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL && !process.env.NEXT_PUBLIC_API_URL.includes('pro-part.online')
+            ? process.env.NEXT_PUBLIC_API_URL
+            : process.env.NEXT_PUBLIC_API_URL || 'https://admin.foryou-realestate.com/api'
+          
           const { data } = await axios.post(
-            `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+            `${apiUrl}/auth/login`,
             {
               email: credentials?.email,
               password: credentials?.password,

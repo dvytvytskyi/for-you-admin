@@ -27,7 +27,40 @@ export default function SignIn() {
     setError('')
     
     try {
-      const { data } = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/auth/login`, {
+      // Визначаємо API URL на основі домену
+      let apiUrl = 'http://localhost:4000/api'
+      
+      // ПЕРШИМ ділом перевіряємо поточний домен (найнадійніше)
+      if (typeof window !== 'undefined') {
+        const origin = window.location.origin
+        console.log('[Login] Current origin:', origin)
+        
+        // Якщо це foryou домен, ВИКОРИСТОВУЄМО ЙОГО (незалежно від env змінних)
+        if (origin.includes('admin.foryou-realestate.com') || origin.includes('foryou-realestate.com')) {
+          apiUrl = origin + '/api'
+          console.log('[Login] Detected foryou domain, using:', apiUrl)
+        } else if (origin.includes('pro-part.online')) {
+          apiUrl = origin + '/api'
+          console.log('[Login] Detected pro-part domain, using:', apiUrl)
+        } else {
+          // Якщо не визначено домен, перевіряємо змінну оточення
+          const envUrl = process.env.NEXT_PUBLIC_API_URL
+          if (envUrl && !envUrl.includes('pro-part.online')) {
+            apiUrl = envUrl
+            console.log('[Login] Using env variable:', apiUrl)
+          }
+        }
+      } else {
+        // Server-side: перевіряємо змінну оточення
+        const envUrl = process.env.NEXT_PUBLIC_API_URL
+        if (envUrl && !envUrl.includes('pro-part.online')) {
+          apiUrl = envUrl
+        }
+      }
+      
+      console.log('[Login] Final API URL:', apiUrl)
+      
+      const { data } = await axios.post(`${apiUrl}/auth/login`, {
         email,
         password,
       })

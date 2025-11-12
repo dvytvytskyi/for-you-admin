@@ -1,17 +1,63 @@
 import axios from 'axios'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
+// Використовуємо window.location.origin як fallback для production
+const getApiUrl = () => {
+  // ПЕРШИМ ділом перевіряємо поточний домен (найнадійніше)
+  // Це працює в runtime, тому env змінні не можуть перевизначити
+  if (typeof window !== 'undefined') {
+    const origin = window.location.origin
+    console.log('[getApiUrl] Current origin:', origin)
+    
+    // Якщо це foryou домен, ВИКОРИСТОВУЄМО ЙОГО (незалежно від env змінних)
+    if (origin.includes('admin.foryou-realestate.com') || origin.includes('foryou-realestate.com')) {
+      const url = origin + '/api'
+      console.log('[getApiUrl] Using foryou domain:', url)
+      return url
+    }
+    // Якщо це pro-part домен, використовуємо його
+    if (origin.includes('pro-part.online')) {
+      const url = origin + '/api'
+      console.log('[getApiUrl] Using pro-part domain:', url)
+      return url
+    }
+    console.log('[getApiUrl] Domain not recognized, checking env...')
+  }
+  
+  // Якщо не в браузері або домен не визначено, перевіряємо змінну оточення
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  console.log('[getApiUrl] Env URL:', envUrl)
+  
+  if (envUrl && !envUrl.includes('pro-part.online')) {
+    console.log('[getApiUrl] Using env URL:', envUrl)
+    return envUrl
+  }
+  
+  // Fallback для локальної розробки
+  const fallback = 'http://localhost:4000/api'
+  console.log('[getApiUrl] Using fallback:', fallback)
+  return fallback
+}
 
+// Створюємо axios instance
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: getApiUrl(), // Початкове значення
   headers: {
     'Content-Type': 'application/json',
   },
 })
 
-// Request interceptor для додавання JWT токену
+// Request interceptor для оновлення baseURL та додавання JWT токену
 api.interceptors.request.use(
   (config) => {
+    // Оновлюємо baseURL перед кожним запитом (динамічно)
+    const apiUrl = getApiUrl()
+    config.baseURL = apiUrl
+    
+    // Логування для діагностики (завжди в браузері)
+    if (typeof window !== 'undefined') {
+      console.log('[API] Request to:', apiUrl + (config.url || ''), '| Origin:', window.location.origin)
+    }
+    
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
