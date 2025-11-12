@@ -14,6 +14,10 @@ const nextConfig = {
       },
     ],
   },
+  // Runtime конфігурація для API URL
+  env: {
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://admin.foryou-realestate.com/api',
+  },
   webpack(config) {
     config.module.rules.push({
       test: /\.svg$/,
