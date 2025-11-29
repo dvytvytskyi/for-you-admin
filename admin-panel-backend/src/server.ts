@@ -39,7 +39,7 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
-// Routes
+// Routes (без префіксу v1 для сумісності з адмін панеллю)
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertiesRoutes);
 app.use('/api/settings', settingsRoutes);
@@ -54,6 +54,19 @@ app.use('/api/collections', collectionsRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/investments', investmentsRoutes);
 app.use('/api/course-progress', courseProgressRoutes);
+
+// Routes з префіксом /v1 для мобільного додатку
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/properties', propertiesRoutes);
+app.use('/api/v1/settings', settingsRoutes);
+app.use('/api/v1/support', supportRoutes);
+app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/upload', uploadRoutes);
+app.use('/api/v1/public', publicRoutes);
+app.use('/api/v1/collections', collectionsRoutes);
+app.use('/api/v1/favorites', favoritesRoutes);
+app.use('/api/v1/investments', investmentsRoutes);
+app.use('/api/v1/course-progress', courseProgressRoutes);
 
 // Root route
 app.get('/', (req, res) => {
