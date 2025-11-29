@@ -11,5 +11,11 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "resolveJsonModule": true
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/scripts/createTestProperties.ts",
+    "src/scripts/import-all-properties.ts"
+  ]
 }
