@@ -341,5 +341,71 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+router.patch('/profile', authenticateJWT, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+
+    const { firstName, lastName, email, phone, licenseNumber, avatar } = req.body;
+
+    const userRepository = AppDataSource.getRepository(User);
+
+    // Find user
+    const user = await userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Update only provided fields
+    if (firstName !== undefined) {
+      user.firstName = firstName;
+    }
+    if (lastName !== undefined) {
+      user.lastName = lastName;
+    }
+    if (email !== undefined) {
+      // Check if email is already taken by another user
+      const existingUser = await userRepository.findOne({
+        where: { email: email.toLowerCase().trim() },
+      });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({ success: false, message: 'Email is already taken' });
+      }
+      user.email = email.toLowerCase().trim();
+    }
+    if (phone !== undefined) {
+      // Check if phone is already taken by another user
+      const existingUser = await userRepository.findOne({
+        where: { phone },
+      });
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({ success: false, message: 'Phone is already taken' });
+      }
+      user.phone = phone;
+    }
+    if (licenseNumber !== undefined) {
+      user.licenseNumber = licenseNumber;
+    }
+    if (avatar !== undefined) {
+      user.avatar = avatar;
+    }
+
+    await userRepository.save(user);
+
+    // Return user without password hash
+    const { passwordHash: _, ...userWithoutPassword } = user;
+
+    return res.json(successResponse({ user: userWithoutPassword }, 'Profile updated successfully'));
+  } catch (error: any) {
+    console.error('Error updating profile:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update profile' });
+  }
+});
+
 export default router;
 
