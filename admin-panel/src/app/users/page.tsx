@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
+import { PencilIcon, TrashBinIcon, PlusIcon } from '@/icons'
 
 export default function UsersPage() {
   const router = useRouter()
@@ -63,9 +64,7 @@ export default function UsersPage() {
           Users
         </h1>
         <Button className="flex items-center gap-2" onClick={() => router.push('/users/add')}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
+          <PlusIcon className="w-4 h-4" />
           Add User
         </Button>
       </div>
@@ -204,15 +203,18 @@ export default function UsersPage() {
                     </TableCell>
                     <TableCell className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M11.3333 2.00004H4.66659C3.93021 2.00004 3.33325 2.59699 3.33325 3.33337V13.3334C3.33325 14.0698 3.93021 14.6667 4.66659 14.6667H11.3333C12.0696 14.6667 12.6666 14.0698 12.6666 13.3334V5.05337C12.6666 4.68443 12.5254 4.33033 12.2754 4.08033L9.94659 1.75162C9.69659 1.50162 9.34249 1.3604 8.97355 1.3604ZM8.97355 2.3604L11.3022 4.68911H8.97355V2.3604Z" fill="currentColor"/>
-                          </svg>
+                        <button 
+                          onClick={() => router.push(`/users/${user.id}`)}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          title="View/Edit"
+                        >
+                          <PencilIcon className="w-4 h-4" />
                         </button>
-                        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor"/>
-                          </svg>
+                        <button 
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-red-600 dark:hover:text-red-400"
+                          title="Delete"
+                        >
+                          <TrashBinIcon className="w-4 h-4" />
                         </button>
                       </div>
                     </TableCell>
