@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components
 import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
 import Image from 'next/image'
+import { PencilIcon, PaperPlaneIcon } from '@/icons'
 
 export default function SupportPage() {
   const router = useRouter()
@@ -366,15 +367,18 @@ export default function SupportPage() {
                     </TableCell>
                     <TableCell className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M11.3333 2.00004H4.66659C3.93021 2.00004 3.33325 2.59699 3.33325 3.33337V13.3334C3.33325 14.0698 3.93021 14.6667 4.66659 14.6667H11.3333C12.0696 14.6667 12.6666 14.0698 12.6666 13.3334V5.05337C12.6666 4.68443 12.5254 4.33033 12.2754 4.08033L9.94659 1.75162C9.69659 1.50162 9.34249 1.3604 8.97355 1.3604ZM8.97355 2.3604L11.3022 4.68911H8.97355V2.3604Z" fill="currentColor"/>
-                          </svg>
+                        <button 
+                          onClick={() => router.push(`/support/${request.id}`)}
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          title="View/Edit"
+                        >
+                          <PencilIcon className="w-4 h-4" />
                         </button>
-                        <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
-                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M8 12L13 7H10V2H6V7H3L8 12Z" fill="currentColor"/>
-                          </svg>
+                        <button 
+                          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                          title="Reply"
+                        >
+                          <PaperPlaneIcon className="w-4 h-4" />
                         </button>
                       </div>
                     </TableCell>
