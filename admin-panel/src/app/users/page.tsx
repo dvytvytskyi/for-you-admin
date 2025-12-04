@@ -11,7 +11,7 @@ export default function UsersPage() {
   const router = useRouter()
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [userType, setUserType] = useState<'agent' | 'investor' | 'client'>('agent')
+  const [userType, setUserType] = useState<'agent' | 'investor'>('agent')
 
   useEffect(() => {
     loadUsers()
@@ -29,7 +29,7 @@ export default function UsersPage() {
         name: `${user.firstName} ${user.lastName}`,
         email: user.email,
         phone: user.phone,
-        type: user.role === 'BROKER' ? 'agent' : user.role === 'INVESTOR' ? 'investor' : 'client',
+        type: user.role === 'BROKER' ? 'agent' : user.role === 'INVESTOR' ? 'investor' : null,
         role: user.role,
         status: user.status?.toLowerCase() || 'inactive',
         avatar: user.avatar || 'https://i.pravatar.cc/150?img=5',
@@ -37,12 +37,12 @@ export default function UsersPage() {
         budget: user.role === 'INVESTOR' ? '-' : undefined, // TODO: Get actual budget from backend
       }))
       
-      // Filter by user type
+      // Filter by user type (exclude CLIENT and null types)
       const filtered = mappedUsers.filter((user: any) => {
+        if (!user.type) return false // Exclude CLIENT and other roles
         if (userType === 'agent') return user.type === 'agent'
         if (userType === 'investor') return user.type === 'investor'
-        if (userType === 'client') return user.type === 'client'
-        return true
+        return false
       })
       
       setUsers(filtered)
@@ -92,16 +92,6 @@ export default function UsersPage() {
         >
           Investor
         </button>
-        <button
-          onClick={() => setUserType('client')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            userType === 'client'
-              ? 'bg-brand-500 text-white'
-              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-          }`}
-        >
-          Client
-        </button>
       </div>
 
       {/* Table */}
@@ -140,13 +130,13 @@ export default function UsersPage() {
             <TableBody className="divide-y divide-gray-100 dark:divide-white/5">
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={userType === 'client' ? 5 : 6} className="px-5 py-8 text-center text-gray-500">
+                  <TableCell colSpan={6} className="px-5 py-8 text-center text-gray-500">
                     Loading...
                   </TableCell>
                 </TableRow>
               ) : users.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={userType === 'client' ? 5 : 6} className="px-5 py-8 text-center text-gray-500">
+                  <TableCell colSpan={6} className="px-5 py-8 text-center text-gray-500">
                     No users
                   </TableCell>
                 </TableRow>

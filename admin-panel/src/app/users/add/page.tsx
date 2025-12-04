@@ -25,10 +25,8 @@ export default function AddUserPage() {
   })
 
   const roleOptions = [
-    { value: 'CLIENT', label: 'Client' },
     { value: 'BROKER', label: 'Broker' },
     { value: 'INVESTOR', label: 'Investor' },
-    { value: 'ADMIN', label: 'Admin' },
   ]
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

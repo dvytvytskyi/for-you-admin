@@ -2,13 +2,33 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
+import { api } from "@/lib/api";
 
 export default function UserDropdown() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  const loadUser = async () => {
+    try {
+      const { data } = await api.get('/auth/me');
+      if (data.success && data.data) {
+        setUser(data.data);
+      }
+    } catch (error) {
+      console.error('Error loading user:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   function toggleDropdown(e: React.MouseEvent<HTMLButtonElement, MouseEvent>) {
     e.stopPropagation();
@@ -30,16 +50,25 @@ export default function UserDropdown() {
         onClick={toggleDropdown} 
         className="flex items-center text-gray-700 dark:text-gray-400 dropdown-toggle"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <Image
-            width={44}
-            height={44}
-            src="/images/user/owner.jpg"
-            alt="User"
-          />
+        <span className="mr-3 overflow-hidden rounded-full h-11 w-11 border border-gray-200 dark:border-gray-800">
+          {user?.avatar ? (
+            <Image
+              width={44}
+              height={44}
+              src={user.avatar}
+              alt={user.firstName || 'User'}
+              className="object-cover w-full h-full"
+            />
+          ) : (
+            <div className="flex items-center justify-center w-full h-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm font-medium">
+              {user?.firstName?.[0] || user?.email?.[0]?.toUpperCase() || 'U'}
+            </div>
+          )}
         </span>
 
-          <span className="block mr-1 font-medium text-theme-sm">Admin</span>
+          <span className="block mr-1 font-medium text-theme-sm">
+            {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : 'Loading...'}
+          </span>
 
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
@@ -68,10 +97,10 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Адмін
+            {user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email : 'User'}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
-            admin@foryou.ae
+            {user?.email || 'Loading...'}
           </span>
         </div>
 
