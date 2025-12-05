@@ -669,6 +669,90 @@ router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest,
   }
 });
 
+// GET /api/public/developers/:id - Get single developer by ID
+router.get('/developers/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    
+    console.log('[Public API] GET /api/public/developers/:id request:', {
+      developerId: id,
+      hasApiKey: !!req.apiKey,
+      apiKeyName: req.apiKey?.name,
+    });
+
+    // Отримуємо developer по ID
+    const developer = await AppDataSource.getRepository(Developer).findOne({
+      where: { id },
+    });
+
+    if (!developer) {
+      return res.status(404).json(errorResponse('Developer not found'));
+    }
+
+    // Отримуємо підрахунок properties для цього developer
+    const countsQuery = await AppDataSource
+      .getRepository(Property)
+      .createQueryBuilder('property')
+      .select('COUNT(property.id)', 'total')
+      .addSelect(
+        "SUM(CASE WHEN property.propertyType = 'off-plan' THEN 1 ELSE 0 END)",
+        'offPlan'
+      )
+      .addSelect(
+        "SUM(CASE WHEN property.propertyType = 'secondary' THEN 1 ELSE 0 END)",
+        'secondary'
+      )
+      .where('property.developerId = :developerId', { developerId: id })
+      .getRawOne();
+
+    const counts = {
+      total: parseInt(countsQuery?.total || '0', 10),
+      offPlan: parseInt(countsQuery?.offPlan || '0', 10),
+      secondary: parseInt(countsQuery?.secondary || '0', 10),
+    };
+
+    // Парсимо description як JSON, якщо це можливо, інакше повертаємо як рядок
+    let descriptionField: any = null;
+    if (developer.description) {
+      try {
+        const parsed = JSON.parse(developer.description);
+        if (typeof parsed === 'object' && parsed !== null) {
+          descriptionField = parsed;
+        } else {
+          descriptionField = developer.description;
+        }
+      } catch {
+        descriptionField = developer.description;
+      }
+    }
+
+    const developerResponse = {
+      id: developer.id,
+      name: developer.name,
+      logo: developer.logo || null,
+      description: descriptionField,
+      images: developer.images || null,
+      projectsCount: {
+        total: counts.total,
+        offPlan: counts.offPlan,
+        secondary: counts.secondary,
+      },
+      createdAt: developer.createdAt,
+    };
+
+    console.log('[Public API] ✅ Developer response sent:', {
+      developerId: id,
+      developerName: developer.name,
+      projectsCount: counts.total,
+    });
+
+    res.json(successResponse(developerResponse));
+  } catch (error: any) {
+    console.error('Error fetching developer:', error);
+    res.status(500).json(errorResponse('Failed to fetch developer', error.message));
+  }
+});
+
 // Helper function to generate slug from title
 function generateSlug(title: string): string {
   return title
