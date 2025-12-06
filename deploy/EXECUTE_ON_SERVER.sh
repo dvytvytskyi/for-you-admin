@@ -15,7 +15,9 @@ echo -e "\033[0;34m════════════════════�
 
 # Знаходимо директорію проекту
 PROJECT_DIR=""
-if [ -d "/root/admin_for_you" ]; then
+if [ -d "/root/admin-panel" ]; then
+  PROJECT_DIR="/root/admin-panel"
+elif [ -d "/root/admin_for_you" ]; then
   PROJECT_DIR="/root/admin_for_you"
 elif [ -d "/opt/admin-panel" ]; then
   PROJECT_DIR="/opt/admin-panel"
