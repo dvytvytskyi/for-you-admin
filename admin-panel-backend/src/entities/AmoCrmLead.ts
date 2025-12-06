@@ -12,7 +12,7 @@ export class AmoCrmLead {
   name!: string;
 
   @Column('decimal', { precision: 15, scale: 2, nullable: true })
-  price?: number;
+  price?: number | null;
 
   @Column({ name: 'status_id', nullable: true })
   statusId?: number;
