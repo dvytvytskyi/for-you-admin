@@ -352,8 +352,9 @@ export class AmoCrmService {
       const accessToken = await this.getAccessToken();
 
       // Отримати pipelines з AMO CRM
+      const apiUrl = this.domain; // Використовуємо domain, а не apiDomain
       const response = await axios.get<{ _embedded: { pipelines: AmoPipeline[] } }>(
-        `https://${this.apiDomain}/api/v4/leads/pipelines`,
+        `https://${apiUrl}/api/v4/leads/pipelines`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,

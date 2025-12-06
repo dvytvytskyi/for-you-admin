@@ -162,6 +162,25 @@ router.post(
 );
 
 /**
+ * GET /api/amo-crm/pipelines
+ * Отримати pipelines та stages з AMO CRM (без збереження)
+ */
+router.get(
+  '/pipelines',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const pipelines = await amoCrmService.getPipelines();
+      return res.json(successResponse(pipelines));
+    } catch (error: any) {
+      console.error('Error getting pipelines:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to get pipelines'));
+    }
+  },
+);
+
+/**
  * POST /api/amo-crm/sync/leads
  * Синхронізація leads
  */
