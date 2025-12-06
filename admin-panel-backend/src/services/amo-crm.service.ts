@@ -404,19 +404,34 @@ export class AmoCrmService {
       console.log(`[AMO CRM] Syncing leads, limit: ${limit}, API Domain: ${this.apiDomain}`);
 
       // Отримати leads з AMO CRM
+      console.log(`[AMO CRM] Requesting leads from: https://${this.apiDomain}/api/v4/leads`);
+      console.log(`[AMO CRM] Access token length: ${accessToken.length}, preview: ${accessToken.substring(0, 30)}...`);
+      
       const response = await axios.get<{ _embedded: { leads: AmoLead[] } }>(
         `https://${this.apiDomain}/api/v4/leads`,
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
           params: {
             limit,
             with: 'contacts', // Отримати також контакти
           },
+          validateStatus: (status) => status < 500, // Не кидати помилку для 4xx
         },
       );
+
+      if (response.status === 401) {
+        console.error('[AMO CRM] 401 Unauthorized - Token may be invalid or expired');
+        console.error('[AMO CRM] Response:', response.data);
+        throw new Error('AMO CRM authentication failed. Token may be invalid or expired.');
+      }
+
+      if (response.status !== 200) {
+        console.error(`[AMO CRM] Unexpected status: ${response.status}`, response.data);
+        throw new Error(`AMO CRM API returned status ${response.status}`);
+      }
 
       const leads = response.data._embedded?.leads || [];
       console.log(`[AMO CRM] Received ${leads.length} leads from AMO CRM`);
