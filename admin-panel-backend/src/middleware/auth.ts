@@ -253,3 +253,32 @@ export const requireAdmin = async (req: AuthRequest, res: Response, next: NextFu
   }
 };
 
+/**
+ * Middleware для перевірки ролі BROKER або ADMIN
+ */
+export const requireBrokerOrAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const userId = req.user?.id || req.user?.userId;
+  if (!req.user || !userId) {
+    return res.status(401).json({ message: 'Unauthorized: User not authenticated' });
+  }
+
+  try {
+    const user = await AppDataSource.getRepository(User).findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.role !== UserRole.ADMIN && user.role !== UserRole.BROKER) {
+      return res.status(403).json({ message: 'Forbidden: Broker or Admin access required' });
+    }
+
+    next();
+  } catch (error: any) {
+    console.error('Error checking broker/admin role:', error);
+    return res.status(500).json({ message: 'Error checking permissions' });
+  }
+};
+
