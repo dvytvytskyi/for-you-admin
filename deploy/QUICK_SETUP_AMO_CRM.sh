@@ -45,11 +45,17 @@ fi
 echo ""
 echo "🗄️  Крок 2: Створення таблиці токенів..."
 
-# Знаходимо контейнер PostgreSQL
+# Знаходимо контейнер PostgreSQL (повна назва з ID)
 POSTGRES_CONTAINER=$(docker ps --format "{{.Names}}" | grep -i postgres | head -1)
 if [ -z "$POSTGRES_CONTAINER" ]; then
-  echo "   ⚠️  Контейнер PostgreSQL не знайдено, спробую стандартну назву..."
-  POSTGRES_CONTAINER="for-you-admin-panel-postgres-prod"
+  # Спробуємо знайти за ID
+  POSTGRES_CONTAINER=$(docker ps --format "{{.ID}}" | head -1)
+  if [ -z "$POSTGRES_CONTAINER" ]; then
+    echo "   ❌ Контейнер PostgreSQL не знайдено!"
+    echo "   Доступні контейнери:"
+    docker ps --format "{{.Names}}"
+    exit 1
+  fi
 fi
 
 echo "   Використовую контейнер: $POSTGRES_CONTAINER"
@@ -77,24 +83,27 @@ echo "🔄 Крок 3: Перезапуск backend..."
 
 cd /root/admin-panel
 
-# Знаходимо назву сервісу backend
-BACKEND_SERVICE=$(docker-compose -f docker-compose.prod.yml ps --services 2>/dev/null | grep -i backend | head -1)
-if [ -z "$BACKEND_SERVICE" ]; then
-  BACKEND_SERVICE=$(docker-compose ps --services 2>/dev/null | grep -i backend | head -1)
-fi
-
-if [ -z "$BACKEND_SERVICE" ]; then
-  echo "   ⚠️  Сервіс backend не знайдено, спробую стандартну назву..."
-  BACKEND_SERVICE="for-you-admin-panel-backend-prod"
-fi
-
-echo "   Використовую сервіс: $BACKEND_SERVICE"
-
-# Перезапускаємо backend
-if [ -f "docker-compose.prod.yml" ]; then
-  docker-compose -f docker-compose.prod.yml restart "$BACKEND_SERVICE" 2>&1 || docker-compose restart "$BACKEND_SERVICE" 2>&1
+# Знаходимо контейнер backend
+BACKEND_CONTAINER=$(docker ps --format "{{.Names}}" | grep -i backend | head -1)
+if [ -z "$BACKEND_CONTAINER" ]; then
+  # Можливо backend запущений окремо
+  echo "   ⚠️  Контейнер backend не знайдено в docker-compose"
+  echo "   Доступні контейнери:"
+  docker ps --format "{{.Names}}"
+  echo "   Пропускаю перезапуск backend (можливо він запущений окремо)"
 else
-  docker-compose restart "$BACKEND_SERVICE" 2>&1
+  echo "   Використовую контейнер: $BACKEND_CONTAINER"
+  
+  # Перезапускаємо backend контейнер напряму
+  docker restart "$BACKEND_CONTAINER" 2>&1 || {
+    echo "   ⚠️  Не вдалося перезапустити через docker restart, спробую через docker-compose"
+    # Спробуємо через docker-compose якщо є файл
+    if [ -f "docker-compose.prod.yml" ]; then
+      docker-compose -f docker-compose.prod.yml restart 2>&1 || docker-compose restart 2>&1
+    elif [ -f "docker-compose.yml" ]; then
+      docker-compose restart 2>&1
+    fi
+  }
 fi
 
 echo "   ✅ Backend перезапущено"
