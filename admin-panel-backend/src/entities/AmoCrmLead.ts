@@ -15,13 +15,13 @@ export class AmoCrmLead {
   price?: number | null;
 
   @Column({ name: 'status_id', nullable: true })
-  statusId?: number;
+  statusId?: number | null;
 
   @Column({ name: 'pipeline_id', nullable: true })
-  pipelineId?: number;
+  pipelineId?: number | null;
 
   @Column({ name: 'responsible_user_id', nullable: true })
-  responsibleUserId?: number;
+  responsibleUserId?: number | null;
 
   @Column({ name: 'created_at_amo', type: 'bigint', nullable: true })
   createdAtAmo?: number; // Timestamp з AMO CRM
