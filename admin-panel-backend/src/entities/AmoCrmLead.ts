@@ -14,14 +14,14 @@ export class AmoCrmLead {
   @Column('decimal', { precision: 15, scale: 2, nullable: true })
   price?: number | null;
 
-  @Column({ name: 'status_id', nullable: true })
-  statusId?: number | null;
+  @Column({ name: 'status_id', type: 'int', nullable: true })
+  statusId?: number;
 
-  @Column({ name: 'pipeline_id', nullable: true })
-  pipelineId?: number | null;
+  @Column({ name: 'pipeline_id', type: 'int', nullable: true })
+  pipelineId?: number;
 
-  @Column({ name: 'responsible_user_id', nullable: true })
-  responsibleUserId?: number | null;
+  @Column({ name: 'responsible_user_id', type: 'int', nullable: true })
+  responsibleUserId?: number;
 
   @Column({ name: 'created_at_amo', type: 'bigint', nullable: true })
   createdAtAmo?: number; // Timestamp з AMO CRM
