@@ -13,25 +13,56 @@ echo -e "\n\033[0;34m═══════════════════�
 echo -e "\033[0;34m  🚀 Налаштування AMO CRM на сервері\033[0m"
 echo -e "\033[0;34m═══════════════════════════════════════════════════════\033[0m\n"
 
-# Переходимо в директорію проекту
-cd /root/admin_for_you/admin-panel-backend 2>/dev/null || cd /root/admin_for_you 2>/dev/null || {
+# Знаходимо директорію проекту
+PROJECT_DIR=""
+if [ -d "/root/admin_for_you" ]; then
+  PROJECT_DIR="/root/admin_for_you"
+elif [ -d "/opt/admin-panel" ]; then
+  PROJECT_DIR="/opt/admin-panel"
+elif [ -d "/var/www/admin-panel" ]; then
+  PROJECT_DIR="/var/www/admin-panel"
+else
+  # Шукаємо директорію з docker-compose
+  PROJECT_DIR=$(find /root /opt /var/www -name "docker-compose*.yml" -type f 2>/dev/null | head -1 | xargs dirname 2>/dev/null || echo "")
+fi
+
+if [ -z "$PROJECT_DIR" ] || [ ! -d "$PROJECT_DIR" ]; then
   echo "❌ Не знайдено директорію проекту"
-  echo "Переконайтеся, що ви знаходитесь в правильній директорії"
-  exit 1
-}
+  echo "Поточний каталог: $(pwd)"
+  echo "Спробуйте знайти проект вручну:"
+  echo "  find /root /opt /var/www -name 'docker-compose*.yml' -type f"
+  echo ""
+  echo "Або вкажіть шлях вручну:"
+  read -p "Введіть шлях до проекту: " PROJECT_DIR
+  if [ ! -d "$PROJECT_DIR" ]; then
+    echo "❌ Директорія не існує: $PROJECT_DIR"
+    exit 1
+  fi
+fi
+
+echo "📁 Використовую директорію: $PROJECT_DIR"
+cd "$PROJECT_DIR"
 
 echo "📝 Крок 1: Додавання змінних оточення..."
 
 # Знаходимо .env файл
-ENV_FILE="admin-panel-backend/.env"
-if [ ! -f "$ENV_FILE" ]; then
+ENV_FILE=""
+if [ -f "admin-panel-backend/.env" ]; then
+  ENV_FILE="admin-panel-backend/.env"
+elif [ -f ".env" ]; then
   ENV_FILE=".env"
-fi
-
-if [ ! -f "$ENV_FILE" ]; then
+elif [ -f "backend/.env" ]; then
+  ENV_FILE="backend/.env"
+else
   echo "❌ Файл .env не знайдено!"
+  echo "Поточний каталог: $(pwd)"
+  echo "Створіть .env файл або вкажіть шлях вручну"
   exit 1
 fi
+
+echo "📝 Використовую .env файл: $ENV_FILE"
+
+# Файл вже перевірено вище
 
 # Додаємо змінні, якщо їх немає
 if ! grep -q "AMO_DOMAIN=" "$ENV_FILE"; then
@@ -59,10 +90,15 @@ echo ""
 echo "🗄️  Крок 2: Створення таблиці токенів..."
 
 # Знаходимо SQL файл
-SQL_FILE="admin-panel-backend/src/scripts/create-amo-crm-tokens-table.sql"
-if [ ! -f "$SQL_FILE" ]; then
-  SQL_FILE="src/scripts/create-amo-crm-tokens-table.sql"
-fi
+SQL_FILE=""
+for path in "admin-panel-backend/src/scripts/create-amo-crm-tokens-table.sql" \
+            "src/scripts/create-amo-crm-tokens-table.sql" \
+            "backend/src/scripts/create-amo-crm-tokens-table.sql"; do
+  if [ -f "$path" ]; then
+    SQL_FILE="$path"
+    break
+  fi
+done
 
 if [ ! -f "$SQL_FILE" ]; then
   echo "   ⚠️  SQL файл не знайдено, створюю вручну..."
@@ -106,10 +142,15 @@ echo ""
 echo "🔑 Крок 4: Встановлення токенів..."
 
 # Знаходимо скрипт встановлення токенів
-TOKEN_SCRIPT="admin-panel-backend/src/scripts/set-initial-amo-tokens.sh"
-if [ ! -f "$TOKEN_SCRIPT" ]; then
-  TOKEN_SCRIPT="src/scripts/set-initial-amo-tokens.sh"
-fi
+TOKEN_SCRIPT=""
+for path in "admin-panel-backend/src/scripts/set-initial-amo-tokens.sh" \
+            "src/scripts/set-initial-amo-tokens.sh" \
+            "backend/src/scripts/set-initial-amo-tokens.sh"; do
+  if [ -f "$path" ]; then
+    TOKEN_SCRIPT="$path"
+    break
+  fi
+done
 
 if [ -f "$TOKEN_SCRIPT" ]; then
   chmod +x "$TOKEN_SCRIPT"
