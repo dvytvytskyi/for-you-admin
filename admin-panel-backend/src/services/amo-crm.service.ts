@@ -404,8 +404,8 @@ export class AmoCrmService {
       console.log(`[AMO CRM] Syncing leads, limit: ${limit}, API Domain: ${this.apiDomain}`);
 
       // Отримати leads з AMO CRM
-      // Використовуємо домен замість apiDomain, якщо apiDomain не налаштовано
-      const apiUrl = this.apiDomain || this.domain;
+      // Використовуємо domain замість apiDomain, оскільки токен видано для domain
+      const apiUrl = this.domain; // Використовуємо domain, а не apiDomain
       console.log(`[AMO CRM] Requesting leads from: https://${apiUrl}/api/v4/leads`);
       console.log(`[AMO CRM] Access token length: ${accessToken.length}, preview: ${accessToken.substring(0, 30)}...`);
       
