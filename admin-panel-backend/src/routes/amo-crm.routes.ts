@@ -1,4 +1,5 @@
 import express from 'express';
+import { Not } from 'typeorm';
 import { AmoCrmService } from '../services/amo-crm.service';
 import { authenticateJWT, requireAdmin, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
@@ -376,6 +377,286 @@ router.post('/webhook', async (req, res) => {
     }, 'Webhook processed with errors'));
   }
 });
+
+/**
+ * POST /api/amo-crm/sync/contacts
+ * Синхронізація contacts
+ */
+router.post(
+  '/sync/contacts',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || parseInt(req.body.limit as string) || 50;
+      const result = await amoCrmService.syncContacts(limit);
+      return res.json(successResponse(result, 'Contacts синхронізовано'));
+    } catch (error: any) {
+      console.error('Error syncing contacts:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to sync contacts'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/contacts
+ * Отримати contacts з локальної БД
+ */
+router.get(
+  '/contacts',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmContact } = await import('../entities/AmoCrmContact');
+      
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const skip = (page - 1) * limit;
+
+      const contactRepo = AppDataSource.getRepository(AmoCrmContact);
+      const [contacts, total] = await contactRepo.findAndCount({
+        order: { updatedAt: 'DESC' },
+        skip,
+        take: limit,
+      });
+
+      return res.json(successResponse({
+        data: contacts,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      }));
+    } catch (error: any) {
+      console.error('Error fetching contacts:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch contacts'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/sync/users
+ * Синхронізація users
+ */
+router.post(
+  '/sync/users',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const result = await amoCrmService.syncUsers();
+      return res.json(successResponse(result, 'Users синхронізовано'));
+    } catch (error: any) {
+      console.error('Error syncing users:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to sync users'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/users
+ * Отримати users з локальної БД
+ */
+router.get(
+  '/users',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmUser } = await import('../entities/AmoCrmUser');
+      
+      const userRepo = AppDataSource.getRepository(AmoCrmUser);
+      const users = await userRepo.find({
+        order: { name: 'ASC' },
+      });
+
+      return res.json(successResponse(users));
+    } catch (error: any) {
+      console.error('Error fetching users:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch users'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/sync/tasks
+ * Синхронізація tasks
+ */
+router.post(
+  '/sync/tasks',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || parseInt(req.body.limit as string) || 50;
+      const result = await amoCrmService.syncTasks(limit);
+      return res.json(successResponse(result, 'Tasks синхронізовано'));
+    } catch (error: any) {
+      console.error('Error syncing tasks:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to sync tasks'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/tasks
+ * Отримати tasks з локальної БД
+ */
+router.get(
+  '/tasks',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmTask } = await import('../entities/AmoCrmTask');
+      
+      const { entityType, entityId, isCompleted } = req.query;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const skip = (page - 1) * limit;
+
+      const taskRepo = AppDataSource.getRepository(AmoCrmTask);
+      const queryBuilder = taskRepo.createQueryBuilder('task');
+
+      if (entityType) {
+        queryBuilder.andWhere('task.entityType = :entityType', { entityType });
+      }
+      if (entityId) {
+        queryBuilder.andWhere('task.entityId = :entityId', { entityId: parseInt(entityId as string) });
+      }
+      if (isCompleted !== undefined) {
+        queryBuilder.andWhere('task.isCompleted = :isCompleted', { isCompleted: isCompleted === 'true' });
+      }
+
+      const [tasks, total] = await queryBuilder
+        .orderBy('task.createdAt', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+
+      return res.json(successResponse({
+        data: tasks,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      }));
+    } catch (error: any) {
+      console.error('Error fetching tasks:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch tasks'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/sync-all
+ * Повна синхронізація всіх даних з AMO CRM
+ */
+router.post(
+  '/sync-all',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { pipelines, leads, contacts, users, tasks } = req.body;
+      const results: any = {};
+
+      if (pipelines !== false) {
+        results.pipelines = await amoCrmService.syncPipelines();
+      }
+      if (leads !== false) {
+        const limit = parseInt(req.body.leadsLimit as string) || 50;
+        results.leads = await amoCrmService.syncLeads(limit);
+      }
+      if (contacts !== false) {
+        const limit = parseInt(req.body.contactsLimit as string) || 50;
+        results.contacts = await amoCrmService.syncContacts(limit);
+      }
+      if (users !== false) {
+        results.users = await amoCrmService.syncUsers();
+      }
+      if (tasks !== false) {
+        const limit = parseInt(req.body.tasksLimit as string) || 50;
+        results.tasks = await amoCrmService.syncTasks(limit);
+      }
+
+      return res.json(successResponse(results, 'Синхронізація завершена'));
+    } catch (error: any) {
+      console.error('Error in sync-all:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to sync all data'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/stages
+ * Отримати stages з мапінгом статусів
+ */
+router.get(
+  '/stages',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmStage } = await import('../entities/AmoCrmStage');
+      
+      const { pipelineId } = req.query;
+      const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+      
+      const queryBuilder = stageRepo.createQueryBuilder('stage');
+      if (pipelineId) {
+        queryBuilder.andWhere('stage.amoPipelineId = :pipelineId', { pipelineId: parseInt(pipelineId as string) });
+      }
+
+      const stages = await queryBuilder
+        .orderBy('stage.sort', 'ASC')
+        .getMany();
+
+      return res.json(successResponse(stages));
+    } catch (error: any) {
+      console.error('Error fetching stages:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch stages'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/stages/mapping
+ * Отримати мапінг статусів (AMO stages → наші статуси)
+ */
+router.get(
+  '/stages/mapping',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmStage, LeadStatus } = await import('../entities/AmoCrmStage');
+      
+      const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+      const stages = await stageRepo.find({
+        where: { mappedStatus: Not(null as any) },
+        relations: ['pipeline'],
+      });
+
+      const mapping = stages.map(stage => ({
+        amoStageId: stage.amoStageId,
+        amoStageName: stage.name,
+        pipelineId: stage.amoPipelineId,
+        pipelineName: stage.pipeline?.name,
+        mappedStatus: stage.mappedStatus,
+      }));
+
+      return res.json(successResponse(mapping));
+    } catch (error: any) {
+      console.error('Error fetching status mapping:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch status mapping'));
+    }
+  },
+);
 
 export default router;
 

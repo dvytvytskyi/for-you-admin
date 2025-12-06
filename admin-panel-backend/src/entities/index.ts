@@ -26,6 +26,11 @@ export { NotificationHistory, NotificationType } from './NotificationHistory';
 export { Document, DocumentType, DocumentCategory } from './Document';
 export { AmoCrmToken } from './AmoCrmToken';
 export { AmoCrmLead } from './AmoCrmLead';
+export { AmoCrmPipeline } from './AmoCrmPipeline';
+export { AmoCrmStage, LeadStatus } from './AmoCrmStage';
+export { AmoCrmUser } from './AmoCrmUser';
+export { AmoCrmContact } from './AmoCrmContact';
+export { AmoCrmTask, AmoTaskType } from './AmoCrmTask';
 
 // Array of all entities for TypeORM DataSource
 import { User } from './User';
@@ -55,6 +60,11 @@ import { NotificationHistory } from './NotificationHistory';
 import { Document } from './Document';
 import { AmoCrmToken } from './AmoCrmToken';
 import { AmoCrmLead } from './AmoCrmLead';
+import { AmoCrmPipeline } from './AmoCrmPipeline';
+import { AmoCrmStage } from './AmoCrmStage';
+import { AmoCrmUser } from './AmoCrmUser';
+import { AmoCrmContact } from './AmoCrmContact';
+import { AmoCrmTask } from './AmoCrmTask';
 
 export const entities = [
   User,
@@ -84,5 +94,10 @@ export const entities = [
   Document,
   AmoCrmToken,
   AmoCrmLead,
+  AmoCrmPipeline,
+  AmoCrmStage,
+  AmoCrmUser,
+  AmoCrmContact,
+  AmoCrmTask,
 ];
 
