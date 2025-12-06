@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { AppDataSource } from '../config/database';
 import { AmoCrmToken } from '../entities/AmoCrmToken';
+import { AmoCrmLead } from '../entities/AmoCrmLead';
 
 // Інтерфейси відповідно до AMO CRM API
 export interface AmoAuthResponse {
@@ -400,6 +401,7 @@ export class AmoCrmService {
   async syncLeads(limit: number = 50): Promise<{ synced: number; errors: number }> {
     try {
       const accessToken = await this.getAccessToken();
+      console.log(`[AMO CRM] Syncing leads, limit: ${limit}, API Domain: ${this.apiDomain}`);
 
       // Отримати leads з AMO CRM
       const response = await axios.get<{ _embedded: { leads: AmoLead[] } }>(
@@ -407,41 +409,92 @@ export class AmoCrmService {
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
           },
           params: {
             limit,
+            with: 'contacts', // Отримати також контакти
           },
         },
       );
 
       const leads = response.data._embedded?.leads || [];
+      console.log(`[AMO CRM] Received ${leads.length} leads from AMO CRM`);
+
+      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
       let synced = 0;
       let errors = 0;
 
-      // Відправити дані в Main Backend
+      // Зберегти leads локально в БД
       for (const lead of leads) {
+        if (!lead.id) {
+          console.warn(`[AMO CRM] Lead without ID, skipping`);
+          errors++;
+          continue;
+        }
+
         try {
-          await axios.post(
-            `${this.mainBackendUrl}/integrations/amo-crm/sync-lead`,
-            { lead },
-            {
-              headers: {
-                'X-API-Key': this.mainBackendApiKey,
-              },
-            },
-          );
-          synced++;
-        } catch (error) {
-          console.error(`Error syncing lead ${lead.id}:`, error);
+          // Перевірити, чи lead вже існує
+          const existingLead = await leadRepo.findOne({
+            where: { amoLeadId: lead.id },
+          });
+
+          const leadData = {
+            amoLeadId: lead.id,
+            name: lead.name,
+            price: lead.price || null,
+            statusId: lead.status_id || null,
+            pipelineId: lead.pipeline_id || null,
+            responsibleUserId: lead.responsible_user_id || null,
+            createdAtAmo: lead.created_at || null,
+            updatedAtAmo: lead.updated_at || null,
+            customFields: lead.custom_fields_values || null,
+            embedded: lead._embedded || null,
+            rawData: lead, // Зберегти повні дані
+          };
+
+          if (existingLead) {
+            // Оновити існуючий lead
+            await leadRepo.update({ amoLeadId: lead.id }, leadData);
+            synced++;
+          } else {
+            // Створити новий lead
+            const newLead = leadRepo.create(leadData);
+            await leadRepo.save(newLead);
+            synced++;
+          }
+
+          // Також спробувати відправити в Main Backend (якщо налаштовано)
+          if (this.mainBackendUrl && this.mainBackendApiKey) {
+            try {
+              await axios.post(
+                `${this.mainBackendUrl}/integrations/amo-crm/sync-lead`,
+                { lead },
+                {
+                  headers: {
+                    'X-API-Key': this.mainBackendApiKey,
+                  },
+                },
+              );
+            } catch (mainBackendError: any) {
+              // Не критична помилка, просто логуємо
+              console.warn(`[AMO CRM] Failed to sync lead ${lead.id} to Main Backend:`, mainBackendError.message);
+            }
+          }
+        } catch (error: any) {
+          console.error(`[AMO CRM] Error saving lead ${lead.id}:`, error.message);
           errors++;
         }
       }
 
-      console.log(`Synced ${synced} leads, ${errors} errors`);
+      console.log(`[AMO CRM] Synced ${synced} leads, ${errors} errors`);
       return { synced, errors };
     } catch (error: any) {
-      console.error('Error syncing leads:', error.response?.data || error.message);
-      throw new Error('Failed to sync leads from AMO CRM');
+      console.error('[AMO CRM] Error syncing leads:', error.response?.data || error.message);
+      if (error.response?.status === 401) {
+        throw new Error('AMO CRM authentication failed. Please check your tokens.');
+      }
+      throw new Error(`Failed to sync leads from AMO CRM: ${error.message}`);
     }
   }
 
