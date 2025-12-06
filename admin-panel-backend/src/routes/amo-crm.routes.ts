@@ -640,6 +640,7 @@ router.get(
       const stages = await stageRepo.find({
         where: { mappedStatus: Not(null as any) },
         relations: ['pipeline'],
+        order: { sort: 'ASC' },
       });
 
       const mapping = stages.map(stage => ({
