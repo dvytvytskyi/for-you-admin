@@ -207,7 +207,11 @@ export class AmoCrmService {
 
       // Створити новий токен
       const expiresAt = new Date();
-      expiresAt.setSeconds(expiresAt.getSeconds() + authData.expires_in);
+      // Якщо expires_in дуже великий (більше 1 року), встановлюємо максимальний термін
+      const expiresInSeconds = authData.expires_in > 31536000 
+        ? Math.min(authData.expires_in, 157680000) // Максимум 5 років
+        : authData.expires_in;
+      expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
 
       const token = tokenRepo.create({
         accessToken: authData.access_token,
