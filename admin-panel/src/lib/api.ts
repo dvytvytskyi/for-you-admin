@@ -14,12 +14,6 @@ const getApiUrl = () => {
       console.log('[getApiUrl] Using foryou domain:', url)
       return url
     }
-    // Якщо це pro-part домен, використовуємо його
-    if (origin.includes('pro-part.online')) {
-      const url = origin + '/api'
-      console.log('[getApiUrl] Using pro-part domain:', url)
-      return url
-    }
     console.log('[getApiUrl] Domain not recognized, checking env...')
   }
   
@@ -27,7 +21,7 @@ const getApiUrl = () => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL
   console.log('[getApiUrl] Env URL:', envUrl)
   
-  if (envUrl && !envUrl.includes('pro-part.online')) {
+  if (envUrl) {
     console.log('[getApiUrl] Using env URL:', envUrl)
     return envUrl
   }

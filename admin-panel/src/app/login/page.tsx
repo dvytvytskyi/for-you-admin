@@ -39,13 +39,10 @@ export default function SignIn() {
         if (origin.includes('admin.foryou-realestate.com') || origin.includes('foryou-realestate.com')) {
           apiUrl = origin + '/api'
           console.log('[Login] Detected foryou domain, using:', apiUrl)
-        } else if (origin.includes('pro-part.online')) {
-          apiUrl = origin + '/api'
-          console.log('[Login] Detected pro-part domain, using:', apiUrl)
         } else {
           // Якщо не визначено домен, перевіряємо змінну оточення
           const envUrl = process.env.NEXT_PUBLIC_API_URL
-          if (envUrl && !envUrl.includes('pro-part.online')) {
+          if (envUrl) {
             apiUrl = envUrl
             console.log('[Login] Using env variable:', apiUrl)
           }
@@ -53,7 +50,7 @@ export default function SignIn() {
       } else {
         // Server-side: перевіряємо змінну оточення
         const envUrl = process.env.NEXT_PUBLIC_API_URL
-        if (envUrl && !envUrl.includes('pro-part.online')) {
+        if (envUrl) {
           apiUrl = envUrl
         }
       }

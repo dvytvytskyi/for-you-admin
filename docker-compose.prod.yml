@@ -12,9 +12,9 @@ services:
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: ${DB_PASSWORD:-admin123}
-      POSTGRES_DB: admin_panel
+      POSTGRES_DB: foryou_admin_panel
     volumes:
-      - admin_panel_db_data:/var/lib/postgresql/data
+      - foryou_admin_panel_db_data:/var/lib/postgresql/data
     networks:
       - admin-network
     healthcheck:
@@ -36,7 +36,7 @@ services:
       - ./admin-panel-backend/.env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://admin:${DB_PASSWORD}@admin-panel-db:5432/admin_panel
+      - DATABASE_URL=postgresql://admin:${DB_PASSWORD}@admin-panel-db:5432/foryou_admin_panel
     volumes:
       - ./admin-panel-backend/uploads:/app/uploads
     depends_on:
@@ -65,7 +65,7 @@ services:
       - admin-network
 
 volumes:
-  admin_panel_db_data:
+  foryou_admin_panel_db_data:
     driver: local
 
 networks:

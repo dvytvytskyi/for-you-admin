@@ -20,6 +20,9 @@ export { Favorite } from './Favorite';
 export { Investment, InvestmentStatus } from './Investment';
 export { PasswordResetToken } from './PasswordResetToken';
 export { CourseProgress } from './CourseProgress';
+export { UserDevice } from './UserDevice';
+export { NotificationSettings } from './NotificationSettings';
+export { NotificationHistory, NotificationType } from './NotificationHistory';
 
 // Array of all entities for TypeORM DataSource
 import { User } from './User';
@@ -43,6 +46,9 @@ import { Favorite } from './Favorite';
 import { Investment } from './Investment';
 import { PasswordResetToken } from './PasswordResetToken';
 import { CourseProgress } from './CourseProgress';
+import { UserDevice } from './UserDevice';
+import { NotificationSettings } from './NotificationSettings';
+import { NotificationHistory } from './NotificationHistory';
 
 export const entities = [
   User,
@@ -66,5 +72,8 @@ export const entities = [
   Investment,
   PasswordResetToken,
   CourseProgress,
+  UserDevice,
+  NotificationSettings,
+  NotificationHistory,
 ];
 

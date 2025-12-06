@@ -24,6 +24,9 @@ interface AllPropertiesJson {
       min_price_aed: number;
       name: string;
       status: string;
+      description?: string;
+      min_area?: number;
+      max_area?: number;
     };
     details: {
       name: string;
@@ -71,11 +74,13 @@ interface AllPropertiesJson {
         units_price_from_aed?: number;
         units_price_from?: number;
         typical_unit_image_url?: string;
+        bedroom_type?: string;
       }>;
       unit_availability?: Array<{
         building_name: string;
         units: Array<{
           area_from: number;
+          area_to?: number;
           bedroom_type: string;
           price_from: number;
           price_from_aed?: number;

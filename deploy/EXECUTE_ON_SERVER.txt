@@ -1,0 +1,24 @@
+# Скопіюйте та виконайте ці команди на сервері:
+
+mkdir -p /opt/admin-panel/deploy
+
+# Потім скопіюйте весь вміст файлу fix-admin-on-main-domain.sh з локальної машини
+# або використайте curl для завантаження з GitHub (якщо файл вже закомічений)
+
+# АБО простіше - виконайте ці команди для швидкого виправлення:
+
+# 1. Перевірте які конфігурації є
+ls -la /etc/nginx/sites-enabled/
+
+# 2. Перевірте чи є конфігурація для основного домену, яка проксує на адмінку
+grep -r "foryou-realestate.com" /etc/nginx/sites-enabled/ | grep "3001"
+
+# 3. Якщо знайдено проблему, видаліть проблемну конфігурацію
+# (замініть FILENAME на ім'я файлу з проблемою)
+# rm /etc/nginx/sites-enabled/FILENAME
+
+# 4. Перевірте конфігурацію адмінки
+grep "server_name" /etc/nginx/sites-available/admin.foryou-realestate.com
+
+# 5. Перезапустіть nginx
+nginx -t && systemctl restart nginx
