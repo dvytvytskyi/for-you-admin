@@ -404,11 +404,13 @@ export class AmoCrmService {
       console.log(`[AMO CRM] Syncing leads, limit: ${limit}, API Domain: ${this.apiDomain}`);
 
       // Отримати leads з AMO CRM
-      console.log(`[AMO CRM] Requesting leads from: https://${this.apiDomain}/api/v4/leads`);
+      // Використовуємо домен замість apiDomain, якщо apiDomain не налаштовано
+      const apiUrl = this.apiDomain || this.domain;
+      console.log(`[AMO CRM] Requesting leads from: https://${apiUrl}/api/v4/leads`);
       console.log(`[AMO CRM] Access token length: ${accessToken.length}, preview: ${accessToken.substring(0, 30)}...`);
       
       const response = await axios.get<{ _embedded: { leads: AmoLead[] } }>(
-        `https://${this.apiDomain}/api/v4/leads`,
+        `https://${apiUrl}/api/v4/leads`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -550,8 +552,9 @@ export class AmoCrmService {
     try {
       const accessToken = await this.getAccessToken();
 
+      const apiUrl = this.apiDomain || this.domain;
       await axios.patch(
-        `https://${this.apiDomain}/api/v4/leads/${leadId}`,
+        `https://${apiUrl}/api/v4/leads/${leadId}`,
         leadData,
         {
           headers: {
