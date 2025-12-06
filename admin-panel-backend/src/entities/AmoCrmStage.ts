@@ -65,7 +65,3 @@ export class AmoCrmStage {
   pipeline!: AmoCrmPipeline;
 }
 
-// Індекси для швидкого пошуку
-@Index(['amoPipelineId', 'sort'])
-@Index(['mappedStatus'])
-
