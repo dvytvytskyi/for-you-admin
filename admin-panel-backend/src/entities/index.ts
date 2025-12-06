@@ -23,6 +23,7 @@ export { CourseProgress } from './CourseProgress';
 export { UserDevice } from './UserDevice';
 export { NotificationSettings } from './NotificationSettings';
 export { NotificationHistory, NotificationType } from './NotificationHistory';
+export { Document, DocumentType, DocumentCategory } from './Document';
 
 // Array of all entities for TypeORM DataSource
 import { User } from './User';
@@ -49,6 +50,7 @@ import { CourseProgress } from './CourseProgress';
 import { UserDevice } from './UserDevice';
 import { NotificationSettings } from './NotificationSettings';
 import { NotificationHistory } from './NotificationHistory';
+import { Document } from './Document';
 
 export const entities = [
   User,
@@ -75,5 +77,6 @@ export const entities = [
   UserDevice,
   NotificationSettings,
   NotificationHistory,
+  Document,
 ];
 
