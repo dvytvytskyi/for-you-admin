@@ -2,6 +2,11 @@ import axios, { AxiosInstance } from 'axios';
 import { AppDataSource } from '../config/database';
 import { AmoCrmToken } from '../entities/AmoCrmToken';
 import { AmoCrmLead } from '../entities/AmoCrmLead';
+import { AmoCrmPipeline } from '../entities/AmoCrmPipeline';
+import { AmoCrmStage, LeadStatus } from '../entities/AmoCrmStage';
+import { AmoCrmUser } from '../entities/AmoCrmUser';
+import { AmoCrmContact } from '../entities/AmoCrmContact';
+import { AmoCrmTask, AmoTaskType } from '../entities/AmoCrmTask';
 
 // Інтерфейси відповідно до AMO CRM API
 export interface AmoAuthResponse {
@@ -369,6 +374,34 @@ export class AmoCrmService {
   }
 
   /**
+   * Мапінг статусів AMO CRM на наші статуси
+   */
+  private mapAmoStatusToLeadStatus(status: AmoStatus): LeadStatus | undefined {
+    // Статуси типу 142 - успішно реалізовано
+    if (status.type === 142) {
+      return LeadStatus.CLOSED_WON;
+    }
+    // Статуси типу 143 - закрито і не реалізовано
+    if (status.type === 143) {
+      return LeadStatus.CLOSED_LOST;
+    }
+    // Статуси типу 1 - неразобранное (новий)
+    if (status.type === 1) {
+      return LeadStatus.NEW;
+    }
+    // Інші статуси - в роботі
+    if (status.type === 0) {
+      // Можна додати логіку для визначення QUALIFIED на основі назви
+      const nameLower = status.name.toLowerCase();
+      if (nameLower.includes('квалификац') || nameLower.includes('qualif')) {
+        return LeadStatus.QUALIFIED;
+      }
+      return LeadStatus.IN_PROGRESS;
+    }
+    return undefined;
+  }
+
+  /**
    * Синхронізація pipelines та stages з AMO CRM
    */
   async syncPipelines(): Promise<{ synced: number; errors: number }> {
@@ -376,7 +409,7 @@ export class AmoCrmService {
       const accessToken = await this.getAccessToken();
 
       // Отримати pipelines з AMO CRM
-      const apiUrl = this.domain; // Використовуємо domain, а не apiDomain
+      const apiUrl = this.domain;
       const response = await axios.get<{ _embedded: { pipelines: AmoPipeline[] } }>(
         `https://${apiUrl}/api/v4/leads/pipelines`,
         {
@@ -387,35 +420,100 @@ export class AmoCrmService {
       );
 
       const pipelines = response.data._embedded?.pipelines || [];
+      const pipelineRepo = AppDataSource.getRepository(AmoCrmPipeline);
+      const stageRepo = AppDataSource.getRepository(AmoCrmStage);
       let synced = 0;
       let errors = 0;
 
-      // Відправити дані в Main Backend
+      // Зберегти pipelines та stages локально
       for (const pipeline of pipelines) {
         try {
-          await axios.post(
-            `${this.mainBackendUrl}/integrations/amo-crm/sync-pipelines`,
-            {
-              pipelines: [pipeline],
-              stages: pipeline._embedded?.statuses || [],
-            },
-            {
-              headers: {
-                'X-API-Key': this.mainBackendApiKey,
-              },
-            },
-          );
+          // Перевірити чи pipeline вже існує
+          const existingPipeline = await pipelineRepo.findOne({
+            where: { amoPipelineId: pipeline.id },
+          });
+
+          const pipelineData: any = {
+            amoPipelineId: pipeline.id,
+            name: pipeline.name,
+            sort: pipeline.sort,
+            isMain: pipeline.is_main,
+            isUnsortedOn: pipeline.is_unsorted_on,
+            isArchive: pipeline.is_archive,
+            accountId: pipeline.account_id,
+            rawData: pipeline,
+          };
+
+          let savedPipeline: AmoCrmPipeline;
+          if (existingPipeline) {
+            await pipelineRepo.update({ amoPipelineId: pipeline.id }, pipelineData);
+            savedPipeline = existingPipeline;
+          } else {
+            savedPipeline = pipelineRepo.create(pipelineData);
+            await pipelineRepo.save(savedPipeline);
+          }
+
+          // Синхронізувати stages
+          const stages = pipeline._embedded?.statuses || [];
+          for (const stage of stages) {
+            const existingStage = await stageRepo.findOne({
+              where: { amoStageId: stage.id },
+            });
+
+            const mappedStatus = this.mapAmoStatusToLeadStatus(stage);
+            const stageData: any = {
+              amoStageId: stage.id,
+              pipelineId: savedPipeline.id,
+              amoPipelineId: pipeline.id,
+              name: stage.name,
+              sort: stage.sort,
+              isEditable: stage.is_editable,
+              color: stage.color ?? undefined,
+              statusType: stage.type ?? undefined,
+              mappedStatus,
+              accountId: pipeline.account_id,
+              rawData: stage,
+            };
+
+            if (existingStage) {
+              await stageRepo.update({ amoStageId: stage.id }, stageData);
+            } else {
+              const newStage = stageRepo.create(stageData);
+              await stageRepo.save(newStage);
+            }
+          }
+
           synced++;
-        } catch (error) {
-          console.error(`Error syncing pipeline ${pipeline.id}:`, error);
+
+          // Також спробувати відправити в Main Backend (якщо налаштовано)
+          if (this.mainBackendUrl && this.mainBackendApiKey) {
+            try {
+              await axios.post(
+                `${this.mainBackendUrl}/integrations/amo-crm/sync-pipelines`,
+                {
+                  pipelines: [pipeline],
+                  stages: stages,
+                },
+                {
+                  headers: {
+                    'X-API-Key': this.mainBackendApiKey,
+                  },
+                },
+              );
+            } catch (mainBackendError: any) {
+              console.warn(`[AMO CRM] Failed to sync pipeline ${pipeline.id} to Main Backend:`, mainBackendError.message);
+            }
+          }
+        } catch (error: any) {
+          console.error(`[AMO CRM] Error syncing pipeline ${pipeline.id}:`, error.message);
           errors++;
         }
       }
 
-      console.log(`Synced ${synced} pipelines, ${errors} errors`);
+      console.log(`[AMO CRM] Synced ${synced} pipelines, ${errors} errors`);
       return { synced, errors };
     } catch (error: any) {
-      console.error('Error syncing pipelines:', error.response?.data || error.message);
+      console.error('[AMO CRM] Error syncing pipelines:', error.response?.data || error.message);
       throw new Error('Failed to sync pipelines from AMO CRM');
     }
   }
@@ -538,6 +636,237 @@ export class AmoCrmService {
       }
       throw new Error(`Failed to sync leads from AMO CRM: ${error.message}`);
     }
+  }
+
+  /**
+   * Синхронізація contacts з AMO CRM
+   */
+  async syncContacts(limit: number = 50): Promise<{ synced: number; errors: number }> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.domain;
+
+      const response = await axios.get<{ _embedded: { contacts: AmoContact[] } }>(
+        `https://${apiUrl}/api/v4/contacts`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          params: { limit },
+        },
+      );
+
+      const contacts = response.data._embedded?.contacts || [];
+      const contactRepo = AppDataSource.getRepository(AmoCrmContact);
+      let synced = 0;
+      let errors = 0;
+
+      for (const contact of contacts) {
+        if (!contact.id) continue;
+
+        try {
+          const existingContact = await contactRepo.findOne({
+            where: { amoContactId: contact.id },
+          });
+
+          const contactData: any = {
+            amoContactId: contact.id,
+            name: contact.name,
+            firstName: contact.first_name ?? undefined,
+            lastName: contact.last_name ?? undefined,
+            email: this.extractEmailFromCustomFields(contact.custom_fields_values),
+            phone: this.extractPhoneFromCustomFields(contact.custom_fields_values),
+            responsibleUserId: contact.responsible_user_id ?? undefined,
+            createdAtAmo: contact.created_at ?? undefined,
+            updatedAtAmo: contact.updated_at ?? undefined,
+            customFields: contact.custom_fields_values ?? undefined,
+            rawData: contact,
+          };
+
+          if (existingContact) {
+            await contactRepo.update({ amoContactId: contact.id }, contactData);
+          } else {
+            const newContact = contactRepo.create(contactData);
+            await contactRepo.save(newContact);
+          }
+          synced++;
+        } catch (error: any) {
+          console.error(`[AMO CRM] Error saving contact ${contact.id}:`, error.message);
+          errors++;
+        }
+      }
+
+      return { synced, errors };
+    } catch (error: any) {
+      console.error('[AMO CRM] Error syncing contacts:', error.response?.data || error.message);
+      throw new Error(`Failed to sync contacts from AMO CRM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Синхронізація users з AMO CRM
+   */
+  async syncUsers(): Promise<{ synced: number; errors: number }> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.domain;
+
+      const response = await axios.get<{ _embedded: { users: AmoUser[] } }>(
+        `https://${apiUrl}/api/v4/users`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const users = response.data._embedded?.users || [];
+      const userRepo = AppDataSource.getRepository(AmoCrmUser);
+      let synced = 0;
+      let errors = 0;
+
+      for (const user of users) {
+        try {
+          const existingUser = await userRepo.findOne({
+            where: { amoUserId: user.id },
+          });
+
+          const userData: any = {
+            amoUserId: user.id,
+            name: user.name,
+            email: user.email ?? undefined,
+            phone: user.phone ?? undefined,
+            isActive: user.is_active ?? true,
+            isFree: user.is_free ?? false,
+            isAdmin: user.is_admin ?? false,
+            rights: user.rights ?? undefined,
+            accountId: parseInt(this.accountId),
+            rawData: user,
+          };
+
+          if (existingUser) {
+            await userRepo.update({ amoUserId: user.id }, userData);
+          } else {
+            const newUser = userRepo.create(userData);
+            await userRepo.save(newUser);
+          }
+          synced++;
+        } catch (error: any) {
+          console.error(`[AMO CRM] Error saving user ${user.id}:`, error.message);
+          errors++;
+        }
+      }
+
+      return { synced, errors };
+    } catch (error: any) {
+      console.error('[AMO CRM] Error syncing users:', error.response?.data || error.message);
+      throw new Error(`Failed to sync users from AMO CRM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Синхронізація tasks з AMO CRM
+   */
+  async syncTasks(limit: number = 50): Promise<{ synced: number; errors: number }> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.domain;
+
+      const response = await axios.get<{ _embedded: { tasks: AmoTask[] } }>(
+        `https://${apiUrl}/api/v4/tasks`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: { limit },
+        },
+      );
+
+      const tasks = response.data._embedded?.tasks || [];
+      const taskRepo = AppDataSource.getRepository(AmoCrmTask);
+      let synced = 0;
+      let errors = 0;
+
+      for (const task of tasks) {
+        if (!task.id) continue;
+
+        try {
+          const existingTask = await taskRepo.findOne({
+            where: { amoTaskId: task.id },
+          });
+
+          const entityType = task.entity_type === 1 ? 'contacts' : task.entity_type === 2 ? 'leads' : 'companies';
+          const mappedType = this.mapTaskType(task.task_type_id);
+
+          const taskData: any = {
+            amoTaskId: task.id,
+            entityId: task.entity_id,
+            entityType,
+            taskType: task.task_type_id,
+            mappedType,
+            text: task.text ?? undefined,
+            resultText: task.result?.text ?? undefined,
+            responsibleUserId: task.responsible_user_id ?? undefined,
+            createdBy: task.created_by ?? undefined,
+            completeTill: task.complete_till ?? undefined,
+            isCompleted: task.is_completed ?? false,
+            createdAtAmo: task.created_at ?? undefined,
+            updatedAtAmo: task.updated_at ?? undefined,
+            rawData: task,
+          };
+
+          if (existingTask) {
+            await taskRepo.update({ amoTaskId: task.id }, taskData);
+          } else {
+            const newTask = taskRepo.create(taskData);
+            await taskRepo.save(newTask);
+          }
+          synced++;
+        } catch (error: any) {
+          console.error(`[AMO CRM] Error saving task ${task.id}:`, error.message);
+          errors++;
+        }
+      }
+
+      return { synced, errors };
+    } catch (error: any) {
+      console.error('[AMO CRM] Error syncing tasks:', error.response?.data || error.message);
+      throw new Error(`Failed to sync tasks from AMO CRM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Мапінг типу задачі AMO CRM на наші типи
+   */
+  private mapTaskType(taskTypeId: number): AmoTaskType {
+    // AMO CRM task types: 1 - Call, 2 - Meeting, 3 - Email, 4 - Task, 5 - Note
+    switch (taskTypeId) {
+      case 1: return AmoTaskType.CALL;
+      case 2: return AmoTaskType.MEETING;
+      case 3: return AmoTaskType.EMAIL;
+      case 4: return AmoTaskType.OTHER;
+      case 5: return AmoTaskType.NOTE;
+      default: return AmoTaskType.OTHER;
+    }
+  }
+
+  /**
+   * Витягти email з custom fields
+   */
+  private extractEmailFromCustomFields(customFields?: AmoCustomField[]): string | undefined {
+    if (!customFields) return undefined;
+    const emailField = customFields.find(f => f.field_code === 'EMAIL' || f.field_name?.toLowerCase().includes('email'));
+    return emailField?.values?.[0]?.value?.toString();
+  }
+
+  /**
+   * Витягти phone з custom fields
+   */
+  private extractPhoneFromCustomFields(customFields?: AmoCustomField[]): string | undefined {
+    if (!customFields) return undefined;
+    const phoneField = customFields.find(f => f.field_code === 'PHONE' || f.field_name?.toLowerCase().includes('phone'));
+    return phoneField?.values?.[0]?.value?.toString();
   }
 
   /**

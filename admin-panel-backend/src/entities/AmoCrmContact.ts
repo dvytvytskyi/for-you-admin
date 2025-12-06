@@ -1,30 +1,30 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('amo_crm_leads')
-export class AmoCrmLead {
+@Entity('amo_crm_contacts')
+export class AmoCrmContact {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ name: 'amo_lead_id', unique: true })
-  amoLeadId!: number; // ID з AMO CRM
+  @Column({ name: 'amo_contact_id', unique: true })
+  amoContactId!: number; // ID з AMO CRM
 
   @Column()
   name!: string;
 
-  @Column('decimal', { precision: 15, scale: 2, nullable: true })
-  price?: number | null;
+  @Column({ name: 'first_name', nullable: true })
+  firstName?: string;
 
-  @Column({ name: 'status_id', type: 'int', nullable: true })
-  statusId?: number;
+  @Column({ name: 'last_name', nullable: true })
+  lastName?: string;
 
-  @Column({ name: 'pipeline_id', type: 'int', nullable: true })
-  pipelineId?: number;
+  @Column({ nullable: true })
+  email?: string;
+
+  @Column({ nullable: true })
+  phone?: string;
 
   @Column({ name: 'responsible_user_id', type: 'int', nullable: true })
   responsibleUserId?: number;
-
-  @Column({ name: 'amo_contact_id', type: 'int', nullable: true })
-  amoContactId?: number; // ID основного контакту з AMO CRM
 
   @Column({ name: 'created_at_amo', type: 'bigint', nullable: true })
   createdAtAmo?: number; // Timestamp з AMO CRM
@@ -36,10 +36,10 @@ export class AmoCrmLead {
   customFields?: any; // Custom fields values
 
   @Column({ type: 'jsonb', nullable: true })
-  embedded?: any; // Contacts, companies тощо
+  embedded?: any; // Companies, leads тощо
 
   @Column({ name: 'raw_data', type: 'jsonb', nullable: true })
-  rawData?: any; // Повні дані з AMO CRM для резервного копіювання
+  rawData?: any; // Повні дані з AMO CRM
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
