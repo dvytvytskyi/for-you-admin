@@ -227,13 +227,15 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
  * Middleware для перевірки ролі ADMIN
  */
 export const requireAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  if (!req.user || !req.user.userId) {
+  // JWT токен містить 'id', а не 'userId'
+  const userId = req.user?.id || req.user?.userId;
+  if (!req.user || !userId) {
     return res.status(401).json({ message: 'Unauthorized: User not authenticated' });
   }
 
   try {
     const user = await AppDataSource.getRepository(User).findOne({
-      where: { id: req.user.userId },
+      where: { id: userId },
     });
 
     if (!user) {
