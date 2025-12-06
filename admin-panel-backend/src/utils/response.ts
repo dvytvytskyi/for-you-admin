@@ -4,9 +4,9 @@ export const successResponse = (data: any, message = 'Success') => ({
   data,
 });
 
-export const errorResponse = (message: string, statusCode = 500) => ({
+export const errorResponse = (message: string, details?: string) => ({
   success: false,
   message,
-  statusCode,
+  ...(details && { error: details }),
 });
 

@@ -21,6 +21,7 @@ import investmentsRoutes from './routes/investments.routes';
 import courseProgressRoutes from './routes/course-progress.routes';
 import notificationsRoutes from './routes/notifications.routes';
 import documentsRoutes from './routes/documents.routes';
+import amoCrmRoutes from './routes/amo-crm.routes';
 
 dotenv.config();
 
@@ -58,6 +59,7 @@ app.use('/api/investments', investmentsRoutes);
 app.use('/api/course-progress', courseProgressRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/documents', documentsRoutes);
+app.use('/api/amo-crm', amoCrmRoutes);
 
 // Routes з префіксом /v1 для мобільного додатку
 app.use('/api/v1/auth', authRoutes);
