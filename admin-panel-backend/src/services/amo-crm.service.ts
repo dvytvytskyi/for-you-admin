@@ -454,17 +454,17 @@ export class AmoCrmService {
             where: { amoLeadId: lead.id },
           });
 
-          const leadData = {
+          const leadData: any = {
             amoLeadId: lead.id,
             name: lead.name,
-            price: lead.price || null,
-            statusId: lead.status_id || null,
-            pipelineId: lead.pipeline_id || null,
-            responsibleUserId: lead.responsible_user_id || null,
-            createdAtAmo: lead.created_at || null,
-            updatedAtAmo: lead.updated_at || null,
-            customFields: lead.custom_fields_values || null,
-            embedded: lead._embedded || null,
+            price: lead.price ?? undefined,
+            statusId: lead.status_id ?? undefined,
+            pipelineId: lead.pipeline_id ?? undefined,
+            responsibleUserId: lead.responsible_user_id ?? undefined,
+            createdAtAmo: lead.created_at ?? undefined,
+            updatedAtAmo: lead.updated_at ?? undefined,
+            customFields: lead.custom_fields_values ?? undefined,
+            embedded: lead._embedded ?? undefined,
             rawData: lead, // Зберегти повні дані
           };
 
