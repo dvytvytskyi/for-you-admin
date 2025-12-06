@@ -45,8 +45,17 @@ fi
 echo ""
 echo "🗄️  Крок 2: Створення таблиці токенів..."
 
+# Знаходимо контейнер PostgreSQL
+POSTGRES_CONTAINER=$(docker ps --format "{{.Names}}" | grep -i postgres | head -1)
+if [ -z "$POSTGRES_CONTAINER" ]; then
+  echo "   ⚠️  Контейнер PostgreSQL не знайдено, спробую стандартну назву..."
+  POSTGRES_CONTAINER="for-you-admin-panel-postgres-prod"
+fi
+
+echo "   Використовую контейнер: $POSTGRES_CONTAINER"
+
 # Створюємо таблицю напряму
-docker exec -i for-you-admin-panel-postgres-prod psql -U admin -d admin_panel << 'SQL' 2>&1 | grep -v "NOTICE" || true
+docker exec -i "$POSTGRES_CONTAINER" psql -U admin -d admin_panel << 'SQL' 2>&1 | grep -v "NOTICE" || true
 CREATE TABLE IF NOT EXISTS amo_crm_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   access_token TEXT NOT NULL,
@@ -67,7 +76,26 @@ echo ""
 echo "🔄 Крок 3: Перезапуск backend..."
 
 cd /root/admin-panel
-docker compose -f docker-compose.prod.yml restart for-you-admin-panel-backend-prod 2>&1 || docker compose restart for-you-admin-panel-backend-prod 2>&1
+
+# Знаходимо назву сервісу backend
+BACKEND_SERVICE=$(docker-compose -f docker-compose.prod.yml ps --services 2>/dev/null | grep -i backend | head -1)
+if [ -z "$BACKEND_SERVICE" ]; then
+  BACKEND_SERVICE=$(docker-compose ps --services 2>/dev/null | grep -i backend | head -1)
+fi
+
+if [ -z "$BACKEND_SERVICE" ]; then
+  echo "   ⚠️  Сервіс backend не знайдено, спробую стандартну назву..."
+  BACKEND_SERVICE="for-you-admin-panel-backend-prod"
+fi
+
+echo "   Використовую сервіс: $BACKEND_SERVICE"
+
+# Перезапускаємо backend
+if [ -f "docker-compose.prod.yml" ]; then
+  docker-compose -f docker-compose.prod.yml restart "$BACKEND_SERVICE" 2>&1 || docker-compose restart "$BACKEND_SERVICE" 2>&1
+else
+  docker-compose restart "$BACKEND_SERVICE" 2>&1
+fi
 
 echo "   ✅ Backend перезапущено"
 echo "   ⏳ Чекаємо 10 секунд для ініціалізації..."
