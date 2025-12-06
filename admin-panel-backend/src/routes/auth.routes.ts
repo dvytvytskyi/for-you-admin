@@ -11,60 +11,89 @@ import { sendResetCodeEmail } from '../services/email.service';
 const router = express.Router();
 
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    // Перевіряємо чи БД ініціалізована
+    if (!AppDataSource.isInitialized) {
+      console.error('Database not initialized');
+      await AppDataSource.initialize();
+    }
 
-  // Спочатку перевіряємо через env (для старого адміна)
-  if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
-    // Шукаємо користувача в БД або створюємо токен з email
-    const adminUser = await AppDataSource.getRepository(User).findOne({
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
+    // Спочатку перевіряємо через env (для старого адміна)
+    if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASSWORD) {
+      // Шукаємо користувача в БД або створюємо токен з email
+      const adminUser = await AppDataSource.getRepository(User).findOne({
+        where: { email },
+      });
+      
+      // Завжди створюємо токен з id (якщо користувач не знайдений в БД, створюємо ід з email)
+      const payload = adminUser 
+        ? { id: adminUser.id, email, role: adminUser.role }
+        : { id: 'admin-env-user', email, role: 'ADMIN' };
+      
+      if (!process.env.ADMIN_JWT_SECRET) {
+        console.error('ADMIN_JWT_SECRET is not set');
+        return res.status(500).json({ success: false, message: 'Server configuration error' });
+      }
+      
+      const token = jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: '7d' });
+      
+      // Якщо користувач не знайдений в БД, повертаємо мінімальні дані
+      if (!adminUser) {
+        return res.json(successResponse({ 
+          token,
+          user: { 
+            email, 
+            role: 'ADMIN',
+            status: 'ACTIVE'
+          } 
+        }, 'Login successful'));
+      }
+      
+      const { passwordHash: _, ...userWithoutPassword } = adminUser;
+      return res.json(successResponse({ token, user: userWithoutPassword }, 'Login successful'));
+    }
+
+    // Перевіряємо в БД для реєстрованих користувачів
+    const user = await AppDataSource.getRepository(User).findOne({
       where: { email },
     });
-    
-    // Завжди створюємо токен з id (якщо користувач не знайдений в БД, створюємо ід з email)
-    const payload = adminUser 
-      ? { id: adminUser.id, email, role: adminUser.role }
-      : { id: 'admin-env-user', email, role: 'ADMIN' };
-    
-    const token = jwt.sign(payload, process.env.ADMIN_JWT_SECRET!, { expiresIn: '7d' });
-    
-    // Якщо користувач не знайдений в БД, повертаємо мінімальні дані
-    if (!adminUser) {
-      return res.json(successResponse({ 
-        token,
-        user: { 
-          email, 
-          role: 'ADMIN',
-          status: 'ACTIVE'
-        } 
-      }, 'Login successful'));
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
-    
-    const { passwordHash: _, ...userWithoutPassword } = adminUser;
+
+    const isValidPassword = await bcrypt.compare(password, user.passwordHash);
+    if (!isValidPassword) {
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+
+    if (!process.env.ADMIN_JWT_SECRET) {
+      console.error('ADMIN_JWT_SECRET is not set');
+      return res.status(500).json({ success: false, message: 'Server configuration error' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.ADMIN_JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const { passwordHash: _, ...userWithoutPassword } = user;
     return res.json(successResponse({ token, user: userWithoutPassword }, 'Login successful'));
+  } catch (error: any) {
+    console.error('Login error:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
-
-  // Перевіряємо в БД для реєстрованих користувачів
-  const user = await AppDataSource.getRepository(User).findOne({
-    where: { email },
-  });
-
-  if (!user) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials' });
-  }
-
-  const isValidPassword = await bcrypt.compare(password, user.passwordHash);
-  if (!isValidPassword) {
-    return res.status(401).json({ success: false, message: 'Invalid credentials' });
-  }
-
-  const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    process.env.ADMIN_JWT_SECRET!,
-    { expiresIn: '7d' }
-  );
-
-  const { passwordHash: _, ...userWithoutPassword } = user;
-  return res.json(successResponse({ token, user: userWithoutPassword }, 'Login successful'));
 });
 
 router.get('/me', authenticateJWT, async (req: any, res) => {

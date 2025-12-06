@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppDataSource } from '../config/database';
 import { ApiKey } from '../entities/ApiKey';
+import { User, UserRole } from '../entities/User';
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -219,6 +220,34 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
     console.error('[API Auth] ❌ Error authenticating API key:', error);
     console.error('[API Auth] Error stack:', error.stack);
     return res.status(500).json({ message: 'Authentication error' });
+  }
+};
+
+/**
+ * Middleware для перевірки ролі ADMIN
+ */
+export const requireAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (!req.user || !req.user.userId) {
+    return res.status(401).json({ message: 'Unauthorized: User not authenticated' });
+  }
+
+  try {
+    const user = await AppDataSource.getRepository(User).findOne({
+      where: { id: req.user.userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.role !== UserRole.ADMIN) {
+      return res.status(403).json({ message: 'Forbidden: Admin access required' });
+    }
+
+    next();
+  } catch (error: any) {
+    console.error('Error checking admin role:', error);
+    return res.status(500).json({ message: 'Error checking permissions' });
   }
 };
 

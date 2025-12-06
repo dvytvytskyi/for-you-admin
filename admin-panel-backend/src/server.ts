@@ -19,6 +19,7 @@ import collectionsRoutes from './routes/collections.routes';
 import favoritesRoutes from './routes/favorites.routes';
 import investmentsRoutes from './routes/investments.routes';
 import courseProgressRoutes from './routes/course-progress.routes';
+import notificationsRoutes from './routes/notifications.routes';
 
 dotenv.config();
 
@@ -54,6 +55,7 @@ app.use('/api/collections', collectionsRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/investments', investmentsRoutes);
 app.use('/api/course-progress', courseProgressRoutes);
+app.use('/api/notifications', notificationsRoutes);
 
 // Routes з префіксом /v1 для мобільного додатку
 app.use('/api/v1/auth', authRoutes);
@@ -67,6 +69,7 @@ app.use('/api/v1/collections', collectionsRoutes);
 app.use('/api/v1/favorites', favoritesRoutes);
 app.use('/api/v1/investments', investmentsRoutes);
 app.use('/api/v1/course-progress', courseProgressRoutes);
+app.use('/api/v1/notifications', notificationsRoutes);
 
 // Root route
 app.get('/', (req, res) => {
