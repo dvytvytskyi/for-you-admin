@@ -345,6 +345,30 @@ export class AmoCrmService {
   }
 
   /**
+   * Отримати pipelines та stages з AMO CRM (без збереження)
+   */
+  async getPipelines(): Promise<AmoPipeline[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.domain;
+
+      const response = await axios.get<{ _embedded: { pipelines: AmoPipeline[] } }>(
+        `https://${apiUrl}/api/v4/leads/pipelines`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      return response.data._embedded?.pipelines || [];
+    } catch (error: any) {
+      console.error('[AMO CRM] Error getting pipelines:', error.response?.data || error.message);
+      throw new Error(`Failed to get pipelines from AMO CRM: ${error.message}`);
+    }
+  }
+
+  /**
    * Синхронізація pipelines та stages з AMO CRM
    */
   async syncPipelines(): Promise<{ synced: number; errors: number }> {
