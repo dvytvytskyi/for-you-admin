@@ -135,6 +135,7 @@ export class AmoCrmService {
     try {
       const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
       const token = await tokenRepo.findOne({
+        where: {},
         order: { createdAt: 'DESC' },
       });
 
