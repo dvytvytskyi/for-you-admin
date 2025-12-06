@@ -171,12 +171,81 @@ router.post(
   requireAdmin,
   async (req: AuthRequest, res) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = parseInt(req.query.limit as string) || parseInt(req.body.limit as string) || 50;
       const result = await amoCrmService.syncLeads(limit);
       return res.json(successResponse(result, 'Leads синхронізовано'));
     } catch (error: any) {
       console.error('Error syncing leads:', error);
       return res.status(500).json(errorResponse(error.message || 'Failed to sync leads'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/leads
+ * Отримати leads з локальної БД
+ */
+router.get(
+  '/leads',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmLead } = await import('../entities/AmoCrmLead');
+      
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const skip = (page - 1) * limit;
+
+      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
+      const [leads, total] = await leadRepo.findAndCount({
+        order: { updatedAt: 'DESC' },
+        skip,
+        take: limit,
+      });
+
+      return res.json(successResponse({
+        data: leads,
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+      }));
+    } catch (error: any) {
+      console.error('Error fetching leads:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch leads'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/leads/:id
+ * Отримати конкретний lead по ID
+ */
+router.get(
+  '/leads/:id',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmLead } = await import('../entities/AmoCrmLead');
+      
+      const { id } = req.params;
+      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
+      
+      const lead = await leadRepo.findOne({
+        where: { amoLeadId: parseInt(id) },
+      });
+
+      if (!lead) {
+        return res.status(404).json(errorResponse('Lead not found'));
+      }
+
+      return res.json(successResponse(lead));
+    } catch (error: any) {
+      console.error('Error fetching lead:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch lead'));
     }
   },
 );
