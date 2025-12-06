@@ -13,14 +13,13 @@ const migrationsPath = isProduction ? ['dist/migrations/**/*.js'] : ['src/migrat
 const FORYOU_DATABASE_URL = 'postgresql://admin:WL273wUVrfbOqgUNhMhr@for-you-admin-panel-postgres-prod:5432/foryou_admin_panel';
 const envDatabaseUrl = process.env.DATABASE_URL || FORYOU_DATABASE_URL;
 // In development/local, use admin_panel. In production, use foryou_admin_panel
-const isLocal = process.env.NODE_ENV !== 'production' && (envDatabaseUrl.includes('localhost') || envDatabaseUrl.includes('127.0.0.1'));
-const finalDatabaseUrl = isLocal
-  ? envDatabaseUrl // Use as-is for local (admin_panel)
-  : envDatabaseUrl.includes('/admin_panel') 
-    ? envDatabaseUrl.replace('/admin_panel', '/foryou_admin_panel')
-    : envDatabaseUrl.includes('/foryou_admin_panel')
-      ? envDatabaseUrl
-      : FORYOU_DATABASE_URL;
+// Check if URL explicitly contains admin_panel - if so, don't change it
+const isLocal = process.env.NODE_ENV !== 'production' && (envDatabaseUrl.includes('localhost') || envDatabaseUrl.includes('127.0.0.1') || envDatabaseUrl.includes('172.18.0.4'));
+const finalDatabaseUrl = isLocal || envDatabaseUrl.includes('/admin_panel')
+  ? envDatabaseUrl // Use as-is for local (admin_panel) or if explicitly set to admin_panel
+  : envDatabaseUrl.includes('/foryou_admin_panel')
+    ? envDatabaseUrl
+    : FORYOU_DATABASE_URL;
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
