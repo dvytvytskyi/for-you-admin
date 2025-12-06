@@ -29,13 +29,13 @@ export class AmoCrmLead {
   @Column({ name: 'updated_at_amo', type: 'bigint', nullable: true })
   updatedAtAmo?: number; // Timestamp з AMO CRM
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ name: 'custom_fields', type: 'jsonb', nullable: true })
   customFields?: any; // Custom fields values
 
   @Column({ type: 'jsonb', nullable: true })
   embedded?: any; // Contacts, companies тощо
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ name: 'raw_data', type: 'jsonb', nullable: true })
   rawData?: any; // Повні дані з AMO CRM для резервного копіювання
 
   @CreateDateColumn({ name: 'created_at' })
