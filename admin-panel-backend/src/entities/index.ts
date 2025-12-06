@@ -25,6 +25,7 @@ export { NotificationSettings } from './NotificationSettings';
 export { NotificationHistory, NotificationType } from './NotificationHistory';
 export { Document, DocumentType, DocumentCategory } from './Document';
 export { AmoCrmToken } from './AmoCrmToken';
+export { AmoCrmLead } from './AmoCrmLead';
 
 // Array of all entities for TypeORM DataSource
 import { User } from './User';
@@ -53,6 +54,7 @@ import { NotificationSettings } from './NotificationSettings';
 import { NotificationHistory } from './NotificationHistory';
 import { Document } from './Document';
 import { AmoCrmToken } from './AmoCrmToken';
+import { AmoCrmLead } from './AmoCrmLead';
 
 export const entities = [
   User,
@@ -81,5 +83,6 @@ export const entities = [
   NotificationHistory,
   Document,
   AmoCrmToken,
+  AmoCrmLead,
 ];
 
