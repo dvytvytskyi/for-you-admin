@@ -234,6 +234,38 @@ router.post(
 );
 
 /**
+ * POST /api/amo-crm/set-tokens
+ * Встановити токени напряму (для тестування або якщо Main Backend не готовий)
+ */
+router.post(
+  '/set-tokens',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { access_token, refresh_token, expires_in, token_type } = req.body;
+
+      if (!access_token) {
+        return res.status(400).json(errorResponse('access_token є обов\'язковим'));
+      }
+
+      const amoCrmService = new AmoCrmService();
+      await amoCrmService.saveTokensLocally({
+        access_token,
+        refresh_token: refresh_token || undefined,
+        expires_in: expires_in || 1200, // 20 хвилин за замовчуванням
+        token_type: token_type || 'Bearer',
+      });
+
+      return res.json(successResponse(null, 'Токени успішно збережено'));
+    } catch (error: any) {
+      console.error('Error setting tokens:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to set tokens'));
+    }
+  },
+);
+
+/**
  * POST /api/amo-crm/webhook
  * Webhook endpoint для прийому подій з AMO CRM
  */

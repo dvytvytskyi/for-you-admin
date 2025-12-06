@@ -1,4 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
+import { AppDataSource } from '../config/database';
+import { AmoCrmToken } from '../entities/AmoCrmToken';
 
 // Інтерфейси відповідно до AMO CRM API
 export interface AmoAuthResponse {
@@ -126,9 +128,35 @@ export class AmoCrmService {
   }
 
   /**
-   * Отримати access token (з Main Backend)
+   * Отримати access token (спочатку з локальної БД, потім з Main Backend)
    */
   private async getAccessToken(): Promise<string> {
+    // Спочатку перевіряємо локальне зберігання
+    try {
+      const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
+      const token = await tokenRepo.findOne({
+        order: { createdAt: 'DESC' },
+      });
+
+      if (token && token.expiresAt > new Date()) {
+        console.log('Using local AMO CRM token');
+        return token.accessToken;
+      }
+
+      // Якщо токен прострочений, спробуємо оновити через refresh token
+      if (token && token.refreshToken) {
+        try {
+          const refreshed = await this.refreshAccessToken(token.refreshToken);
+          return refreshed.access_token;
+        } catch (refreshError) {
+          console.error('Failed to refresh token, trying Main Backend:', refreshError);
+        }
+      }
+    } catch (localError) {
+      console.log('Local token storage not available, trying Main Backend');
+    }
+
+    // Fallback: отримати з Main Backend
     try {
       const response = await axios.get(`${this.mainBackendUrl}/integrations/amo-crm/token`, {
         headers: {
@@ -140,6 +168,60 @@ export class AmoCrmService {
     } catch (error) {
       console.error('Failed to get token from main backend:', error);
       throw new Error('AMO CRM not authorized. Please authorize first.');
+    }
+  }
+
+  /**
+   * Оновити access token через refresh token
+   */
+  private async refreshAccessToken(refreshToken: string): Promise<AmoAuthResponse> {
+    try {
+      const response = await axios.post<AmoAuthResponse>(
+        `https://${this.domain}/oauth2/access_token`,
+        {
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          grant_type: 'refresh_token',
+          refresh_token: refreshToken,
+          redirect_uri: this.redirectUri,
+        },
+      );
+
+      await this.saveTokensLocally(response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error refreshing token:', error.response?.data || error.message);
+      throw new Error('Failed to refresh access token');
+    }
+  }
+
+  /**
+   * Зберегти токени локально (fallback)
+   */
+  async saveTokensLocally(authData: AmoAuthResponse | { access_token: string; refresh_token?: string; expires_in: number; token_type?: string }): Promise<void> {
+    try {
+      const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
+      
+      // Видалити старі токени
+      await tokenRepo.clear();
+
+      // Створити новий токен
+      const expiresAt = new Date();
+      expiresAt.setSeconds(expiresAt.getSeconds() + authData.expires_in);
+
+      const token = tokenRepo.create({
+        accessToken: authData.access_token,
+        refreshToken: authData.refresh_token,
+        expiresIn: authData.expires_in,
+        expiresAt,
+        tokenType: authData.token_type,
+      });
+
+      await tokenRepo.save(token);
+      console.log('AMO CRM tokens saved locally');
+    } catch (error) {
+      console.error('Failed to save tokens locally:', error);
+      // Не кидаємо помилку, бо це fallback
     }
   }
 
@@ -192,8 +274,15 @@ export class AmoCrmService {
         },
       );
 
-      // Зберегти токени в Main Backend
-      await this.saveTokensToMainBackend(response.data);
+      // Зберегти токени в Main Backend та локально
+      await Promise.all([
+        this.saveTokensToMainBackend(response.data).catch(err => 
+          console.warn('Failed to save tokens to Main Backend:', err)
+        ),
+        this.saveTokensLocally(response.data).catch(err => 
+          console.warn('Failed to save tokens locally:', err)
+        ),
+      ]);
 
       console.log('AMO CRM tokens successfully obtained and saved');
       return response.data;
