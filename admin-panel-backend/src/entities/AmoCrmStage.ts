@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { AmoCrmPipeline } from './AmoCrmPipeline';
 
 export enum LeadStatus {
@@ -10,6 +10,8 @@ export enum LeadStatus {
 }
 
 @Entity('amo_crm_stages')
+@Index(['amoPipelineId', 'sort'])
+@Index(['mappedStatus'])
 export class AmoCrmStage {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
