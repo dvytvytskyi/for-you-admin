@@ -37,6 +37,36 @@ export interface AmoStatus {
   is_editable: boolean;
   color?: string;
   pipeline_id: number;
+  type?: number; // Тип статусу: 0 - звичайна, 1 - неразобранное, 142 - успішно, 143 - нереалізовано
+}
+
+export interface AmoUser {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  is_active?: boolean;
+  is_free?: boolean;
+  is_admin?: boolean;
+  rights?: any;
+  account_id?: number;
+}
+
+export interface AmoTask {
+  id: number;
+  entity_id: number;
+  entity_type: string;
+  task_type: number;
+  text?: string;
+  result?: {
+    text?: string;
+  };
+  responsible_user_id?: number;
+  created_by?: number;
+  complete_till?: number;
+  is_completed?: boolean;
+  created_at?: number;
+  updated_at?: number;
 }
 
 export interface AmoLead {
