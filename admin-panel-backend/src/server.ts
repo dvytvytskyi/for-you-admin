@@ -23,6 +23,7 @@ import notificationsRoutes from './routes/notifications.routes';
 import documentsRoutes from './routes/documents.routes';
 import amoCrmRoutes from './routes/amo-crm.routes';
 import leadsRoutes from './routes/leads.routes';
+import analyticsRoutes from './routes/analytics.routes';
 
 dotenv.config();
 
@@ -62,6 +63,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/documents', documentsRoutes);
 app.use('/api/amo-crm', amoCrmRoutes);
 app.use('/api/v1/leads', leadsRoutes);
+app.use('/api/v1/analytics', analyticsRoutes);
 
 // Routes з префіксом /v1 для мобільного додатку
 app.use('/api/v1/auth', authRoutes);

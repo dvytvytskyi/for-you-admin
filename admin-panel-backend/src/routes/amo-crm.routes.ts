@@ -105,16 +105,41 @@ router.post(
 
 /**
  * GET /api/amo-crm/pipelines
- * Отримати pipelines та stages з AMO CRM (без збереження)
+ * Отримати pipelines та stages з AMO CRM (для всіх авторизованих користувачів)
  */
 router.get(
   '/pipelines',
   authenticateJWT,
-  requireAdmin,
   async (req: AuthRequest, res) => {
     try {
-      const pipelines = await amoCrmService.getPipelines();
-      return res.json(successResponse(pipelines));
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+
+      // Отримуємо токени для користувача
+      const pipelines = await amoCrmService.getPipelines(userId);
+      
+      // Форматуємо відповідь
+      const formattedPipelines = pipelines.map((pipeline: any) => ({
+        id: pipeline.id,
+        name: pipeline.name,
+        sort: pipeline.sort,
+        isMain: pipeline.is_main,
+        stages: pipeline._embedded?.statuses?.map((stage: any) => ({
+          id: stage.id,
+          pipelineId: pipeline.id,
+          name: stage.name,
+          sort: stage.sort,
+          color: stage.color,
+          type: stage.type,
+        })) || [],
+      }));
+
+      return res.json({
+        data: formattedPipelines,
+        count: formattedPipelines.length,
+      });
     } catch (error: any) {
       console.error('Error getting pipelines:', error);
       return res.status(500).json(errorResponse(error.message || 'Failed to get pipelines'));
@@ -584,15 +609,68 @@ router.post(
 );
 
 /**
+ * GET /api/amo-crm/pipelines/:id/stages
+ * Отримати stages конкретної воронки (для всіх авторизованих користувачів)
+ */
+router.get(
+  '/pipelines/:id/stages',
+  authenticateJWT,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+
+      const { id } = req.params;
+      const pipelineId = parseInt(id);
+
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmStage } = await import('../entities/AmoCrmStage');
+      
+      const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+      
+      const stages = await stageRepo.find({
+        where: { amoPipelineId: pipelineId },
+        order: { sort: 'ASC' },
+        relations: ['pipeline'],
+      });
+
+      const formattedStages = stages.map(stage => ({
+        id: stage.amoStageId,
+        pipelineId: stage.amoPipelineId,
+        name: stage.name,
+        sort: stage.sort,
+        color: stage.color || undefined,
+        mappedStatus: stage.mappedStatus || undefined,
+        statusType: stage.statusType,
+      }));
+
+      return res.json({
+        data: formattedStages,
+        count: formattedStages.length,
+      });
+    } catch (error: any) {
+      console.error('Error fetching pipeline stages:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch pipeline stages'));
+    }
+  },
+);
+
+/**
  * GET /api/amo-crm/stages
- * Отримати stages з мапінгом статусів
+ * Отримати stages з мапінгом статусів (для всіх авторизованих користувачів)
  */
 router.get(
   '/stages',
   authenticateJWT,
-  requireAdmin,
   async (req: AuthRequest, res) => {
     try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmStage } = await import('../entities/AmoCrmStage');
       
@@ -608,7 +686,20 @@ router.get(
         .orderBy('stage.sort', 'ASC')
         .getMany();
 
-      return res.json(successResponse(stages));
+      const formattedStages = stages.map(stage => ({
+        id: stage.amoStageId,
+        pipelineId: stage.amoPipelineId,
+        name: stage.name,
+        sort: stage.sort,
+        color: stage.color || undefined,
+        mappedStatus: stage.mappedStatus || undefined,
+        statusType: stage.statusType,
+      }));
+
+      return res.json({
+        data: formattedStages,
+        count: formattedStages.length,
+      });
     } catch (error: any) {
       console.error('Error fetching stages:', error);
       return res.status(500).json(errorResponse(error.message || 'Failed to fetch stages'));
