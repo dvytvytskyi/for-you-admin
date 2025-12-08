@@ -503,10 +503,11 @@ export class AmoCrmService {
 
   /**
    * Отримати pipelines та stages з AMO CRM (без збереження)
+   * @param userId - опціональний ID користувача для отримання токенів
    */
-  async getPipelines(): Promise<AmoPipeline[]> {
+  async getPipelines(userId?: string): Promise<AmoPipeline[]> {
     try {
-      const accessToken = await this.getAccessToken();
+      const accessToken = userId ? await this.getAccessToken(userId) : await this.getAccessToken();
       const apiUrl = this.domain;
 
       const response = await axios.get<{ _embedded: { pipelines: AmoPipeline[] } }>(
