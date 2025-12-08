@@ -252,9 +252,10 @@ router.get(
       let contact: AmoCrmContact | undefined;
       if (lead.amoContactId) {
         const contactRepo = AppDataSource.getRepository(AmoCrmContact);
-        contact = await contactRepo.findOne({
+        const foundContact = await contactRepo.findOne({
           where: { amoContactId: lead.amoContactId },
         });
+        contact = foundContact || undefined;
       }
 
       const contactInfo = extractContactInfo(lead, contact);
