@@ -601,7 +601,7 @@ export class AmoCrmService {
             await pipelineRepo.update({ amoPipelineId: pipeline.id }, pipelineData);
             savedPipeline = existingPipeline;
           } else {
-            const newPipeline = pipelineRepo.create(pipelineData);
+            const newPipeline = pipelineRepo.create(pipelineData) as AmoCrmPipeline;
             savedPipeline = await pipelineRepo.save(newPipeline);
           }
 
