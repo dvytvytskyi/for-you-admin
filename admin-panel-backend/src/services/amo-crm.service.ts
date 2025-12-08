@@ -596,13 +596,17 @@ export class AmoCrmService {
             rawData: pipeline,
           };
 
-          let savedPipeline: AmoCrmPipeline;
+          let savedPipeline: AmoCrmPipeline | null = null;
           if (existingPipeline) {
             await pipelineRepo.update({ amoPipelineId: pipeline.id }, pipelineData);
             savedPipeline = existingPipeline;
           } else {
-            savedPipeline = pipelineRepo.create(pipelineData);
-            await pipelineRepo.save(savedPipeline);
+            savedPipeline = await pipelineRepo.save(pipelineRepo.create(pipelineData));
+          }
+          
+          if (!savedPipeline) {
+            errors++;
+            continue;
           }
 
           // Синхронізувати stages
@@ -948,14 +952,16 @@ export class AmoCrmService {
             where: { amoTaskId: task.id },
           });
 
-          const entityType = task.entity_type === 1 ? 'contacts' : task.entity_type === 2 ? 'leads' : 'companies';
-          const mappedType = this.mapTaskType(task.task_type_id);
+          const entityType = task.entity_type === '1' || task.entity_type === 'contacts' ? 'contacts' 
+            : task.entity_type === '2' || task.entity_type === 'leads' ? 'leads' 
+            : 'companies';
+          const mappedType = this.mapTaskType(task.task_type);
 
           const taskData: any = {
             amoTaskId: task.id,
             entityId: task.entity_id,
             entityType,
-            taskType: task.task_type_id,
+            taskType: task.task_type,
             mappedType,
             text: task.text ?? undefined,
             resultText: task.result?.text ?? undefined,
