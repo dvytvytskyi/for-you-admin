@@ -108,7 +108,7 @@ router.get('/callback', async (req, res) => {
               
               // Fallback: показати кнопку через 2 секунди
               setTimeout(function() {
-                document.body.innerHTML = '<div class="container"><p>Please tap the button below:</p><p><a href="' + deepLink + '">Return to App</a></p></div>';
+                document.body.innerHTML = '<div class="container"><p>Please tap the button below:</p><p><button onclick="window.open(\'' + deepLink + '\', \'_self\')" style="color: #007AFF; text-decoration: none; font-weight: 500; padding: 12px 24px; background: white; border: none; border-radius: 8px; display: inline-block; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; font-size: 16px;">Return to App</button></p></div>';
               }, 2000);
             </script>
           </body>
@@ -188,7 +188,7 @@ router.get('/callback', async (req, res) => {
             
             // Fallback: показати кнопку через 2 секунди
             setTimeout(function() {
-              document.body.innerHTML = '<div class="container"><p class="success">✓ Authorization successful!</p><p>Please tap the button below:</p><p><a href="' + deepLink + '">Return to App</a></p></div>';
+              document.body.innerHTML = '<div class="container"><p class="success">✓ Authorization successful!</p><p>Please tap the button below:</p><p><button onclick="window.open(\'' + deepLink + '\', \'_self\')" style="color: #007AFF; text-decoration: none; font-weight: 500; padding: 12px 24px; background: white; border: none; border-radius: 8px; display: inline-block; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; font-size: 16px;">Return to App</button></p></div>';
             }, 2000);
           </script>
         </body>
@@ -266,7 +266,7 @@ router.get('/callback', async (req, res) => {
             
             // Fallback: показати кнопку через 2 секунди
             setTimeout(function() {
-              document.body.innerHTML = '<div class="container"><p class="error">✗ Authorization failed</p><p>Please tap the button below:</p><p><a href="' + deepLink + '">Return to App</a></p></div>';
+              document.body.innerHTML = '<div class="container"><p class="error">✗ Authorization failed</p><p>Please tap the button below:</p><p><button onclick="window.open(\'' + deepLink + '\', \'_self\')" style="color: #007AFF; text-decoration: none; font-weight: 500; padding: 12px 24px; background: white; border: none; border-radius: 8px; display: inline-block; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; font-size: 16px;">Return to App</button></p></div>';
             }, 2000);
           </script>
         </body>
