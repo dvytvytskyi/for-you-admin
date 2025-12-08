@@ -1,56 +1,202 @@
 import express from 'express';
 import { AppDataSource } from '../config/database';
 import { AmoCrmLead } from '../entities/AmoCrmLead';
+import { AmoCrmContact } from '../entities/AmoCrmContact';
+import { AmoCrmStage, LeadStatus } from '../entities/AmoCrmStage';
+import { User, UserRole } from '../entities/User';
 import { authenticateJWT, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
 
 const router = express.Router();
 
 /**
+ * Витягнути email та телефон з custom fields або embedded контакту
+ */
+function extractContactInfo(lead: AmoCrmLead, contact?: AmoCrmContact): { email?: string; phone?: string; name?: string } {
+  // Спочатку пробуємо з embedded контакту
+  if (lead.embedded?.contacts && lead.embedded.contacts.length > 0) {
+    const contactData = lead.embedded.contacts[0];
+    if (contactData.email) return { email: contactData.email, phone: contactData.phone, name: contactData.name };
+  }
+
+  // Потім з контакту з БД
+  if (contact) {
+    return {
+      email: contact.email || undefined,
+      phone: contact.phone || undefined,
+      name: contact.name || contact.firstName && contact.lastName 
+        ? `${contact.firstName} ${contact.lastName}`.trim() 
+        : contact.name,
+    };
+  }
+
+  // Нарешті з custom fields lead
+  if (lead.customFields) {
+    const emailField = Array.isArray(lead.customFields) 
+      ? lead.customFields.find((f: any) => f.field_code === 'EMAIL' || f.field_name?.toLowerCase().includes('email'))
+      : null;
+    const phoneField = Array.isArray(lead.customFields)
+      ? lead.customFields.find((f: any) => f.field_code === 'PHONE' || f.field_name?.toLowerCase().includes('phone'))
+      : null;
+
+    return {
+      email: emailField?.values?.[0]?.value as string | undefined,
+      phone: phoneField?.values?.[0]?.value as string | undefined,
+    };
+  }
+
+  return {};
+}
+
+/**
+ * Мапінг статусу AMO CRM на наші статуси
+ */
+async function mapStatus(statusId?: number): Promise<'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | null> {
+  if (!statusId) return null;
+
+  const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+  const stage = await stageRepo.findOne({
+    where: { amoStageId: statusId },
+  });
+
+  if (!stage || !stage.mappedStatus) return null;
+
+  // Мапінг LeadStatus enum на строкові значення
+  switch (stage.mappedStatus) {
+    case LeadStatus.NEW:
+      return 'NEW';
+    case LeadStatus.IN_PROGRESS:
+      return 'IN_PROGRESS';
+    case LeadStatus.QUALIFIED:
+      return 'QUALIFIED';
+    case LeadStatus.CLOSED_WON:
+      return 'CLOSED_WON';
+    case LeadStatus.CLOSED_LOST:
+      return 'CLOSED_LOST';
+    default:
+      return null;
+  }
+}
+
+/**
  * GET /api/v1/leads
- * Отримати leads з AMO CRM (для мобільного додатку)
- * Fallback endpoint коли main backend недоступний
+ * Отримати список leads з пагінацією та фільтрацією
+ * 
+ * Query параметри:
+ * - page?: number (default: 1)
+ * - limit?: number (default: 50, max: 100)
+ * - status?: 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST'
+ * - brokerId?: string (UUID) - ID брокера з нашої системи
+ * - clientId?: string (UUID) - ID клієнта (не використовується для AMO CRM)
+ * - propertyId?: string (UUID) - ID нерухомості (не використовується для AMO CRM)
  */
 router.get(
   '/',
   authenticateJWT,
   async (req: AuthRequest, res) => {
     try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+
+      // Параметри пагінації
       const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 50;
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
       const skip = (page - 1) * limit;
 
-      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
-      const [leads, total] = await leadRepo.findAndCount({
-        order: { updatedAt: 'DESC' },
-        skip,
-        take: limit,
-      });
+      // Фільтри
+      const status = req.query.status as 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | undefined;
+      const brokerId = req.query.brokerId as string | undefined;
 
-      // Трансформуємо дані для сумісності з main backend форматом
-      const transformedLeads = leads.map(lead => ({
-        id: lead.amoLeadId,
-        name: lead.name,
-        price: lead.price,
-        status_id: lead.statusId,
-        pipeline_id: lead.pipelineId,
-        responsible_user_id: lead.responsibleUserId,
-        contact_id: lead.amoContactId,
-        created_at: lead.createdAtAmo,
-        updated_at: lead.updatedAtAmo,
-        custom_fields: lead.customFields,
-        embedded: lead.embedded,
+      // Побудова запиту
+      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
+      const queryBuilder = leadRepo.createQueryBuilder('lead');
+
+      // Фільтр по статусу (через stages)
+      if (status) {
+        const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+        const stages = await stageRepo.find({
+          where: { mappedStatus: status as any },
+        });
+        if (stages.length > 0) {
+          const statusIds = stages.map(s => s.amoStageId);
+          queryBuilder.andWhere('lead.statusId IN (:...statusIds)', { statusIds });
+        } else {
+          // Якщо немає stages з таким статусом, повертаємо порожній результат
+          return res.json({
+            data: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          });
+        }
+      }
+
+      // Фільтр по brokerId (через responsibleUserId, якщо brokerId відповідає AMO user)
+      // Це потребує мапінгу між нашими користувачами та AMO користувачами
+      // Поки що пропускаємо цей фільтр для AMO CRM leads
+
+      // Якщо користувач - брокер, показуємо тільки його leads
+      // (потрібно мапінг між User.id та AmoCrmUser.amoUserId)
+      if (user.role === UserRole.BROKER) {
+        // TODO: Реалізувати мапінг між User та AmoCrmUser
+        // Поки що показуємо всі leads
+      }
+
+      // Підрахунок загальної кількості
+      const total = await queryBuilder.getCount();
+
+      // Отримання даних з пагінацією
+      const leads = await queryBuilder
+        .orderBy('lead.updatedAt', 'DESC')
+        .skip(skip)
+        .take(limit)
+        .getMany();
+
+      // Отримуємо контакти для leads
+      const contactIds = leads.map(l => l.amoContactId).filter((id): id is number => id !== undefined && id !== null);
+      const contactsMap = new Map<number, AmoCrmContact>();
+      if (contactIds.length > 0) {
+        const contactRepo = AppDataSource.getRepository(AmoCrmContact);
+        const contacts = await contactRepo.find({
+          where: contactIds.map(id => ({ amoContactId: id })),
+        });
+        contacts.forEach(c => contactsMap.set(c.amoContactId, c));
+      }
+
+      // Трансформація даних для сумісності з main backend форматом
+      const transformedLeads = await Promise.all(leads.map(async (lead) => {
+        const contact = lead.amoContactId ? contactsMap.get(lead.amoContactId) : undefined;
+        const contactInfo = extractContactInfo(lead, contact);
+        const mappedStatus = await mapStatus(lead.statusId);
+
+        return {
+          id: lead.id, // Використовуємо UUID з нашої БД
+          guestName: contactInfo.name || lead.name || null,
+          guestPhone: contactInfo.phone || null,
+          guestEmail: contactInfo.email || null,
+          status: mappedStatus || 'NEW',
+          price: lead.price ? Number(lead.price) : null,
+          amoLeadId: lead.amoLeadId || null,
+          responsibleUserId: lead.responsibleUserId || null,
+          createdAt: lead.createdAt.toISOString(),
+          updatedAt: lead.updatedAt.toISOString(),
+          // Додаткові поля для сумісності
+          brokerId: null, // Не маємо мапінгу з AMO users
+          clientId: null,
+          propertyId: null,
+        };
       }));
 
+      // Відповідь у форматі main backend
       return res.json({
-        success: true,
         data: transformedLeads,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       });
     } catch (error: any) {
       console.error('Error fetching leads:', error);
@@ -61,47 +207,87 @@ router.get(
 
 /**
  * GET /api/v1/leads/:id
- * Отримати конкретний lead по ID
+ * Отримати конкретний lead по ID (UUID з нашої БД або amoLeadId)
  */
 router.get(
   '/:id',
   authenticateJWT,
   async (req: AuthRequest, res) => {
     try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+
       const { id } = req.params;
       const leadRepo = AppDataSource.getRepository(AmoCrmLead);
       
-      const lead = await leadRepo.findOne({
-        where: { amoLeadId: parseInt(id) },
+      // Спробуємо знайти по UUID (наш ID)
+      let lead = await leadRepo.findOne({
+        where: { id },
       });
 
-      if (!lead) {
-        return res.status(404).json(errorResponse('Lead not found'));
+      // Якщо не знайдено, пробуємо по amoLeadId
+      if (!lead && !isNaN(parseInt(id))) {
+        lead = await leadRepo.findOne({
+          where: { amoLeadId: parseInt(id) },
+        });
       }
 
-      // Трансформуємо дані для сумісності з main backend форматом
+      if (!lead) {
+        return res.status(404).json({
+          success: false,
+          message: 'Lead not found',
+        });
+      }
+
+      // Перевірка доступу (брокер може бачити тільки свої leads)
+      // TODO: Реалізувати мапінг між User та AmoCrmUser для перевірки
+      if (user.role === UserRole.BROKER) {
+        // Поки що дозволяємо всім брокерам бачити всі leads
+        // Потрібно додати мапінг між User.id та AmoCrmUser.amoUserId
+      }
+
+      // Отримуємо контакт
+      let contact: AmoCrmContact | undefined;
+      if (lead.amoContactId) {
+        const contactRepo = AppDataSource.getRepository(AmoCrmContact);
+        contact = await contactRepo.findOne({
+          where: { amoContactId: lead.amoContactId },
+        });
+      }
+
+      const contactInfo = extractContactInfo(lead, contact);
+      const mappedStatus = await mapStatus(lead.statusId);
+
+      // Трансформація даних
       const transformedLead = {
-        id: lead.amoLeadId,
-        name: lead.name,
-        price: lead.price,
-        status_id: lead.statusId,
-        pipeline_id: lead.pipelineId,
-        responsible_user_id: lead.responsibleUserId,
-        contact_id: lead.amoContactId,
-        created_at: lead.createdAtAmo,
-        updated_at: lead.updatedAtAmo,
-        custom_fields: lead.customFields,
+        id: lead.id,
+        guestName: contactInfo.name || lead.name || null,
+        guestPhone: contactInfo.phone || null,
+        guestEmail: contactInfo.email || null,
+        status: mappedStatus || 'NEW',
+        price: lead.price ? Number(lead.price) : null,
+        amoLeadId: lead.amoLeadId || null,
+        responsibleUserId: lead.responsibleUserId || null,
+        createdAt: lead.createdAt.toISOString(),
+        updatedAt: lead.updatedAt.toISOString(),
+        brokerId: null, // Не маємо мапінгу з AMO users
+        clientId: null,
+        propertyId: null,
+        // Додаткові поля з AMO CRM
+        customFields: lead.customFields,
         embedded: lead.embedded,
-        raw_data: lead.rawData,
       };
 
-      return res.json({
-        success: true,
-        data: transformedLead,
-      });
+      return res.json(transformedLead);
     } catch (error: any) {
       console.error('Error fetching lead:', error);
-      return res.status(500).json(errorResponse(error.message || 'Failed to fetch lead'));
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to fetch lead',
+        error: error.message,
+      });
     }
   },
 );
