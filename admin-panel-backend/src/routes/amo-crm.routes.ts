@@ -40,14 +40,14 @@ router.post(
  * GET /api/amo-crm/callback
  * OAuth callback endpoint
  * Перенаправляє на deep link мобільного додатка після успішної авторизації
- * Використовує HTML сторінку з JavaScript redirect для підтримки Safari
+ * Використовує HTML сторінку з кількома методами JavaScript redirect для підтримки Safari WebView
  */
 router.get('/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
 
     if (!code) {
-      // Якщо немає коду - перенаправити на deep link з помилкою
+      const deepLink = 'foryoure://amo-crm/callback?error=missing_code';
       return res.send(`
         <!DOCTYPE html>
         <html>
@@ -69,6 +69,17 @@ router.get('/callback', async (req, res) => {
                 text-align: center;
                 padding: 20px;
               }
+              a {
+                color: #007AFF;
+                text-decoration: none;
+                font-weight: 500;
+                padding: 12px 24px;
+                background: white;
+                border-radius: 8px;
+                display: inline-block;
+                margin-top: 16px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              }
             </style>
           </head>
           <body>
@@ -76,12 +87,28 @@ router.get('/callback', async (req, res) => {
               <p>Redirecting to app...</p>
             </div>
             <script>
-              // Перенаправлення на deep link
-              window.location.href = 'foryoure://amo-crm/callback?error=missing_code';
+              var deepLink = '${deepLink}';
               
-              // Fallback: якщо через 2 секунди не спрацювало, показати повідомлення
+              // Метод 1: location.href (без window)
+              try {
+                location.href = deepLink;
+              } catch (e) {
+                // Метод 2: window.location.replace
+                try {
+                  window.location.replace(deepLink);
+                } catch (e2) {
+                  // Метод 3: Створити <a> тег та автоматично клікнути
+                  var link = document.createElement('a');
+                  link.href = deepLink;
+                  link.style.display = 'none';
+                  document.body.appendChild(link);
+                  link.click();
+                }
+              }
+              
+              // Fallback: показати кнопку через 2 секунди
               setTimeout(function() {
-                document.body.innerHTML = '<div class="container"><p>Please return to the app manually</p></div>';
+                document.body.innerHTML = '<div class="container"><p>Please tap the button below:</p><p><a href="' + deepLink + '">Return to App</a></p></div>';
               }, 2000);
             </script>
           </body>
@@ -117,6 +144,20 @@ router.get('/callback', async (req, res) => {
             }
             .success {
               color: #4CAF50;
+              font-size: 18px;
+              font-weight: 500;
+              margin-bottom: 16px;
+            }
+            a {
+              color: #007AFF;
+              text-decoration: none;
+              font-weight: 500;
+              padding: 12px 24px;
+              background: white;
+              border-radius: 8px;
+              display: inline-block;
+              margin-top: 16px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             }
           </style>
         </head>
@@ -126,12 +167,28 @@ router.get('/callback', async (req, res) => {
             <p>Redirecting to app...</p>
           </div>
           <script>
-            // Перенаправлення на deep link
-            window.location.href = '${deepLink}';
+            var deepLink = '${deepLink}';
             
-            // Fallback: якщо через 2 секунди не спрацювало, показати повідомлення
+            // Метод 1: location.href (без window)
+            try {
+              location.href = deepLink;
+            } catch (e) {
+              // Метод 2: window.location.replace
+              try {
+                window.location.replace(deepLink);
+              } catch (e2) {
+                // Метод 3: Створити <a> тег та автоматично клікнути
+                var link = document.createElement('a');
+                link.href = deepLink;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+              }
+            }
+            
+            // Fallback: показати кнопку через 2 секунди
             setTimeout(function() {
-              document.body.innerHTML = '<div class="container"><p>Please return to the app manually</p></div>';
+              document.body.innerHTML = '<div class="container"><p class="success">✓ Authorization successful!</p><p>Please tap the button below:</p><p><a href="' + deepLink + '">Return to App</a></p></div>';
             }, 2000);
           </script>
         </body>
@@ -139,8 +196,9 @@ router.get('/callback', async (req, res) => {
     `);
   } catch (error: any) {
     console.error('Error in OAuth callback:', error);
-    // Перенаправити на deep link з помилкою
-    const errorMessage = encodeURIComponent(error.message || 'unknown_error');
+    const errorMsg = encodeURIComponent(error.message || 'auth_failed');
+    const deepLink = `foryoure://amo-crm/callback?error=${errorMsg}`;
+    
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -164,6 +222,20 @@ router.get('/callback', async (req, res) => {
             }
             .error {
               color: #f44336;
+              font-size: 18px;
+              font-weight: 500;
+              margin-bottom: 16px;
+            }
+            a {
+              color: #007AFF;
+              text-decoration: none;
+              font-weight: 500;
+              padding: 12px 24px;
+              background: white;
+              border-radius: 8px;
+              display: inline-block;
+              margin-top: 16px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             }
           </style>
         </head>
@@ -173,12 +245,28 @@ router.get('/callback', async (req, res) => {
             <p>Redirecting to app...</p>
           </div>
           <script>
-            // Перенаправлення на deep link з помилкою
-            window.location.href = 'foryoure://amo-crm/callback?error=${errorMessage}';
+            var deepLink = '${deepLink}';
             
-            // Fallback: якщо через 2 секунди не спрацювало, показати повідомлення
+            // Метод 1: location.href (без window)
+            try {
+              location.href = deepLink;
+            } catch (e) {
+              // Метод 2: window.location.replace
+              try {
+                window.location.replace(deepLink);
+              } catch (e2) {
+                // Метод 3: Створити <a> тег та автоматично клікнути
+                var link = document.createElement('a');
+                link.href = deepLink;
+                link.style.display = 'none';
+                document.body.appendChild(link);
+                link.click();
+              }
+            }
+            
+            // Fallback: показати кнопку через 2 секунди
             setTimeout(function() {
-              document.body.innerHTML = '<div class="container"><p>Please return to the app manually</p></div>';
+              document.body.innerHTML = '<div class="container"><p class="error">✗ Authorization failed</p><p>Please tap the button below:</p><p><a href="' + deepLink + '">Return to App</a></p></div>';
             }, 2000);
           </script>
         </body>
