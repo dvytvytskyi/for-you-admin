@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { AppDataSource } from '../config/database';
 import { AmoCrmToken } from '../entities/AmoCrmToken';
+import { IsNull } from 'typeorm';
 import { AmoCrmLead } from '../entities/AmoCrmLead';
 import { AmoCrmPipeline } from '../entities/AmoCrmPipeline';
 import { AmoCrmStage, LeadStatus } from '../entities/AmoCrmStage';
@@ -135,25 +136,33 @@ export class AmoCrmService {
 
   /**
    * Отримати access token (спочатку з локальної БД, потім з Main Backend)
+   * @param userId - опціональний ID користувача. Якщо не передано, використовується глобальний токен
    */
-  private async getAccessToken(): Promise<string> {
+  private async getAccessToken(userId?: string): Promise<string> {
     // Спочатку перевіряємо локальне зберігання
     try {
       const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
+      
+      // Якщо передано userId, шукаємо токен для користувача
+      // Якщо не передано, шукаємо глобальний токен (без userId)
+      const whereCondition = userId 
+        ? { userId } 
+        : { userId: IsNull() };
+      
       const token = await tokenRepo.findOne({
-        where: {},
+        where: whereCondition,
         order: { createdAt: 'DESC' },
       });
 
       if (token && token.expiresAt > new Date()) {
-        console.log('Using local AMO CRM token');
+        console.log(`Using local AMO CRM token${userId ? ` for user ${userId}` : ' (global)'}`);
         return token.accessToken;
       }
 
       // Якщо токен прострочений, спробуємо оновити через refresh token
       if (token && token.refreshToken) {
         try {
-          const refreshed = await this.refreshAccessToken(token.refreshToken);
+          const refreshed = await this.refreshAccessToken(token.refreshToken, userId);
           return refreshed.access_token;
         } catch (refreshError) {
           console.error('Failed to refresh token, trying Main Backend:', refreshError);
@@ -163,25 +172,29 @@ export class AmoCrmService {
       console.log('Local token storage not available, trying Main Backend');
     }
 
-    // Fallback: отримати з Main Backend
-    try {
-      const response = await axios.get(`${this.mainBackendUrl}/integrations/amo-crm/token`, {
-        headers: {
-          'X-API-Key': this.mainBackendApiKey,
-        },
-      });
+    // Fallback: отримати з Main Backend (тільки якщо не передано userId)
+    if (!userId) {
+      try {
+        const response = await axios.get(`${this.mainBackendUrl}/integrations/amo-crm/token`, {
+          headers: {
+            'X-API-Key': this.mainBackendApiKey,
+          },
+        });
 
-      return response.data.accessToken;
-    } catch (error) {
-      console.error('Failed to get token from main backend:', error);
-      throw new Error('AMO CRM not authorized. Please authorize first.');
+        return response.data.accessToken;
+      } catch (error) {
+        console.error('Failed to get token from main backend:', error);
+        throw new Error('AMO CRM not authorized. Please authorize first.');
+      }
     }
+
+    throw new Error('AMO CRM not authorized for this user. Please authorize first.');
   }
 
   /**
    * Оновити access token через refresh token
    */
-  private async refreshAccessToken(refreshToken: string): Promise<AmoAuthResponse> {
+  private async refreshAccessToken(refreshToken: string, userId?: string): Promise<AmoAuthResponse> {
     try {
       const response = await axios.post<AmoAuthResponse>(
         `https://${this.domain}/oauth2/access_token`,
@@ -194,7 +207,11 @@ export class AmoCrmService {
         },
       );
 
-      await this.saveTokensLocally(response.data);
+      if (userId) {
+        await this.saveTokensForUser(userId, response.data);
+      } else {
+        await this.saveTokensLocally(response.data);
+      }
       return response.data;
     } catch (error: any) {
       console.error('Error refreshing token:', error.response?.data || error.message);
@@ -203,14 +220,14 @@ export class AmoCrmService {
   }
 
   /**
-   * Зберегти токени локально (fallback)
+   * Зберегти токени локально (fallback, глобальні токени без userId)
    */
   async saveTokensLocally(authData: AmoAuthResponse | { access_token: string; refresh_token?: string; expires_in: number; token_type?: string }): Promise<void> {
     try {
       const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
       
-      // Видалити старі токени
-      await tokenRepo.clear();
+      // Видалити старі глобальні токени (без userId)
+      await tokenRepo.delete({ userId: IsNull() });
 
       // Створити новий токен
       const expiresAt = new Date();
@@ -221,6 +238,7 @@ export class AmoCrmService {
       expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
 
       const token = tokenRepo.create({
+        userId: undefined, // Глобальний токен
         accessToken: authData.access_token,
         refreshToken: authData.refresh_token,
         expiresIn: authData.expires_in,
@@ -229,10 +247,44 @@ export class AmoCrmService {
       });
 
       await tokenRepo.save(token);
-      console.log('AMO CRM tokens saved locally');
+      console.log('AMO CRM tokens saved locally (global)');
     } catch (error) {
       console.error('Failed to save tokens locally:', error);
       // Не кидаємо помилку, бо це fallback
+    }
+  }
+
+  /**
+   * Зберегти токени для конкретного користувача
+   */
+  async saveTokensForUser(userId: string, authData: AmoAuthResponse | { access_token: string; refresh_token?: string; expires_in: number; token_type?: string }): Promise<void> {
+    try {
+      const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
+      
+      // Видалити старі токени для цього користувача
+      await tokenRepo.delete({ userId });
+
+      // Створити новий токен
+      const expiresAt = new Date();
+      const expiresInSeconds = authData.expires_in > 31536000 
+        ? Math.min(authData.expires_in, 157680000)
+        : authData.expires_in;
+      expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
+
+      const token = tokenRepo.create({
+        userId,
+        accessToken: authData.access_token,
+        refreshToken: authData.refresh_token,
+        expiresIn: authData.expires_in,
+        expiresAt,
+        tokenType: authData.token_type,
+      });
+
+      await tokenRepo.save(token);
+      console.log(`AMO CRM tokens saved for user ${userId}`);
+    } catch (error) {
+      console.error(`Failed to save tokens for user ${userId}:`, error);
+      throw error;
     }
   }
 
@@ -268,7 +320,7 @@ export class AmoCrmService {
   }
 
   /**
-   * Обмін authorization code на токени
+   * Обмін authorization code на токени (глобальний, для адмінів)
    */
   async exchangeCode(code: string): Promise<AmoAuthResponse> {
     try {
@@ -285,7 +337,7 @@ export class AmoCrmService {
         },
       );
 
-      // Зберегти токени в Main Backend та локально
+      // Зберегти токени в Main Backend та локально (глобально)
       await Promise.all([
         this.saveTokensToMainBackend(response.data).catch(err => 
           console.warn('Failed to save tokens to Main Backend:', err)
@@ -299,6 +351,35 @@ export class AmoCrmService {
       return response.data;
     } catch (error: any) {
       console.error('Error exchanging authorization code:', error.response?.data || error.message);
+      throw new Error('Failed to exchange authorization code');
+    }
+  }
+
+  /**
+   * Обмін authorization code на токени для конкретного користувача
+   */
+  async exchangeCodeForUser(userId: string, code: string): Promise<AmoAuthResponse> {
+    try {
+      console.log(`Starting OAuth exchange for user ${userId} with domain: ${this.domain}`);
+
+      const response = await axios.post<AmoAuthResponse>(
+        `https://${this.domain}/oauth2/access_token`,
+        {
+          client_id: this.clientId,
+          client_secret: this.clientSecret,
+          grant_type: 'authorization_code',
+          code,
+          redirect_uri: this.redirectUri,
+        },
+      );
+
+      // Зберегти токени для користувача
+      await this.saveTokensForUser(userId, response.data);
+
+      console.log(`AMO CRM tokens successfully obtained and saved for user ${userId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Error exchanging authorization code for user ${userId}:`, error.response?.data || error.message);
       throw new Error('Failed to exchange authorization code');
     }
   }
@@ -323,7 +404,7 @@ export class AmoCrmService {
   }
 
   /**
-   * Перевірити статус підключення
+   * Перевірити статус підключення (глобальний, для адмінів)
    */
   async getConnectionStatus(): Promise<{
     connected: boolean;
@@ -346,6 +427,47 @@ export class AmoCrmService {
         domain: this.domain,
         accountId: this.accountId,
       };
+    }
+  }
+
+  /**
+   * Перевірити статус підключення для конкретного користувача
+   */
+  async getUserConnectionStatus(userId: string): Promise<{
+    connected: boolean;
+    hasTokens: boolean;
+    domain: string;
+    accountId: string;
+  }> {
+    try {
+      const token = await this.getAccessToken(userId);
+      return {
+        connected: true,
+        hasTokens: !!token,
+        domain: this.domain,
+        accountId: this.accountId,
+      };
+    } catch (error) {
+      return {
+        connected: false,
+        hasTokens: false,
+        domain: this.domain,
+        accountId: this.accountId,
+      };
+    }
+  }
+
+  /**
+   * Відключити AMO CRM для користувача (видалити токени)
+   */
+  async disconnectUser(userId: string): Promise<void> {
+    try {
+      const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
+      await tokenRepo.delete({ userId });
+      console.log(`AMO CRM disconnected for user ${userId}`);
+    } catch (error) {
+      console.error(`Failed to disconnect AMO CRM for user ${userId}:`, error);
+      throw new Error('Failed to disconnect AMO CRM');
     }
   }
 
