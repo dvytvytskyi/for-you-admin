@@ -38,103 +38,44 @@ router.post(
 
 /**
  * GET /api/amo-crm/callback
- * OAuth callback endpoint
+ * OAuth callback endpoint - перенаправляє на deep link для мобільного додатку
  */
 router.get('/callback', async (req, res) => {
   try {
-    const { code, from_exchange, state } = req.query;
+    const { code, state } = req.query;
 
     if (!code) {
-      return res.status(400).json(errorResponse('Authorization code is missing'));
+      // Перенаправити на deep link з помилкою
+      const errorDeepLink = `foryoure://amo-crm/callback?error=missing_code`;
+      return res.redirect(errorDeepLink);
     }
 
-    const tokens = await amoCrmService.exchangeCode(code as string);
-
-    // Перенаправити на успішну сторінку або показати повідомлення
-    return res.send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>AMO CRM Connected</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-              background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
-            .container {
-              background: white;
-              padding: 40px;
-              border-radius: 10px;
-              box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-              text-align: center;
-            }
-            h1 { color: #4CAF50; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>✅ AMO CRM успішно підключено!</h1>
-            <p>Ви можете закрити це вікно.</p>
-          </div>
-        </body>
-      </html>
-    `);
+    // Перенаправити на deep link з code та state
+    // Мобільний додаток обробить deep link та викличе POST /api/amo-crm/exchange-code
+    const deepLink = `foryoure://amo-crm/callback?code=${code}${state ? `&state=${state}` : ''}`;
+    return res.redirect(deepLink);
   } catch (error: any) {
     console.error('Error in OAuth callback:', error);
-    return res.status(400).send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>AMO CRM Connection Error</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              display: flex;
-              justify-content: center;
-              align-items: center;
-              height: 100vh;
-              margin: 0;
-              background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            }
-            .container {
-              background: white;
-              padding: 40px;
-              border-radius: 10px;
-              box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-              text-align: center;
-            }
-            h1 { color: #f5576c; }
-            p { color: #666; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>❌ Помилка підключення</h1>
-            <p>${error.message || 'Failed to exchange authorization code'}</p>
-          </div>
-        </body>
-      </html>
-    `);
+    const errorDeepLink = `foryoure://amo-crm/callback?error=${encodeURIComponent(error.message || 'unknown_error')}`;
+    return res.redirect(errorDeepLink);
   }
 });
 
 /**
  * GET /api/amo-crm/status
- * Перевірити статус підключення
+ * Перевірити статус підключення (для поточного користувача)
  */
 router.get(
   '/status',
   authenticateJWT,
-  requireAdmin,
   async (req: AuthRequest, res) => {
     try {
-      const status = await amoCrmService.getConnectionStatus();
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+      
+      const status = await amoCrmService.getUserConnectionStatus(userId);
       return res.json(successResponse(status));
     } catch (error: any) {
       console.error('Error getting connection status:', error);
@@ -323,8 +264,60 @@ router.post(
 );
 
 /**
+ * POST /api/amo-crm/exchange-code
+ * Обмін authorization code на токени для поточного користувача
+ */
+router.post(
+  '/exchange-code',
+  authenticateJWT,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).json(errorResponse('Authorization code is required'));
+      }
+
+      await amoCrmService.exchangeCodeForUser(userId, code);
+      return res.json(successResponse(null, 'AMO CRM successfully connected'));
+    } catch (error: any) {
+      console.error('Error exchanging code:', error);
+      return res.status(400).json(errorResponse(error.message || 'Failed to exchange authorization code'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/disconnect
+ * Відключити AMO CRM для поточного користувача
+ */
+router.post(
+  '/disconnect',
+  authenticateJWT,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json(errorResponse('User not authenticated'));
+      }
+
+      await amoCrmService.disconnectUser(userId);
+      return res.json(successResponse(null, 'AMO CRM disconnected'));
+    } catch (error: any) {
+      console.error('Error disconnecting AMO CRM:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to disconnect AMO CRM'));
+    }
+  },
+);
+
+/**
  * POST /api/amo-crm/set-tokens
  * Встановити токени напряму (для тестування або якщо Main Backend не готовий)
+ * Тільки для адмінів (глобальні токени)
  */
 router.post(
   '/set-tokens',
