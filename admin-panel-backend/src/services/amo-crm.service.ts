@@ -596,17 +596,13 @@ export class AmoCrmService {
             rawData: pipeline,
           };
 
-          let savedPipeline: AmoCrmPipeline | null = null;
+          let savedPipeline: AmoCrmPipeline;
           if (existingPipeline) {
             await pipelineRepo.update({ amoPipelineId: pipeline.id }, pipelineData);
             savedPipeline = existingPipeline;
           } else {
-            savedPipeline = await pipelineRepo.save(pipelineRepo.create(pipelineData));
-          }
-          
-          if (!savedPipeline) {
-            errors++;
-            continue;
+            const newPipeline = pipelineRepo.create(pipelineData);
+            savedPipeline = await pipelineRepo.save(newPipeline);
           }
 
           // Синхронізувати stages
