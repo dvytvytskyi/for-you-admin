@@ -38,26 +38,152 @@ router.post(
 
 /**
  * GET /api/amo-crm/callback
- * OAuth callback endpoint - перенаправляє на deep link для мобільного додатку
+ * OAuth callback endpoint
+ * Перенаправляє на deep link мобільного додатка після успішної авторизації
+ * Використовує HTML сторінку з JavaScript redirect для підтримки Safari
  */
 router.get('/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
 
     if (!code) {
-      // Перенаправити на deep link з помилкою
-      const errorDeepLink = `foryoure://amo-crm/callback?error=missing_code`;
-      return res.redirect(errorDeepLink);
+      // Якщо немає коду - перенаправити на deep link з помилкою
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>AMO CRM Authorization</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: #f5f5f5;
+              }
+              .container {
+                text-align: center;
+                padding: 20px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <p>Redirecting to app...</p>
+            </div>
+            <script>
+              // Перенаправлення на deep link
+              window.location.href = 'foryoure://amo-crm/callback?error=missing_code';
+              
+              // Fallback: якщо через 2 секунди не спрацювало, показати повідомлення
+              setTimeout(function() {
+                document.body.innerHTML = '<div class="container"><p>Please return to the app manually</p></div>';
+              }, 2000);
+            </script>
+          </body>
+        </html>
+      `);
     }
 
     // Перенаправити на deep link з code та state
     // Мобільний додаток обробить deep link та викличе POST /api/amo-crm/exchange-code
-    const deepLink = `foryoure://amo-crm/callback?code=${code}${state ? `&state=${state}` : ''}`;
-    return res.redirect(deepLink);
+    const stateParam = state ? `&state=${encodeURIComponent(state as string)}` : '';
+    const deepLink = `foryoure://amo-crm/callback?code=${encodeURIComponent(code as string)}${stateParam}`;
+
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>AMO CRM Authorization</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              margin: 0;
+              background: #f5f5f5;
+            }
+            .container {
+              text-align: center;
+              padding: 20px;
+            }
+            .success {
+              color: #4CAF50;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <p class="success">✓ Authorization successful!</p>
+            <p>Redirecting to app...</p>
+          </div>
+          <script>
+            // Перенаправлення на deep link
+            window.location.href = '${deepLink}';
+            
+            // Fallback: якщо через 2 секунди не спрацювало, показати повідомлення
+            setTimeout(function() {
+              document.body.innerHTML = '<div class="container"><p>Please return to the app manually</p></div>';
+            }, 2000);
+          </script>
+        </body>
+      </html>
+    `);
   } catch (error: any) {
     console.error('Error in OAuth callback:', error);
-    const errorDeepLink = `foryoure://amo-crm/callback?error=${encodeURIComponent(error.message || 'unknown_error')}`;
-    return res.redirect(errorDeepLink);
+    // Перенаправити на deep link з помилкою
+    const errorMessage = encodeURIComponent(error.message || 'unknown_error');
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>AMO CRM Authorization Error</title>
+          <style>
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              display: flex;
+              justify-content: center;
+              align-items: center;
+              height: 100vh;
+              margin: 0;
+              background: #f5f5f5;
+            }
+            .container {
+              text-align: center;
+              padding: 20px;
+            }
+            .error {
+              color: #f44336;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <p class="error">✗ Authorization failed</p>
+            <p>Redirecting to app...</p>
+          </div>
+          <script>
+            // Перенаправлення на deep link з помилкою
+            window.location.href = 'foryoure://amo-crm/callback?error=${errorMessage}';
+            
+            // Fallback: якщо через 2 секунди не спрацювало, показати повідомлення
+            setTimeout(function() {
+              document.body.innerHTML = '<div class="container"><p>Please return to the app manually</p></div>';
+            }, 2000);
+          </script>
+        </body>
+      </html>
+    `);
   }
 });
 
