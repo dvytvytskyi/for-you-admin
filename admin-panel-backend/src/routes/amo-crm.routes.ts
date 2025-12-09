@@ -39,10 +39,10 @@ router.post(
 /**
  * GET /api/amo-crm/callback
  * OAuth callback endpoint
- * Перенаправляє на deep link мобільного додатка після успішної авторизації
- * Використовує HTML сторінку з кількома методами JavaScript redirect для підтримки Safari WebView
+ * Обмінює code на токени ПЕРЕД показом HTML
+ * Показує кнопку "Return to App" без автоматичного redirect
  */
-router.get('/callback', async (req, res) => {
+router.get('/callback', async (req: Request, res: Response) => {
   try {
     const { code, state } = req.query;
 
@@ -68,59 +68,117 @@ router.get('/callback', async (req, res) => {
               .container {
                 text-align: center;
                 padding: 20px;
+                max-width: 400px;
               }
-              a {
-                color: #007AFF;
-                text-decoration: none;
+              .error {
+                color: #f44336;
+                font-size: 18px;
                 font-weight: 500;
-                padding: 12px 24px;
+                margin-bottom: 16px;
+              }
+              button {
+                color: #007AFF;
+                font-weight: 500;
+                padding: 14px 28px;
                 background: white;
+                border: none;
                 border-radius: 8px;
                 display: inline-block;
-                margin-top: 16px;
+                margin-top: 20px;
                 box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                cursor: pointer;
+                font-size: 16px;
+                min-width: 200px;
+              }
+              button:active {
+                opacity: 0.8;
               }
             </style>
           </head>
           <body>
             <div class="container">
-              <p>Redirecting to app...</p>
+              <p class="error">✗ Authorization code is missing</p>
+              <p>Please tap the button below to return to the app:</p>
+              <button onclick="window.open('${deepLink}', '_self')">Return to App</button>
             </div>
-            <script>
-              var deepLink = '${deepLink}';
-              
-              // Метод 1: location.href (без window)
-              try {
-                location.href = deepLink;
-              } catch (e) {
-                // Метод 2: window.location.replace
-                try {
-                  window.location.replace(deepLink);
-                } catch (e2) {
-                  // Метод 3: Створити <a> тег та автоматично клікнути
-                  var link = document.createElement('a');
-                  link.href = deepLink;
-                  link.style.display = 'none';
-                  document.body.appendChild(link);
-                  link.click();
-                }
-              }
-              
-              // Fallback: показати кнопку через 2 секунди
-              setTimeout(function() {
-                document.body.innerHTML = '<div class="container"><p>Please tap the button below:</p><p><button onclick="window.open(\'' + deepLink + '\', \'_self\')" style="color: #007AFF; text-decoration: none; font-weight: 500; padding: 12px 24px; background: white; border: none; border-radius: 8px; display: inline-block; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; font-size: 16px;">Return to App</button></p></div>';
-              }, 2000);
-            </script>
           </body>
         </html>
       `);
     }
 
-    // Перенаправити на deep link з code та state
-    // Мобільний додаток обробить deep link та викличе POST /api/amo-crm/exchange-code
+    // ⚠️ ВАЖЛИВО: Обміняти code на токени ПЕРЕД показом HTML
+    // Це гарантує, що CRM буде вже верифікована, коли користувач повернеться в додаток
+    try {
+      await amoCrmService.exchangeCode(code as string);
+    } catch (error: any) {
+      console.error('Error exchanging code:', error);
+      const errorMsg = encodeURIComponent(error.message || 'auth_failed');
+      const deepLink = `foryoure://amo-crm/callback?error=${errorMsg}`;
+      
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>AMO CRM Authorization Error</title>
+            <style>
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background: #f5f5f5;
+              }
+              .container {
+                text-align: center;
+                padding: 20px;
+                max-width: 400px;
+              }
+              .error {
+                color: #f44336;
+                font-size: 18px;
+                font-weight: 500;
+                margin-bottom: 16px;
+              }
+              button {
+                color: #007AFF;
+                font-weight: 500;
+                padding: 14px 28px;
+                background: white;
+                border: none;
+                border-radius: 8px;
+                display: inline-block;
+                margin-top: 20px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                cursor: pointer;
+                font-size: 16px;
+                min-width: 200px;
+              }
+              button:active {
+                opacity: 0.8;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <p class="error">✗ Authorization failed</p>
+              <p>${error.message || 'Failed to connect to AMO CRM'}</p>
+              <p>Please tap the button below to return to the app:</p>
+              <button onclick="window.open('${deepLink}', '_self')">Return to App</button>
+            </div>
+          </body>
+        </html>
+      `);
+    }
+
+    // ✅ CRM вже верифікована! Токени збережені в БД
+    // Тепер показуємо сторінку з кнопкою для повернення в додаток
     const stateParam = state ? `&state=${encodeURIComponent(state as string)}` : '';
     const deepLink = `foryoure://amo-crm/callback?code=${encodeURIComponent(code as string)}${stateParam}`;
-
+    
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -141,6 +199,7 @@ router.get('/callback', async (req, res) => {
             .container {
               text-align: center;
               padding: 20px;
+              max-width: 400px;
             }
             .success {
               color: #4CAF50;
@@ -148,54 +207,43 @@ router.get('/callback', async (req, res) => {
               font-weight: 500;
               margin-bottom: 16px;
             }
-            a {
+            .message {
+              color: #666;
+              font-size: 16px;
+              margin-bottom: 24px;
+              line-height: 1.5;
+            }
+            button {
               color: #007AFF;
-              text-decoration: none;
               font-weight: 500;
-              padding: 12px 24px;
+              padding: 14px 28px;
               background: white;
+              border: none;
               border-radius: 8px;
               display: inline-block;
-              margin-top: 16px;
+              margin-top: 20px;
               box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              cursor: pointer;
+              font-size: 16px;
+              min-width: 200px;
+            }
+            button:active {
+              opacity: 0.8;
             }
           </style>
         </head>
         <body>
           <div class="container">
             <p class="success">✓ Authorization successful!</p>
-            <p>Redirecting to app...</p>
+            <p class="message">Your AMO CRM account has been successfully connected.</p>
+            <p class="message">Please tap the button below to return to the app:</p>
+            <button onclick="window.open('${deepLink}', '_self')">Return to App</button>
           </div>
-          <script>
-            var deepLink = '${deepLink}';
-            
-            // Метод 1: location.href (без window)
-            try {
-              location.href = deepLink;
-            } catch (e) {
-              // Метод 2: window.location.replace
-              try {
-                window.location.replace(deepLink);
-              } catch (e2) {
-                // Метод 3: Створити <a> тег та автоматично клікнути
-                var link = document.createElement('a');
-                link.href = deepLink;
-                link.style.display = 'none';
-                document.body.appendChild(link);
-                link.click();
-              }
-            }
-            
-            // Fallback: показати кнопку через 2 секунди
-            setTimeout(function() {
-              document.body.innerHTML = '<div class="container"><p class="success">✓ Authorization successful!</p><p>Please tap the button below:</p><p><button onclick="window.open(\'' + deepLink + '\', \'_self\')" style="color: #007AFF; text-decoration: none; font-weight: 500; padding: 12px 24px; background: white; border: none; border-radius: 8px; display: inline-block; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; font-size: 16px;">Return to App</button></p></div>';
-            }, 2000);
-          </script>
         </body>
       </html>
     `);
   } catch (error: any) {
-    console.error('Error in OAuth callback:', error);
+    console.error('Callback error:', error);
     const errorMsg = encodeURIComponent(error.message || 'auth_failed');
     const deepLink = `foryoure://amo-crm/callback?error=${errorMsg}`;
     
@@ -219,6 +267,7 @@ router.get('/callback', async (req, res) => {
             .container {
               text-align: center;
               padding: 20px;
+              max-width: 400px;
             }
             .error {
               color: #f44336;
@@ -226,49 +275,31 @@ router.get('/callback', async (req, res) => {
               font-weight: 500;
               margin-bottom: 16px;
             }
-            a {
+            button {
               color: #007AFF;
-              text-decoration: none;
               font-weight: 500;
-              padding: 12px 24px;
+              padding: 14px 28px;
               background: white;
+              border: none;
               border-radius: 8px;
               display: inline-block;
-              margin-top: 16px;
+              margin-top: 20px;
               box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+              cursor: pointer;
+              font-size: 16px;
+              min-width: 200px;
+            }
+            button:active {
+              opacity: 0.8;
             }
           </style>
         </head>
         <body>
           <div class="container">
             <p class="error">✗ Authorization failed</p>
-            <p>Redirecting to app...</p>
+            <p>Please tap the button below to return to the app:</p>
+            <button onclick="window.open('${deepLink}', '_self')">Return to App</button>
           </div>
-          <script>
-            var deepLink = '${deepLink}';
-            
-            // Метод 1: location.href (без window)
-            try {
-              location.href = deepLink;
-            } catch (e) {
-              // Метод 2: window.location.replace
-              try {
-                window.location.replace(deepLink);
-              } catch (e2) {
-                // Метод 3: Створити <a> тег та автоматично клікнути
-                var link = document.createElement('a');
-                link.href = deepLink;
-                link.style.display = 'none';
-                document.body.appendChild(link);
-                link.click();
-              }
-            }
-            
-            // Fallback: показати кнопку через 2 секунди
-            setTimeout(function() {
-              document.body.innerHTML = '<div class="container"><p class="error">✗ Authorization failed</p><p>Please tap the button below:</p><p><button onclick="window.open(\'' + deepLink + '\', \'_self\')" style="color: #007AFF; text-decoration: none; font-weight: 500; padding: 12px 24px; background: white; border: none; border-radius: 8px; display: inline-block; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; font-size: 16px;">Return to App</button></p></div>';
-            }, 2000);
-          </script>
         </body>
       </html>
     `);
