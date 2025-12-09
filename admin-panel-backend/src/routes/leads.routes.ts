@@ -139,7 +139,8 @@ router.get(
         });
         if (stages.length > 0) {
           const statusIds = stages.map(s => s.amoStageId);
-          queryBuilder.andWhere('lead.statusId IN (:...statusIds)', { statusIds });
+          // Використовуємо правильну назву колонки в БД (status_id, не statusId)
+          queryBuilder.andWhere('lead.status_id IN (:...statusIds)', { statusIds });
         } else {
           // Якщо немає stages з таким статусом, повертаємо порожній результат
           return res.json({
@@ -167,8 +168,9 @@ router.get(
       const total = await queryBuilder.getCount();
 
       // Отримання даних з пагінацією
+      // Використовуємо правильну назву колонки в БД (updated_at, не updatedAt)
       const leads = await queryBuilder
-        .orderBy('lead.updatedAt', 'DESC')
+        .orderBy('lead.updated_at', 'DESC')
         .skip(skip)
         .take(limit)
         .getMany();
