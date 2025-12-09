@@ -42,7 +42,7 @@ router.post(
  * Обмінює code на токени ПЕРЕД показом HTML
  * Показує кнопку "Return to App" без автоматичного redirect
  */
-router.get('/callback', async (req: Request, res: Response) => {
+router.get('/callback', async (req, res) => {
   try {
     const { code, state } = req.query;
 
