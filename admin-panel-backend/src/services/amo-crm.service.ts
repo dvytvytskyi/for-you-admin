@@ -173,29 +173,68 @@ export class AmoCrmService {
     try {
       const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
       
-      // Якщо передано userId, шукаємо токен для користувача
-      // Якщо не передано, шукаємо глобальний токен (без userId)
-      const whereCondition = userId 
-        ? { userId } 
-        : { userId: IsNull() };
-      
-      const token = await tokenRepo.findOne({
-        where: whereCondition,
-        order: { createdAt: 'DESC' },
-      });
+      // Якщо передано userId, спочатку шукаємо токен для користувача
+      if (userId) {
+        let token = await tokenRepo.findOne({
+          where: { userId },
+          order: { createdAt: 'DESC' },
+        });
 
-      if (token && token.expiresAt > new Date()) {
-        console.log(`Using local AMO CRM token${userId ? ` for user ${userId}` : ' (global)'}`);
-        return token.accessToken;
-      }
+        if (token && token.expiresAt > new Date()) {
+          console.log(`Using local AMO CRM token for user ${userId}`);
+          return token.accessToken;
+        }
 
-      // Якщо токен прострочений, спробуємо оновити через refresh token
-      if (token && token.refreshToken) {
-        try {
-          const refreshed = await this.refreshAccessToken(token.refreshToken, userId);
-          return refreshed.access_token;
-        } catch (refreshError) {
-          console.error('Failed to refresh token, trying Main Backend:', refreshError);
+        // Якщо токен прострочений, спробуємо оновити через refresh token
+        if (token && token.refreshToken) {
+          try {
+            const refreshed = await this.refreshAccessToken(token.refreshToken, userId);
+            return refreshed.access_token;
+          } catch (refreshError) {
+            console.error('Failed to refresh token, trying global tokens:', refreshError);
+          }
+        }
+
+        // Fallback: якщо немає токенів для користувача, перевіряємо глобальні токени
+        const globalToken = await tokenRepo.findOne({
+          where: { userId: IsNull() },
+          order: { createdAt: 'DESC' },
+        });
+
+        if (globalToken && globalToken.expiresAt > new Date()) {
+          console.log(`Using global AMO CRM token (fallback for user ${userId})`);
+          return globalToken.accessToken;
+        }
+
+        // Якщо глобальний токен прострочений, спробуємо оновити
+        if (globalToken && globalToken.refreshToken) {
+          try {
+            const refreshed = await this.refreshAccessToken(globalToken.refreshToken);
+            return refreshed.access_token;
+          } catch (refreshError) {
+            console.error('Failed to refresh global token:', refreshError);
+          }
+        }
+      } else {
+        // Якщо не передано userId, шукаємо глобальний токен
+        const token = await tokenRepo.findOne({
+          where: { userId: IsNull() },
+          order: { createdAt: 'DESC' },
+        });
+
+        if (token && token.expiresAt > new Date()) {
+          console.log('Using local AMO CRM token (global)');
+          return token.accessToken;
+        }
+
+        // Якщо токен прострочений, спробуємо оновити через refresh token
+        if (token && token.refreshToken) {
+          try {
+            const refreshed = await this.refreshAccessToken(token.refreshToken);
+            return refreshed.access_token;
+          } catch (refreshError) {
+            console.error('Failed to refresh token, trying Main Backend:', refreshError);
+          }
         }
       }
     } catch (localError) {
