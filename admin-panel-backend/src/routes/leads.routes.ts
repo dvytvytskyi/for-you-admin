@@ -1,4 +1,5 @@
 import express from 'express';
+import { In } from 'typeorm';
 import { AppDataSource } from '../config/database';
 import { AmoCrmLead } from '../entities/AmoCrmLead';
 import { AmoCrmContact } from '../entities/AmoCrmContact';
@@ -54,27 +55,38 @@ function extractContactInfo(lead: AmoCrmLead, contact?: AmoCrmContact): { email?
 async function mapStatus(statusId?: number): Promise<'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | null> {
   if (!statusId) return null;
 
-  const stageRepo = AppDataSource.getRepository(AmoCrmStage);
-  const stage = await stageRepo.findOne({
-    where: { amoStageId: statusId },
-  });
-
-  if (!stage || !stage.mappedStatus) return null;
-
-  // Мапінг LeadStatus enum на строкові значення
-  switch (stage.mappedStatus) {
-    case LeadStatus.NEW:
-      return 'NEW';
-    case LeadStatus.IN_PROGRESS:
-      return 'IN_PROGRESS';
-    case LeadStatus.QUALIFIED:
-      return 'QUALIFIED';
-    case LeadStatus.CLOSED_WON:
-      return 'CLOSED_WON';
-    case LeadStatus.CLOSED_LOST:
-      return 'CLOSED_LOST';
-    default:
+  try {
+    // Перевірка ініціалізації БД
+    if (!AppDataSource.isInitialized) {
+      console.warn('Database not initialized in mapStatus');
       return null;
+    }
+
+    const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+    const stage = await stageRepo.findOne({
+      where: { amoStageId: statusId },
+    });
+
+    if (!stage || !stage.mappedStatus) return null;
+
+    // Мапінг LeadStatus enum на строкові значення
+    switch (stage.mappedStatus) {
+      case LeadStatus.NEW:
+        return 'NEW';
+      case LeadStatus.IN_PROGRESS:
+        return 'IN_PROGRESS';
+      case LeadStatus.QUALIFIED:
+        return 'QUALIFIED';
+      case LeadStatus.CLOSED_WON:
+        return 'CLOSED_WON';
+      case LeadStatus.CLOSED_LOST:
+        return 'CLOSED_LOST';
+      default:
+        return null;
+    }
+  } catch (error: any) {
+    console.error('Error mapping status:', error);
+    return null; // Повертаємо null при помилці, щоб не ламати весь запит
   }
 }
 
@@ -95,6 +107,12 @@ router.get(
   authenticateJWT,
   async (req: AuthRequest, res) => {
     try {
+      // Перевірка ініціалізації БД
+      if (!AppDataSource.isInitialized) {
+        console.error('Database not initialized');
+        return res.status(500).json(errorResponse('Database connection not initialized'));
+      }
+
       const user = req.user;
       if (!user) {
         return res.status(401).json(errorResponse('User not authenticated'));
@@ -161,7 +179,7 @@ router.get(
       if (contactIds.length > 0) {
         const contactRepo = AppDataSource.getRepository(AmoCrmContact);
         const contacts = await contactRepo.find({
-          where: contactIds.map(id => ({ amoContactId: id })),
+          where: { amoContactId: In(contactIds) },
         });
         contacts.forEach(c => contactsMap.set(c.amoContactId, c));
       }
