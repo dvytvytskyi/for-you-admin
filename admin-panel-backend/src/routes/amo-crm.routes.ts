@@ -1,5 +1,7 @@
 import express from 'express';
-import { Not } from 'typeorm';
+import { Not, IsNull } from 'typeorm';
+import { AppDataSource } from '../config/database';
+import { AmoCrmToken } from '../entities/AmoCrmToken';
 import { AmoCrmService } from '../services/amo-crm.service';
 import { authenticateJWT, requireAdmin, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
@@ -311,6 +313,7 @@ router.get('/callback', async (req, res) => {
 /**
  * GET /api/amo-crm/status
  * Перевірити статус підключення (для поточного користувача)
+ * Спочатку шукає токени для користувача, якщо немає - перевіряє глобальні (fallback)
  */
 router.get(
   '/status',
@@ -322,7 +325,32 @@ router.get(
         return res.status(401).json(errorResponse('User not authenticated'));
       }
       
-      const status = await amoCrmService.getUserConnectionStatus(userId);
+      const amoCrmTokenRepository = AppDataSource.getRepository(AmoCrmToken);
+      
+      // Спочатку шукаємо токени для користувача
+      let token = await amoCrmTokenRepository.findOne({
+        where: { userId: userId },
+        order: { createdAt: 'DESC' },
+      });
+      
+      // Якщо немає для користувача - перевіряємо глобальні (userId IS NULL)
+      if (!token) {
+        token = await amoCrmTokenRepository.findOne({
+          where: { userId: IsNull() },
+          order: { createdAt: 'DESC' },
+        });
+      }
+      
+      // Перевіряємо, чи токен валідний (не прострочений)
+      const hasValidToken = token && token.expiresAt > new Date();
+      
+      const status = {
+        connected: hasValidToken,
+        hasTokens: !!token,
+        domain: process.env.AMO_DOMAIN || '',
+        accountId: process.env.AMO_ACCOUNT_ID || '',
+      };
+      
       return res.json(successResponse(status));
     } catch (error: any) {
       console.error('Error getting connection status:', error);
