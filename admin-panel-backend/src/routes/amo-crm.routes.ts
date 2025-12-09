@@ -176,8 +176,10 @@ router.get('/callback', async (req, res) => {
 
     // ✅ CRM вже верифікована! Токени збережені в БД
     // Тепер показуємо сторінку з кнопкою для повернення в додаток
+    // ⚠️ ВАЖЛИВО: Не передаємо code, бо токени вже збережені в БД
+    // Backend вже обміняв code на токени ПЕРЕД показом HTML
     const stateParam = state ? `&state=${encodeURIComponent(state as string)}` : '';
-    const deepLink = `foryoure://amo-crm/callback?code=${encodeURIComponent(code as string)}${stateParam}`;
+    const deepLink = `foryoure://amo-crm/callback?success=true${stateParam}`;
     
     return res.send(`
       <!DOCTYPE html>
