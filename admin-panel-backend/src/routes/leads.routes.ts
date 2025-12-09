@@ -98,6 +98,7 @@ async function mapStatus(statusId?: number): Promise<'NEW' | 'IN_PROGRESS' | 'QU
  * - page?: number (default: 1)
  * - limit?: number (default: 50, max: 100)
  * - status?: 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST'
+ * - stageId?: number - ID стадії з AMO CRM (amoStageId, наприклад: 70457446, 70697150)
  * - brokerId?: string (UUID) - ID брокера з нашої системи
  * - clientId?: string (UUID) - ID клієнта (не використовується для AMO CRM)
  * - propertyId?: string (UUID) - ID нерухомості (не використовується для AMO CRM)
@@ -125,14 +126,21 @@ router.get(
 
       // Фільтри
       const status = req.query.status as 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | undefined;
+      const stageId = req.query.stageId ? parseInt(req.query.stageId as string) : undefined;
       const brokerId = req.query.brokerId as string | undefined;
 
       // Побудова запиту
       const leadRepo = AppDataSource.getRepository(AmoCrmLead);
       const queryBuilder = leadRepo.createQueryBuilder('lead');
 
-      // Фільтр по статусу (через stages)
-      if (status) {
+      // Фільтр по stageId (ID стадії з AMO CRM)
+      if (stageId && !isNaN(stageId)) {
+        // Використовуємо правильну назву колонки в БД (status_id, не statusId)
+        queryBuilder.andWhere('lead.status_id = :stageId', { stageId });
+      }
+
+      // Фільтр по статусу (через stages) - працює тільки якщо не вказано stageId
+      if (status && !stageId) {
         const stageRepo = AppDataSource.getRepository(AmoCrmStage);
         const stages = await stageRepo.find({
           where: { mappedStatus: status as any },
