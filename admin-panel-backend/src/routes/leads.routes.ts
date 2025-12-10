@@ -121,8 +121,10 @@ router.get(
       }
 
       // Параметри пагінації
+      const rawLimit = req.query.limit as string | undefined;
+      const parsedLimit = rawLimit ? parseInt(rawLimit) : undefined;
       const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 100, 100); // Дефолт 100, макс 100
+      const limit = Math.min(parsedLimit || 100, 100); // Дефолт 100, макс 100
       const skip = (page - 1) * limit;
 
       // Фільтри
@@ -133,14 +135,19 @@ router.get(
 
       // Логування параметрів запиту для діагностики
       console.log('📊 GET /api/v1/leads - Request params:', {
+        rawQueryLimit: rawLimit,
+        parsedLimit,
+        finalLimit: limit,
         page,
-        limit,
+        skip,
         status,
         pipelineId,
         stageId,
         brokerId,
         userId: user.id,
         userRole: user.role,
+        fullUrl: req.url,
+        queryString: req.query,
       });
 
       // Побудова запиту
@@ -211,7 +218,14 @@ router.get(
         skip,
         returnedLeads: leads.length,
         totalPages: Math.ceil(total / limit),
+        sqlQuery: queryBuilder.getSql(),
+        sqlParameters: queryBuilder.getParameters(),
       });
+
+      // Попередження, якщо повертається менше лідів, ніж запитувалось
+      if (leads.length < limit && leads.length < total) {
+        console.warn(`⚠️ GET /api/v1/leads - Warning: Requested ${limit} leads, but only ${leads.length} returned (total: ${total})`);
+      }
 
       // Отримуємо контакти для leads
       const contactIds = leads.map(l => l.amoContactId).filter((id): id is number => id !== undefined && id !== null);
