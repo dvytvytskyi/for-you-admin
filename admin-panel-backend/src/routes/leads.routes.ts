@@ -96,8 +96,9 @@ async function mapStatus(statusId?: number): Promise<'NEW' | 'IN_PROGRESS' | 'QU
  * 
  * Query параметри:
  * - page?: number (default: 1)
- * - limit?: number (default: 50, max: 100)
+ * - limit?: number (default: 100, max: 100)
  * - status?: 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST'
+ * - pipelineId?: number - ID пайплайну з AMO CRM (наприклад: 8696950, 8550470)
  * - stageId?: number - ID стадії з AMO CRM (amoStageId, наприклад: 70457446, 70697150)
  * - brokerId?: string (UUID) - ID брокера з нашої системи
  * - clientId?: string (UUID) - ID клієнта (не використовується для AMO CRM)
@@ -121,17 +122,36 @@ router.get(
 
       // Параметри пагінації
       const page = parseInt(req.query.page as string) || 1;
-      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 100); // Дефолт 100, макс 100
       const skip = (page - 1) * limit;
 
       // Фільтри
       const status = req.query.status as 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | undefined;
+      const pipelineId = req.query.pipelineId ? parseInt(req.query.pipelineId as string) : undefined;
       const stageId = req.query.stageId ? parseInt(req.query.stageId as string) : undefined;
       const brokerId = req.query.brokerId as string | undefined;
+
+      // Логування параметрів запиту для діагностики
+      console.log('📊 GET /api/v1/leads - Request params:', {
+        page,
+        limit,
+        status,
+        pipelineId,
+        stageId,
+        brokerId,
+        userId: user.id,
+        userRole: user.role,
+      });
 
       // Побудова запиту
       const leadRepo = AppDataSource.getRepository(AmoCrmLead);
       const queryBuilder = leadRepo.createQueryBuilder('lead');
+
+      // Фільтр по pipelineId (ID пайплайну з AMO CRM)
+      if (pipelineId && !isNaN(pipelineId)) {
+        // Використовуємо правильну назву колонки в БД (pipeline_id, не pipelineId)
+        queryBuilder.andWhere('lead.pipeline_id = :pipelineId', { pipelineId });
+      }
 
       // Фільтр по stageId (ID стадії з AMO CRM)
       if (stageId && !isNaN(stageId)) {
@@ -172,7 +192,7 @@ router.get(
         // Поки що показуємо всі leads
       }
 
-      // Підрахунок загальної кількості
+      // Підрахунок загальної кількості (БЕЗ limit та skip)
       const total = await queryBuilder.getCount();
 
       // Отримання даних з пагінацією
@@ -180,8 +200,18 @@ router.get(
       const leads = await queryBuilder
         .orderBy('lead.updated_at', 'DESC')
         .skip(skip)
-        .take(limit)
+        .take(limit) // ✅ Використовуємо параметр limit з запиту
         .getMany();
+
+      // Логування результатів запиту для діагностики
+      console.log('📊 GET /api/v1/leads - Query result:', {
+        total,
+        requestedLimit: limit,
+        requestedPage: page,
+        skip,
+        returnedLeads: leads.length,
+        totalPages: Math.ceil(total / limit),
+      });
 
       // Отримуємо контакти для leads
       const contactIds = leads.map(l => l.amoContactId).filter((id): id is number => id !== undefined && id !== null);
@@ -208,6 +238,8 @@ router.get(
           status: mappedStatus || 'NEW',
           price: lead.price ? Number(lead.price) : null,
           amoLeadId: lead.amoLeadId || null,
+          pipelineId: lead.pipelineId || null, // ID пайплайну з AMO CRM
+          stageId: lead.statusId || null, // ID стадії з AMO CRM (status_id в БД)
           responsibleUserId: lead.responsibleUserId || null,
           createdAt: lead.createdAt.toISOString(),
           updatedAt: lead.updatedAt.toISOString(),
@@ -298,6 +330,8 @@ router.get(
         status: mappedStatus || 'NEW',
         price: lead.price ? Number(lead.price) : null,
         amoLeadId: lead.amoLeadId || null,
+        pipelineId: lead.pipelineId || null, // ID пайплайну з AMO CRM
+        stageId: lead.statusId || null, // ID стадії з AMO CRM (status_id в БД)
         responsibleUserId: lead.responsibleUserId || null,
         createdAt: lead.createdAt.toISOString(),
         updatedAt: lead.updatedAt.toISOString(),
