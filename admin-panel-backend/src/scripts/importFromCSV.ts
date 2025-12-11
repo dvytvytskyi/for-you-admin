@@ -249,11 +249,11 @@ async function importFromCSV() {
         }
 
         // Get or create developer
-        let developer: Developer | null = null;
+        let developer: Developer | undefined = undefined;
         if (row.developerId && row.developerId.trim()) {
-          developer = developerCache.get(row.developerId) || null;
+          developer = developerCache.get(row.developerId);
           if (!developer) {
-            developer = await developerRepository.findOne({ where: { id: row.developerId } }) || null;
+            developer = await developerRepository.findOne({ where: { id: row.developerId } }) || undefined;
             if (!developer && row.developerName && row.developerName.trim()) {
               developer = developerRepository.create({
                 id: row.developerId,
@@ -312,7 +312,7 @@ async function importFromCSV() {
             countryId: country.id,
             cityId: city.id,
             areaId: area.id,
-            developerId: developer?.id || null,
+            developerId: developer?.id || '',
             facilities: facilityIds,
           });
           // Set id manually after creation
@@ -336,7 +336,7 @@ async function importFromCSV() {
           property.countryId = country.id;
           property.cityId = city.id;
           property.areaId = area.id;
-          property.developerId = developer?.id || null;
+          property.developerId = developer?.id || '';
         }
         
         // Load facilities if needed  
