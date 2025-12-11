@@ -249,11 +249,11 @@ async function importFromCSV() {
         }
 
         // Get or create developer
-        let developer: Developer | undefined = undefined;
+        let developer: Developer | null = null;
         if (row.developerId && row.developerId.trim()) {
-          developer = developerCache.get(row.developerId);
+          developer = developerCache.get(row.developerId) || null;
           if (!developer) {
-            developer = await developerRepository.findOne({ where: { id: row.developerId } }) || undefined;
+            developer = await developerRepository.findOne({ where: { id: row.developerId } }) || null;
             if (!developer && row.developerName && row.developerName.trim()) {
               developer = developerRepository.create({
                 id: row.developerId,
@@ -294,27 +294,30 @@ async function importFromCSV() {
         // Create property
         let property = await propertyRepository.findOne({ where: { id: row.id } });
         if (!property) {
-          property = propertyRepository.create({
+          const propertyData: any = {
             propertyType: mapPropertyType(row.propertyType),
             name: row.name,
             photos: photos,
             latitude: latitude,
             longitude: longitude,
             description: row.description || '',
-          priceFrom: priceFrom,
-          bedroomsFrom: row.bedroomsFrom ? parseInt(row.bedroomsFrom) : undefined,
-          bedroomsTo: row.bedroomsTo ? parseInt(row.bedroomsTo) : undefined,
-          bathroomsFrom: row.bathroomsFrom ? parseInt(row.bathroomsFrom) : undefined,
-          bathroomsTo: row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined,
-          sizeFrom: row.sizeFrom ? parseFloat(row.sizeFrom) : undefined,
-          sizeTo: row.sizeTo ? parseFloat(row.sizeTo) : undefined,
-          paymentPlan: row.paymentPlan || '',
+            priceFrom: priceFrom,
             countryId: country.id,
             cityId: city.id,
             areaId: area.id,
-            developerId: developer?.id || '',
+            developerId: developer ? developer.id : '',
             facilities: facilityIds,
-          });
+          };
+          
+          if (row.bedroomsFrom) propertyData.bedroomsFrom = parseInt(row.bedroomsFrom);
+          if (row.bedroomsTo) propertyData.bedroomsTo = parseInt(row.bedroomsTo);
+          if (row.bathroomsFrom) propertyData.bathroomsFrom = parseInt(row.bathroomsFrom);
+          if (row.bathroomsTo) propertyData.bathroomsTo = parseInt(row.bathroomsTo);
+          if (row.sizeFrom) propertyData.sizeFrom = parseFloat(row.sizeFrom);
+          if (row.sizeTo) propertyData.sizeTo = parseFloat(row.sizeTo);
+          if (row.paymentPlan) propertyData.paymentPlan = row.paymentPlan;
+          
+          property = propertyRepository.create(propertyData);
           // Set id manually after creation
           (property as any).id = row.id;
         } else {
@@ -336,7 +339,7 @@ async function importFromCSV() {
           property.countryId = country.id;
           property.cityId = city.id;
           property.areaId = area.id;
-          property.developerId = developer?.id || '';
+          property.developerId = developer ? developer.id : '';
         }
         
         // Load facilities if needed  
