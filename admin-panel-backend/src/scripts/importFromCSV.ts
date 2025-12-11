@@ -308,7 +308,7 @@ async function importFromCSV() {
           bathroomsTo: row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined,
           sizeFrom: row.sizeFrom ? parseFloat(row.sizeFrom) : undefined,
           sizeTo: row.sizeTo ? parseFloat(row.sizeTo) : undefined,
-          paymentPlan: row.paymentPlan || undefined,
+          paymentPlan: row.paymentPlan || null,
             countryId: country.id,
             cityId: city.id,
             areaId: area.id,
