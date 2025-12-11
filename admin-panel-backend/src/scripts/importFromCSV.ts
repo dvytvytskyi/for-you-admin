@@ -355,22 +355,23 @@ async function importFromCSV() {
                 
                 const totalSize = unitData.totalSize ? parseFloat(String(unitData.totalSize)) : 0;
                 const price = unitData.price ? parseFloat(String(unitData.price)) : 0;
+                const balconySize = unitData.balconySize ? parseFloat(String(unitData.balconySize)) : undefined;
                 
                 if (!unit) {
                   unit = unitRepository.create({
-                    propertyId: savedProperty.id,
+                    propertyId: propertyId,
                     unitId: unitId,
                     type: mapUnitType(unitData.type || 'apartment'),
-                    planImage: unitData.planImage || null,
+                    planImage: unitData.planImage || undefined,
                     totalSize: totalSize,
-                    balconySize: unitData.balconySize ? parseFloat(String(unitData.balconySize)) : null,
+                    balconySize: balconySize,
                     price: price,
                   });
                 } else {
                   unit.type = mapUnitType(unitData.type || 'apartment');
-                  unit.planImage = unitData.planImage || null;
+                  unit.planImage = unitData.planImage || undefined;
                   unit.totalSize = totalSize;
-                  unit.balconySize = unitData.balconySize ? parseFloat(String(unitData.balconySize)) : null;
+                  unit.balconySize = balconySize;
                   unit.price = price;
                 }
                 await unitRepository.save(unit);
