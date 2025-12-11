@@ -292,28 +292,53 @@ async function importFromCSV() {
         }
 
         // Create property
-        const property = propertyRepository.create({
-          id: row.id,
-          propertyType: mapPropertyType(row.propertyType),
-          name: row.name,
-          photos: photos,
-          latitude: latitude,
-          longitude: longitude,
-          description: row.description || '',
-          priceFrom: priceFrom,
-          bedroomsFrom: row.bedroomsFrom ? parseInt(row.bedroomsFrom) : null,
-          bedroomsTo: row.bedroomsTo ? parseInt(row.bedroomsTo) : null,
-          bathroomsFrom: row.bathroomsFrom ? parseInt(row.bathroomsFrom) : null,
-          bathroomsTo: row.bathroomsTo ? parseInt(row.bathroomsTo) : null,
-          sizeFrom: row.sizeFrom ? parseFloat(row.sizeFrom) : null,
-          sizeTo: row.sizeTo ? parseFloat(row.sizeTo) : null,
-          paymentPlan: row.paymentPlan || null,
-          countryId: country.id,
-          cityId: city.id,
-          areaId: area.id,
-          developerId: developer?.id || null,
-          facilities: facilityIds,
-        });
+        let property = await propertyRepository.findOne({ where: { id: row.id } });
+        if (!property) {
+          property = propertyRepository.create({
+            propertyType: mapPropertyType(row.propertyType),
+            name: row.name,
+            photos: photos,
+            latitude: latitude,
+            longitude: longitude,
+            description: row.description || '',
+            priceFrom: priceFrom,
+            bedroomsFrom: row.bedroomsFrom ? parseInt(row.bedroomsFrom) : null,
+            bedroomsTo: row.bedroomsTo ? parseInt(row.bedroomsTo) : null,
+            bathroomsFrom: row.bathroomsFrom ? parseInt(row.bathroomsFrom) : null,
+            bathroomsTo: row.bathroomsTo ? parseInt(row.bathroomsTo) : null,
+            sizeFrom: row.sizeFrom ? parseFloat(row.sizeFrom) : null,
+            sizeTo: row.sizeTo ? parseFloat(row.sizeTo) : null,
+            paymentPlan: row.paymentPlan || null,
+            countryId: country.id,
+            cityId: city.id,
+            areaId: area.id,
+            developerId: developer?.id || null,
+            facilities: facilityIds,
+          });
+          // Set id manually after creation
+          (property as any).id = row.id;
+        } else {
+          // Update existing
+          property.propertyType = mapPropertyType(row.propertyType);
+          property.name = row.name;
+          property.photos = photos;
+          property.latitude = latitude;
+          property.longitude = longitude;
+          property.description = row.description || '';
+          property.priceFrom = priceFrom;
+          property.bedroomsFrom = row.bedroomsFrom ? parseInt(row.bedroomsFrom) : null;
+          property.bedroomsTo = row.bedroomsTo ? parseInt(row.bedroomsTo) : null;
+          property.bathroomsFrom = row.bathroomsFrom ? parseInt(row.bathroomsFrom) : null;
+          property.bathroomsTo = row.bathroomsTo ? parseInt(row.bathroomsTo) : null;
+          property.sizeFrom = row.sizeFrom ? parseFloat(row.sizeFrom) : null;
+          property.sizeTo = row.sizeTo ? parseFloat(row.sizeTo) : null;
+          property.paymentPlan = row.paymentPlan || null;
+          property.countryId = country.id;
+          property.cityId = city.id;
+          property.areaId = area.id;
+          property.developerId = developer?.id || null;
+          property.facilities = facilityIds;
+        }
 
         const savedProperty = await propertyRepository.save(property);
 
@@ -323,16 +348,31 @@ async function importFromCSV() {
             const unitsData = JSON.parse(row.units);
             if (Array.isArray(unitsData)) {
               for (const unitData of unitsData) {
-                const unit = unitRepository.create({
-                  propertyId: savedProperty.id,
-                  unitId: String(unitData.unitId || unitData.id || ''),
-                  type: mapUnitType(unitData.type || 'apartment'),
-                  bedrooms: unitData.bedrooms || null,
-                  planImage: unitData.planImage || null,
-                  totalSize: unitData.totalSize ? parseFloat(String(unitData.totalSize)) : null,
-                  balconySize: unitData.balconySize ? parseFloat(String(unitData.balconySize)) : null,
-                  price: unitData.price ? parseFloat(String(unitData.price)) : null,
+                const unitId = String(unitData.unitId || unitData.id || '');
+                let unit = await unitRepository.findOne({ 
+                  where: { propertyId: savedProperty.id, unitId: unitId } 
                 });
+                
+                const totalSize = unitData.totalSize ? parseFloat(String(unitData.totalSize)) : 0;
+                const price = unitData.price ? parseFloat(String(unitData.price)) : 0;
+                
+                if (!unit) {
+                  unit = unitRepository.create({
+                    propertyId: savedProperty.id,
+                    unitId: unitId,
+                    type: mapUnitType(unitData.type || 'apartment'),
+                    planImage: unitData.planImage || null,
+                    totalSize: totalSize,
+                    balconySize: unitData.balconySize ? parseFloat(String(unitData.balconySize)) : null,
+                    price: price,
+                  });
+                } else {
+                  unit.type = mapUnitType(unitData.type || 'apartment');
+                  unit.planImage = unitData.planImage || null;
+                  unit.totalSize = totalSize;
+                  unit.balconySize = unitData.balconySize ? parseFloat(String(unitData.balconySize)) : null;
+                  unit.price = price;
+                }
                 await unitRepository.save(unit);
               }
             }
