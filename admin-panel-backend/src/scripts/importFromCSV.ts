@@ -356,10 +356,11 @@ async function importFromCSV() {
         // Ensure savedProperty is a single object, not an array
         let propertyId: string;
         if (Array.isArray(savedProperty)) {
-          if (savedProperty.length === 0 || !savedProperty[0]?.id) {
+          const firstItem = savedProperty[0] as Property | undefined;
+          if (!firstItem || !firstItem.id) {
             throw new Error('Failed to save property');
           }
-          propertyId = savedProperty[0].id;
+          propertyId = firstItem.id;
         } else {
           if (!savedProperty.id) {
             throw new Error('Failed to save property');
