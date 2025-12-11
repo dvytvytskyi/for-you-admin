@@ -325,7 +325,7 @@ async function importFromCSV() {
               for (const unitData of unitsData) {
                 const unit = unitRepository.create({
                   propertyId: savedProperty.id,
-                  unitId: unitData.unitId || unitData.id || '',
+                  unitId: String(unitData.unitId || unitData.id || ''),
                   type: mapUnitType(unitData.type || 'apartment'),
                   bedrooms: unitData.bedrooms || null,
                   planImage: unitData.planImage || null,
