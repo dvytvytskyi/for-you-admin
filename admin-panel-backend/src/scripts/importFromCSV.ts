@@ -255,13 +255,12 @@ async function importFromCSV() {
           if (!developer) {
             developer = await developerRepository.findOne({ where: { id: row.developerId } }) || null;
             if (!developer && row.developerName && row.developerName.trim()) {
-              developer = developerRepository.create({
-                id: row.developerId,
-                name: row.developerName,
-                logo: null,
-                description: null,
-              });
-              developer = await developerRepository.save(developer);
+              const newDeveloper = new Developer();
+              newDeveloper.id = row.developerId;
+              newDeveloper.name = row.developerName;
+              newDeveloper.logo = null;
+              newDeveloper.description = null;
+              developer = await developerRepository.save(newDeveloper);
             }
             if (developer) {
               developerCache.set(row.developerId, developer);
@@ -317,9 +316,9 @@ async function importFromCSV() {
           if (row.sizeTo) propertyData.sizeTo = parseFloat(row.sizeTo);
           if (row.paymentPlan) propertyData.paymentPlan = row.paymentPlan;
           
-          property = propertyRepository.create(propertyData);
+          property = propertyRepository.create(propertyData) as Property;
           // Set id manually after creation
-          (property as any).id = row.id;
+          property.id = row.id;
         } else {
           // Update existing
           property.propertyType = mapPropertyType(row.propertyType);
@@ -329,12 +328,12 @@ async function importFromCSV() {
           property.longitude = longitude;
           property.description = row.description || '';
           property.priceFrom = priceFrom;
-          property.bedroomsFrom = row.bedroomsFrom ? parseInt(row.bedroomsFrom) : undefined;
-          property.bedroomsTo = row.bedroomsTo ? parseInt(row.bedroomsTo) : undefined;
-          property.bathroomsFrom = row.bathroomsFrom ? parseInt(row.bathroomsFrom) : undefined;
-          property.bathroomsTo = row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined;
-          property.sizeFrom = row.sizeFrom ? parseFloat(row.sizeFrom) : undefined;
-          property.sizeTo = row.sizeTo ? parseFloat(row.sizeTo) : undefined;
+          if (row.bedroomsFrom) property.bedroomsFrom = parseInt(row.bedroomsFrom);
+          if (row.bedroomsTo) property.bedroomsTo = parseInt(row.bedroomsTo);
+          if (row.bathroomsFrom) property.bathroomsFrom = parseInt(row.bathroomsFrom);
+          if (row.bathroomsTo) property.bathroomsTo = parseInt(row.bathroomsTo);
+          if (row.sizeFrom) property.sizeFrom = parseFloat(row.sizeFrom);
+          if (row.sizeTo) property.sizeTo = parseFloat(row.sizeTo);
           property.paymentPlan = row.paymentPlan || '';
           property.countryId = country.id;
           property.cityId = city.id;
@@ -349,6 +348,11 @@ async function importFromCSV() {
             where: facilityIds.map(id => ({ id }))
           });
         }
+        
+        if (!property) {
+          throw new Error('Property is null after creation');
+        }
+        
         property.facilities = facilityEntities;
 
         const savedProperty = await propertyRepository.save(property);
