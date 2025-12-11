@@ -67,14 +67,27 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
+    const status = error.response?.status
+    
     // Redirect to login for both 401 and 403 (unauthorized/forbidden)
-    if (error.response?.status === 401 || error.response?.status === 403) {
+    if (status === 401 || status === 403) {
       // Don't redirect if we're already on login page
       if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
         console.warn('Authentication required, redirecting to login...');
+        localStorage.removeItem('token')
         window.location.href = '/login'
       }
     }
+    
+    // Логування помилок сервера
+    if (status === 502) {
+      console.error('502 Bad Gateway: Backend server is not responding. Check if backend is running.')
+    } else if (status === 503) {
+      console.error('503 Service Unavailable: Backend server is overloaded or unavailable.')
+    } else if (status === 500) {
+      console.error('500 Internal Server Error: Backend server error.')
+    }
+    
     return Promise.reject(error)
   }
 )
