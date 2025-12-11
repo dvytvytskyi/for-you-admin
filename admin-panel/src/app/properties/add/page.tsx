@@ -385,7 +385,7 @@ export default function AddPropertyPage() {
 
       // Set first photo as main photo
       if (photos.length > 0) {
-        payload.mainPhotoUrl = photos[0]
+        // mainPhotoUrl removed - not part of Property entity
       }
 
       if (data.propertyType === PropertyType.OFF_PLAN) {

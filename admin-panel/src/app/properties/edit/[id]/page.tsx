@@ -521,10 +521,6 @@ export default function EditPropertyPage() {
         developerId: data.developerId || undefined,
       }
 
-      if (photos.length > 0) {
-        payload.mainPhotoUrl = photos[0]
-      }
-
       if (data.propertyType === PropertyType.OFF_PLAN) {
         payload.priceFrom = parseFloat(data.priceFrom)
         payload.bedroomsFrom = parseInt(data.bedroomsFrom, 10)
