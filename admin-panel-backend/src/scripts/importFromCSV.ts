@@ -339,10 +339,12 @@ async function importFromCSV() {
           property.developerId = developer?.id || null;
         }
         
-        // Load facilities if needed
+        // Load facilities if needed  
         let facilityEntities: Facility[] = [];
         if (facilityIds.length > 0) {
-          facilityEntities = await facilityRepository.findByIds(facilityIds);
+          facilityEntities = await facilityRepository.find({
+            where: facilityIds.map(id => ({ id }))
+          });
         }
         property.facilities = facilityEntities;
 
@@ -361,21 +363,21 @@ async function importFromCSV() {
                 
                 const totalSize = unitData.totalSize ? parseFloat(String(unitData.totalSize)) : 0;
                 const price = unitData.price ? parseFloat(String(unitData.price)) : 0;
-                const balconySize = unitData.balconySize ? parseFloat(String(unitData.balconySize)) : undefined;
+                const balconySize = unitData.balconySize ? parseFloat(String(unitData.balconySize)) : null;
                 
                 if (!unit) {
                   unit = unitRepository.create({
                     propertyId: propertyId,
                     unitId: unitId,
                     type: mapUnitType(unitData.type || 'apartment'),
-                    planImage: unitData.planImage || undefined,
+                    planImage: unitData.planImage || null,
                     totalSize: totalSize,
                     balconySize: balconySize,
                     price: price,
                   });
                 } else {
                   unit.type = mapUnitType(unitData.type || 'apartment');
-                  unit.planImage = unitData.planImage || undefined;
+                  unit.planImage = unitData.planImage || null;
                   unit.totalSize = totalSize;
                   unit.balconySize = balconySize;
                   unit.price = price;
