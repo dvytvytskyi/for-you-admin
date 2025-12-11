@@ -316,7 +316,8 @@ async function importFromCSV() {
           if (row.sizeTo) propertyData.sizeTo = parseFloat(row.sizeTo);
           if (row.paymentPlan) propertyData.paymentPlan = row.paymentPlan;
           
-          property = propertyRepository.create(propertyData) as Property;
+          const createdProperty = propertyRepository.create(propertyData);
+          property = Array.isArray(createdProperty) ? createdProperty[0] : createdProperty;
           // Set id manually after creation
           property.id = row.id;
         } else {
