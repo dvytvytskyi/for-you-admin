@@ -354,9 +354,17 @@ async function importFromCSV() {
         const savedProperty = await propertyRepository.save(property);
         
         // Ensure savedProperty is a single object, not an array
-        const propertyId = Array.isArray(savedProperty) ? savedProperty[0]?.id : savedProperty.id;
-        if (!propertyId) {
-          throw new Error('Failed to save property');
+        let propertyId: string;
+        if (Array.isArray(savedProperty)) {
+          if (savedProperty.length === 0 || !savedProperty[0]?.id) {
+            throw new Error('Failed to save property');
+          }
+          propertyId = savedProperty[0].id;
+        } else {
+          if (!savedProperty.id) {
+            throw new Error('Failed to save property');
+          }
+          propertyId = savedProperty.id;
         }
 
         // Parse and create units
