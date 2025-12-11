@@ -99,16 +99,45 @@ router.post('/login', async (req, res) => {
 router.get('/me', authenticateJWT, async (req: any, res) => {
   try {
     const userId = req.user?.id;
-    if (!userId) {
+    const userEmail = req.user?.email;
+    const userRole = req.user?.role;
+    
+    if (!userId && !userEmail) {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
 
+    // Перевіряємо чи БД ініціалізована
+    if (!AppDataSource.isInitialized) {
+      console.error('Database not initialized');
+      await AppDataSource.initialize();
+    }
+
+    // Якщо це env користувач (admin-env-user), повертаємо дані з токену
+    if (userId === 'admin-env-user' || (userEmail === process.env.ADMIN_EMAIL && userRole === 'ADMIN')) {
+      return res.json(successResponse({
+        id: 'admin-env-user',
+        email: userEmail || process.env.ADMIN_EMAIL,
+        role: 'ADMIN',
+        status: 'ACTIVE',
+      }));
+    }
+
+    // Шукаємо користувача в БД
     const user = await AppDataSource.getRepository(User).findOne({
-      where: { id: userId },
+      where: userId ? { id: userId } : { email: userEmail },
       select: ['id', 'email', 'phone', 'firstName', 'lastName', 'role', 'status', 'licenseNumber', 'avatar', 'createdAt', 'updatedAt'],
     });
 
     if (!user) {
+      // Якщо користувач не знайдений, але є email в токені, повертаємо мінімальні дані
+      if (userEmail) {
+        return res.json(successResponse({
+          id: userId || 'unknown',
+          email: userEmail,
+          role: userRole || 'ADMIN',
+          status: 'ACTIVE',
+        }));
+      }
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
