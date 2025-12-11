@@ -332,11 +332,11 @@ async function importFromCSV() {
           property.bathroomsTo = row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined;
           property.sizeFrom = row.sizeFrom ? parseFloat(row.sizeFrom) : undefined;
           property.sizeTo = row.sizeTo ? parseFloat(row.sizeTo) : undefined;
-          property.paymentPlan = row.paymentPlan || undefined;
+          property.paymentPlan = row.paymentPlan || null;
           property.countryId = country.id;
           property.cityId = city.id;
           property.areaId = area.id;
-          property.developerId = developer?.id || undefined;
+          property.developerId = developer?.id || null;
         }
         
         // Load facilities if needed  
