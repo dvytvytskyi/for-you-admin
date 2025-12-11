@@ -308,7 +308,7 @@ async function importFromCSV() {
           bathroomsTo: row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined,
           sizeFrom: row.sizeFrom ? parseFloat(row.sizeFrom) : undefined,
           sizeTo: row.sizeTo ? parseFloat(row.sizeTo) : undefined,
-          paymentPlan: row.paymentPlan || null,
+          paymentPlan: row.paymentPlan || '',
             countryId: country.id,
             cityId: city.id,
             areaId: area.id,
@@ -332,7 +332,7 @@ async function importFromCSV() {
           property.bathroomsTo = row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined;
           property.sizeFrom = row.sizeFrom ? parseFloat(row.sizeFrom) : undefined;
           property.sizeTo = row.sizeTo ? parseFloat(row.sizeTo) : undefined;
-          property.paymentPlan = row.paymentPlan || null;
+          property.paymentPlan = row.paymentPlan || '';
           property.countryId = country.id;
           property.cityId = city.id;
           property.areaId = area.id;
