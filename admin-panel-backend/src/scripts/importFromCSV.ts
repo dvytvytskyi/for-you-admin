@@ -250,20 +250,21 @@ async function importFromCSV() {
 
         // Get or create developer
         let developer: Developer | null = null;
-        if (row.developerId && row.developerId.trim()) {
-          developer = developerCache.get(row.developerId) || null;
+        if (row.developerId && row.developerId.trim() && row.developerId !== '""') {
+          const developerId = row.developerId.trim();
+          developer = developerCache.get(developerId) || null;
           if (!developer) {
-            developer = await developerRepository.findOne({ where: { id: row.developerId } }) || null;
+            developer = await developerRepository.findOne({ where: { id: developerId } }) || null;
             if (!developer && row.developerName && row.developerName.trim()) {
               const newDeveloper = new Developer();
-              newDeveloper.id = row.developerId;
+              newDeveloper.id = developerId;
               newDeveloper.name = row.developerName;
               newDeveloper.logo = '';
               newDeveloper.description = '';
               developer = await developerRepository.save(newDeveloper);
             }
             if (developer) {
-              developerCache.set(row.developerId, developer);
+              developerCache.set(developerId, developer);
             }
           }
         }
