@@ -304,7 +304,7 @@ async function importFromCSV() {
             countryId: country.id,
             cityId: city.id,
             areaId: area.id,
-            developerId: developer ? developer.id : '',
+            developerId: developer ? developer.id : null,
             facilities: facilityIds,
           };
           
@@ -339,7 +339,7 @@ async function importFromCSV() {
           property.countryId = country.id;
           property.cityId = city.id;
           property.areaId = area.id;
-          property.developerId = developer ? developer.id : '';
+          property.developerId = developer ? developer.id : null as any;
         }
         
         // Load facilities if needed  
