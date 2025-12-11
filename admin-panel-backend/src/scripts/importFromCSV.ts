@@ -337,8 +337,14 @@ async function importFromCSV() {
           property.cityId = city.id;
           property.areaId = area.id;
           property.developerId = developer?.id || null;
-          property.facilities = facilityIds;
         }
+        
+        // Load facilities if needed
+        let facilityEntities: Facility[] = [];
+        if (facilityIds.length > 0) {
+          facilityEntities = await facilityRepository.findByIds(facilityIds);
+        }
+        property.facilities = facilityEntities;
 
         const savedProperty = await propertyRepository.save(property);
 
