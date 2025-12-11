@@ -67,20 +67,19 @@ async function importDevelopers() {
 
         let developer = await developerRepository.findOne({ where: { id: row.id } });
         if (!developer) {
-          developer = developerRepository.create({
-            id: row.id,
-            name: row.name,
-            logo: row.logo || null,
-            description: description,
-            images: images,
-          });
-          developer = await developerRepository.save(developer);
+          const newDeveloper = new Developer();
+          newDeveloper.id = row.id;
+          newDeveloper.name = row.name;
+          newDeveloper.logo = row.logo || '';
+          newDeveloper.description = description || '';
+          newDeveloper.images = images;
+          developer = await developerRepository.save(newDeveloper);
           successCount++;
         } else {
           // Update existing
           developer.name = row.name;
-          developer.logo = row.logo || null;
-          developer.description = description;
+          developer.logo = row.logo || '';
+          developer.description = description || '';
           developer.images = images;
           await developerRepository.save(developer);
           successCount++;
