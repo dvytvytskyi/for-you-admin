@@ -578,12 +578,129 @@ router.post('/', async (req, res) => {
 });
 
 router.patch('/:id', async (req, res) => {
-  await AppDataSource.getRepository(Property).update(req.params.id, req.body);
-  const property = await AppDataSource.getRepository(Property).findOne({
-    where: { id: req.params.id },
-    relations: ['facilities', 'units'],
-  });
-  res.json(successResponse(property));
+  try {
+    const propertyRepo = AppDataSource.getRepository(Property);
+    const property = await propertyRepo.findOne({
+      where: { id: req.params.id },
+      relations: ['facilities'],
+    });
+
+    if (!property) {
+      return res.status(404).json({
+        success: false,
+        message: 'Property not found',
+      });
+    }
+
+    // Filter out fields that don't exist in Property entity
+    const allowedFields = [
+      'name', 'photos', 'description', 'latitude', 'longitude',
+      'countryId', 'cityId', 'areaId', 'developerId',
+      'priceFrom', 'bedroomsFrom', 'bedroomsTo', 'bathroomsFrom', 'bathroomsTo',
+      'sizeFrom', 'sizeTo', 'paymentPlan',
+      'price', 'bedrooms', 'bathrooms', 'size', 'propertyType'
+    ];
+
+    const updateData: any = {};
+    Object.keys(req.body).forEach(key => {
+      if (allowedFields.includes(key)) {
+        updateData[key] = req.body[key];
+      }
+    });
+
+    // Transform numeric fields
+    if (updateData.latitude !== undefined && updateData.latitude !== null) {
+      updateData.latitude = parseFloat(updateData.latitude);
+    }
+    if (updateData.longitude !== undefined && updateData.longitude !== null) {
+      updateData.longitude = parseFloat(updateData.longitude);
+    }
+    if (updateData.priceFrom !== undefined && updateData.priceFrom !== null && updateData.priceFrom !== '') {
+      updateData.priceFrom = parseFloat(updateData.priceFrom);
+    } else if (updateData.priceFrom === '') {
+      updateData.priceFrom = null;
+    }
+    if (updateData.price !== undefined && updateData.price !== null && updateData.price !== '') {
+      updateData.price = parseFloat(updateData.price);
+    } else if (updateData.price === '') {
+      updateData.price = null;
+    }
+    if (updateData.bedroomsFrom !== undefined && updateData.bedroomsFrom !== null && updateData.bedroomsFrom !== '') {
+      updateData.bedroomsFrom = parseInt(updateData.bedroomsFrom, 10);
+    } else if (updateData.bedroomsFrom === '') {
+      updateData.bedroomsFrom = null;
+    }
+    if (updateData.bedroomsTo !== undefined && updateData.bedroomsTo !== null && updateData.bedroomsTo !== '') {
+      updateData.bedroomsTo = parseInt(updateData.bedroomsTo, 10);
+    } else if (updateData.bedroomsTo === '') {
+      updateData.bedroomsTo = null;
+    }
+    if (updateData.bedrooms !== undefined && updateData.bedrooms !== null && updateData.bedrooms !== '') {
+      updateData.bedrooms = parseInt(updateData.bedrooms, 10);
+    } else if (updateData.bedrooms === '') {
+      updateData.bedrooms = null;
+    }
+    if (updateData.bathroomsFrom !== undefined && updateData.bathroomsFrom !== null && updateData.bathroomsFrom !== '') {
+      updateData.bathroomsFrom = parseInt(updateData.bathroomsFrom, 10);
+    } else if (updateData.bathroomsFrom === '') {
+      updateData.bathroomsFrom = null;
+    }
+    if (updateData.bathroomsTo !== undefined && updateData.bathroomsTo !== null && updateData.bathroomsTo !== '') {
+      updateData.bathroomsTo = parseInt(updateData.bathroomsTo, 10);
+    } else if (updateData.bathroomsTo === '') {
+      updateData.bathroomsTo = null;
+    }
+    if (updateData.bathrooms !== undefined && updateData.bathrooms !== null && updateData.bathrooms !== '') {
+      updateData.bathrooms = parseInt(updateData.bathrooms, 10);
+    } else if (updateData.bathrooms === '') {
+      updateData.bathrooms = null;
+    }
+    if (updateData.sizeFrom !== undefined && updateData.sizeFrom !== null && updateData.sizeFrom !== '') {
+      updateData.sizeFrom = parseFloat(updateData.sizeFrom);
+    } else if (updateData.sizeFrom === '') {
+      updateData.sizeFrom = null;
+    }
+    if (updateData.sizeTo !== undefined && updateData.sizeTo !== null && updateData.sizeTo !== '') {
+      updateData.sizeTo = parseFloat(updateData.sizeTo);
+    } else if (updateData.sizeTo === '') {
+      updateData.sizeTo = null;
+    }
+    if (updateData.size !== undefined && updateData.size !== null && updateData.size !== '') {
+      updateData.size = parseFloat(updateData.size);
+    } else if (updateData.size === '') {
+      updateData.size = null;
+    }
+
+    // Handle facilities separately (ManyToMany relation)
+    if (req.body.facilities && Array.isArray(req.body.facilities)) {
+      const facilityIds = req.body.facilities.map((f: any) => typeof f === 'string' ? f : f.id).filter(Boolean);
+      const { Facility } = await import('../entities/Facility');
+      const facilityRepo = AppDataSource.getRepository(Facility);
+      const facilities = await facilityRepo.find({
+        where: facilityIds.map((id: string) => ({ id })),
+      });
+      property.facilities = facilities;
+    }
+
+    // Update property fields
+    Object.assign(property, updateData);
+    await propertyRepo.save(property);
+
+    // Fetch updated property with all relations
+    const updatedProperty = await propertyRepo.findOne({
+      where: { id: req.params.id },
+      relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
+    });
+
+    res.json(successResponse(updatedProperty));
+  } catch (error: any) {
+    console.error('Error updating property:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update property',
+      error: error.message,
+    });
+  }
 });
 
 router.delete('/:id', async (req, res) => {
