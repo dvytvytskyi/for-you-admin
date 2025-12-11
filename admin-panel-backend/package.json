@@ -49,7 +49,12 @@
     "count:areas-from-json": "ts-node-dev src/scripts/count-areas-from-json.ts",
     "list:areas-simple": "ts-node-dev src/scripts/simple-list-areas.ts",
     "cleanup:areas": "ts-node-dev src/scripts/cleanup-unused-areas.ts",
-    "check:no-coordinates": "ts-node-dev src/scripts/check-properties-without-coordinates.ts"
+    "check:no-coordinates": "ts-node-dev src/scripts/check-properties-without-coordinates.ts",
+    "import:csv": "ts-node-dev src/scripts/importFromCSV.ts",
+    "import:countries": "ts-node-dev src/scripts/importCountriesFromCSV.ts",
+    "import:cities": "ts-node-dev src/scripts/importCitiesFromCSV.ts",
+    "import:areas": "ts-node-dev src/scripts/importAreasFromCSV.ts",
+    "import:developers": "ts-node-dev src/scripts/importDevelopersFromCSV.ts"
   },
   "keywords": [],
   "author": "",
