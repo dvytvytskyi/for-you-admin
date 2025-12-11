@@ -301,14 +301,14 @@ async function importFromCSV() {
             latitude: latitude,
             longitude: longitude,
             description: row.description || '',
-            priceFrom: priceFrom,
-            bedroomsFrom: row.bedroomsFrom ? parseInt(row.bedroomsFrom) : null,
-            bedroomsTo: row.bedroomsTo ? parseInt(row.bedroomsTo) : null,
-            bathroomsFrom: row.bathroomsFrom ? parseInt(row.bathroomsFrom) : null,
-            bathroomsTo: row.bathroomsTo ? parseInt(row.bathroomsTo) : null,
-            sizeFrom: row.sizeFrom ? parseFloat(row.sizeFrom) : null,
-            sizeTo: row.sizeTo ? parseFloat(row.sizeTo) : null,
-            paymentPlan: row.paymentPlan || null,
+          priceFrom: priceFrom,
+          bedroomsFrom: row.bedroomsFrom ? parseInt(row.bedroomsFrom) : undefined,
+          bedroomsTo: row.bedroomsTo ? parseInt(row.bedroomsTo) : undefined,
+          bathroomsFrom: row.bathroomsFrom ? parseInt(row.bathroomsFrom) : undefined,
+          bathroomsTo: row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined,
+          sizeFrom: row.sizeFrom ? parseFloat(row.sizeFrom) : undefined,
+          sizeTo: row.sizeTo ? parseFloat(row.sizeTo) : undefined,
+          paymentPlan: row.paymentPlan || undefined,
             countryId: country.id,
             cityId: city.id,
             areaId: area.id,
@@ -326,17 +326,17 @@ async function importFromCSV() {
           property.longitude = longitude;
           property.description = row.description || '';
           property.priceFrom = priceFrom;
-          property.bedroomsFrom = row.bedroomsFrom ? parseInt(row.bedroomsFrom) : null;
-          property.bedroomsTo = row.bedroomsTo ? parseInt(row.bedroomsTo) : null;
-          property.bathroomsFrom = row.bathroomsFrom ? parseInt(row.bathroomsFrom) : null;
-          property.bathroomsTo = row.bathroomsTo ? parseInt(row.bathroomsTo) : null;
-          property.sizeFrom = row.sizeFrom ? parseFloat(row.sizeFrom) : null;
-          property.sizeTo = row.sizeTo ? parseFloat(row.sizeTo) : null;
-          property.paymentPlan = row.paymentPlan || null;
+          property.bedroomsFrom = row.bedroomsFrom ? parseInt(row.bedroomsFrom) : undefined;
+          property.bedroomsTo = row.bedroomsTo ? parseInt(row.bedroomsTo) : undefined;
+          property.bathroomsFrom = row.bathroomsFrom ? parseInt(row.bathroomsFrom) : undefined;
+          property.bathroomsTo = row.bathroomsTo ? parseInt(row.bathroomsTo) : undefined;
+          property.sizeFrom = row.sizeFrom ? parseFloat(row.sizeFrom) : undefined;
+          property.sizeTo = row.sizeTo ? parseFloat(row.sizeTo) : undefined;
+          property.paymentPlan = row.paymentPlan || undefined;
           property.countryId = country.id;
           property.cityId = city.id;
           property.areaId = area.id;
-          property.developerId = developer?.id || null;
+          property.developerId = developer?.id || undefined;
         }
         
         // Load facilities if needed  
@@ -349,6 +349,12 @@ async function importFromCSV() {
         property.facilities = facilityEntities;
 
         const savedProperty = await propertyRepository.save(property);
+        
+        // Ensure savedProperty is a single object, not an array
+        const propertyId = Array.isArray(savedProperty) ? savedProperty[0]?.id : savedProperty.id;
+        if (!propertyId) {
+          throw new Error('Failed to save property');
+        }
 
         // Parse and create units
         if (row.units && row.units.trim()) {
@@ -363,21 +369,22 @@ async function importFromCSV() {
                 
                 const totalSize = unitData.totalSize ? parseFloat(String(unitData.totalSize)) : 0;
                 const price = unitData.price ? parseFloat(String(unitData.price)) : 0;
-                const balconySize = unitData.balconySize ? parseFloat(String(unitData.balconySize)) : undefined;
+                const balconySize = unitData.balconySize ? parseFloat(String(unitData.balconySize)) : 0;
+                const planImage = unitData.planImage || null;
                 
                 if (!unit) {
                   unit = unitRepository.create({
                     propertyId: propertyId,
                     unitId: unitId,
                     type: mapUnitType(unitData.type || 'apartment'),
-                    planImage: unitData.planImage || undefined,
+                    planImage: planImage,
                     totalSize: totalSize,
                     balconySize: balconySize,
                     price: price,
                   });
                 } else {
                   unit.type = mapUnitType(unitData.type || 'apartment');
-                  unit.planImage = unitData.planImage || undefined;
+                  unit.planImage = planImage;
                   unit.totalSize = totalSize;
                   unit.balconySize = balconySize;
                   unit.price = price;
