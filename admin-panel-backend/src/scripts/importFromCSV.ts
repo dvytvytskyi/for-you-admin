@@ -258,8 +258,8 @@ async function importFromCSV() {
               const newDeveloper = new Developer();
               newDeveloper.id = row.developerId;
               newDeveloper.name = row.developerName;
-              newDeveloper.logo = null;
-              newDeveloper.description = null;
+              newDeveloper.logo = '';
+              newDeveloper.description = '';
               developer = await developerRepository.save(newDeveloper);
             }
             if (developer) {
