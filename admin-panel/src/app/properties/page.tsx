@@ -349,9 +349,9 @@ export default function PropertiesPage() {
                           <div className="flex items-start gap-2">
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                                <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                                  {property.name || 'Unnamed Property'}
-                                </span>
+                            <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                              {property.name || 'Unnamed Property'}
+                            </span>
                                 {duplicateMarkers.has(property.id) && (
                                   <span 
                                     className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" 
@@ -359,9 +359,9 @@ export default function PropertiesPage() {
                                   />
                                 )}
                               </div>
-                              <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                                ID: {property.id?.slice(0, 8)}...
-                              </span>
+                            <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                              ID: {property.id?.slice(0, 8)}...
+                            </span>
                             </div>
                           </div>
                         </div>

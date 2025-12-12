@@ -15,7 +15,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
       // Невелика затримка, щоб дати час зберегти токен після логіну
       await new Promise(resolve => setTimeout(resolve, 150))
       
-      const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token')
       
       // Якщо ми на сторінці логіну, не перевіряємо авторизацію
       if (pathname === '/login') {
@@ -24,7 +24,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
         return
       }
       
-      if (!token) {
+    if (!token) {
         // Якщо токен відсутній і ми не на сторінці логіну, перенаправляємо
         router.push('/login')
         setIsAuthenticated(false)
@@ -53,7 +53,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
           } else {
             // Токен невалідний, видаляємо його
             localStorage.removeItem('token')
-            router.push('/login')
+      router.push('/login')
             setIsAuthenticated(false)
           }
         } catch (error) {

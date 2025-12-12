@@ -688,9 +688,9 @@ router.patch('/:id', async (req, res) => {
 
     // Fetch updated property with all relations
     const updatedProperty = await propertyRepo.findOne({
-      where: { id: req.params.id },
+    where: { id: req.params.id },
       relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
-    });
+  });
 
     res.json(successResponse(updatedProperty));
   } catch (error: any) {
