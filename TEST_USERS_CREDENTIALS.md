@@ -1,87 +1,151 @@
-# 🔑 Тестові облікові дані
+# Тестові дані користувачів
 
-## 👨‍💼 Адміністратори
+## Загальна інформація
 
-| Email | Password | Role | Status |
-|-------|----------|------|--------|
-| `admin@foryou-realestate.com` | `Admin123!` | ADMIN | ACTIVE |
-| `admin@admin.com` | `Admin123!` | ADMIN | ACTIVE |
+**Пароль для всіх тестових користувачів:** `Test123!`
 
 ---
 
-## 👥 Тестові користувачі
+## CLIENT (Клієнти)
 
-**Всі тестові користувачі мають пароль: `Test123!`**
+Створюється 10 тестових клієнтів з ролями `CLIENT` та статусом `ACTIVE`.
 
-### CLIENT (10 користувачів)
+### Credentials:
 
-| Email | Password | Role | Status | Ім'я |
-|-------|----------|------|--------|------|
-| `client1@test.com` | `Test123!` | CLIENT | ACTIVE | Emma Johnson |
-| `client2@test.com` | `Test123!` | CLIENT | ACTIVE | Michael Williams |
-| `client3@test.com` | `Test123!` | CLIENT | ACTIVE | Sophia Brown |
-| `client4@test.com` | `Test123!` | CLIENT | ACTIVE | William Jones |
-| `client5@test.com` | `Test123!` | CLIENT | ACTIVE | Olivia Garcia |
-| `client6@test.com` | `Test123!` | CLIENT | ACTIVE | James Miller |
-| `client7@test.com` | `Test123!` | CLIENT | ACTIVE | Isabella Davis |
-| `client8@test.com` | `Test123!` | CLIENT | ACTIVE | Alexander Rodriguez |
-| `client9@test.com` | `Test123!` | CLIENT | ACTIVE | Mia Martinez |
-| `client10@test.com` | `Test123!` | CLIENT | ACTIVE | John Smith |
+| № | Email | Пароль | Роль | Статус |
+|---|-------|--------|------|--------|
+| 1 | `client1@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 2 | `client2@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 3 | `client3@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 4 | `client4@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 5 | `client5@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 6 | `client6@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 7 | `client7@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 8 | `client8@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 9 | `client9@test.com` | `Test123!` | CLIENT | ACTIVE |
+| 10 | `client10@test.com` | `Test123!` | CLIENT | ACTIVE |
 
-### BROKER (5 користувачів)
-
-| Email | Password | Role | Status | Ім'я | License |
-|-------|----------|------|--------|------|---------|
-| `broker1@test.com` | `Test123!` | BROKER | ACTIVE | Sarah Anderson | BRK-0001 |
-| `broker2@test.com` | `Test123!` | BROKER | ACTIVE | Robert Thomas | BRK-0002 |
-| `broker3@test.com` | `Test123!` | BROKER | ACTIVE | Jessica Taylor | BRK-0003 |
-| `broker4@test.com` | `Test123!` | BROKER | PENDING | Daniel Moore | BRK-0004 |
-| `broker5@test.com` | `Test123!` | BROKER | PENDING | David Wilson | BRK-0005 |
-
-### INVESTOR (5 користувачів)
-
-| Email | Password | Role | Status | Ім'я |
-|-------|----------|------|--------|------|
-| `investor1@test.com` | `Test123!` | INVESTOR | ACTIVE | Amanda Martin |
-| `investor2@test.com` | `Test123!` | INVESTOR | ACTIVE | Matthew Lee |
-| `investor3@test.com` | `Test123!` | INVESTOR | ACTIVE | Lisa Thompson |
-| `investor4@test.com` | `Test123!` | INVESTOR | PENDING | Andrew White |
-| `investor5@test.com` | `Test123!` | INVESTOR | PENDING | Christopher Jackson |
+**Формат email:** `client{N}@test.com` де N від 1 до 10
 
 ---
 
-## 📊 Статистика тестових даних
+## BROKER (Брокери)
 
-- **Користувачі:** 20 (10 CLIENT, 5 BROKER, 5 INVESTOR)
-- **Developers:** 274
-- **News:** 10 (7 опубліковано)
-- **Courses:** 8
-- **Properties:** 0 (потрібно створити)
-- **Investments:** 0 (потрібно створити)
-- **Favorites:** 0 (потрібно створити)
-- **Collections:** 0 (потрібно створити)
+Створюється 5 тестових брокерів з ролями `BROKER`.
 
----
+### Credentials:
 
-## 🔗 API Endpoints
+| № | Email | Пароль | Роль | Статус | License Number |
+|---|-------|--------|------|--------|----------------|
+| 1 | `broker1@test.com` | `Test123!` | BROKER | ACTIVE | BRK-0001 |
+| 2 | `broker2@test.com` | `Test123!` | BROKER | ACTIVE | BRK-0002 |
+| 3 | `broker3@test.com` | `Test123!` | BROKER | ACTIVE | BRK-0003 |
+| 4 | `broker4@test.com` | `Test123!` | BROKER | PENDING | BRK-0004 |
+| 5 | `broker5@test.com` | `Test123!` | BROKER | PENDING | BRK-0005 |
 
-**Base URL:** `https://admin.foryou-realestate.com/api`
+**Формат email:** `broker{N}@test.com` де N від 1 до 5
 
-**Приклади:**
-- `POST https://admin.foryou-realestate.com/api/auth/login`
-- `GET https://admin.foryou-realestate.com/api/auth/me`
-- `GET https://admin.foryou-realestate.com/api/properties`
-- `GET https://admin.foryou-realestate.com/api/v1/properties` (для мобільного додатку)
+**Примітка:** Перші 3 брокери мають статус `ACTIVE`, останні 2 - `PENDING`.
 
 ---
 
-## 📱 Оновлення мобільного додатку після міграції
+## INVESTOR (Інвестори)
 
-**Якщо додаток використовував старий IP або домен**, дивіться детальну інструкцію:
-👉 **[MOBILE_APP_API_UPDATE.md](./MOBILE_APP_API_UPDATE.md)**
+Створюється 5 тестових інвесторів з ролями `INVESTOR`.
 
-**Коротко:**
-- ✅ Якщо використовується `admin.foryou-realestate.com` → **нічого міняти не потрібно**
-- ⚠️ Якщо використовується IP `88.99.38.25` → **потрібно оновити на `https://admin.foryou-realestate.com/api`**
-- ⚠️ Якщо використовується `foryou-realestate.com` → **рекомендується оновити на `https://admin.foryou-realestate.com/api`**
+### Credentials:
 
+| № | Email | Пароль | Роль | Статус |
+|---|-------|--------|------|--------|
+| 1 | `investor1@test.com` | `Test123!` | INVESTOR | ACTIVE |
+| 2 | `investor2@test.com` | `Test123!` | INVESTOR | ACTIVE |
+| 3 | `investor3@test.com` | `Test123!` | INVESTOR | ACTIVE |
+| 4 | `investor4@test.com` | `Test123!` | INVESTOR | PENDING |
+| 5 | `investor5@test.com` | `Test123!` | INVESTOR | PENDING |
+
+**Формат email:** `investor{N}@test.com` де N від 1 до 5
+
+**Примітка:** Перші 3 інвестори мають статус `ACTIVE`, останні 2 - `PENDING`.
+
+---
+
+## Генерація тестових даних
+
+Для створення всіх тестових користувачів використовуйте скрипт:
+
+```bash
+cd admin-panel-backend
+npm run generate-test-data
+```
+
+Або напряму:
+
+```bash
+cd admin-panel-backend
+npx ts-node src/scripts/generateTestData.ts
+```
+
+---
+
+## Додаткова інформація
+
+### Створені дані при генерації:
+
+- **Користувачі:** 10 CLIENT, 5 BROKER, 5 INVESTOR
+- **Developers:** 10 (Emaar Properties, Nakheel, Dubai Properties, тощо)
+- **Properties:** 20 (10 Off-Plan, 10 Secondary)
+- **News:** 10 статей
+- **Courses:** 8 курсів
+- **Investments:** до 15 інвестицій
+- **Favorites:** до 30 обраних
+- **Collections:** 5 колекцій
+
+### Телефони
+
+Телефони генеруються випадково у форматі: `+380{9 цифр}`
+
+### Імена та прізвища
+
+Імена та прізвища генеруються випадково з попередньо визначених списків:
+- **Імена:** John, Emma, Michael, Sophia, William, Olivia, тощо
+- **Прізвища:** Smith, Johnson, Williams, Brown, Jones, тощо
+
+---
+
+## Приклади використання
+
+### Вхід через API:
+
+```bash
+# CLIENT
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"client1@test.com","password":"Test123!"}'
+
+# BROKER
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"broker1@test.com","password":"Test123!"}'
+
+# INVESTOR
+curl -X POST http://localhost:4000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"investor1@test.com","password":"Test123!"}'
+```
+
+### Перевірка в базі даних:
+
+```sql
+-- Всі тестові користувачі
+SELECT email, role, status FROM users WHERE email LIKE '%@test.com';
+
+-- Активні брокери
+SELECT email, license_number FROM users WHERE role = 'BROKER' AND status = 'ACTIVE';
+
+-- Активні інвестори
+SELECT email FROM users WHERE role = 'INVESTOR' AND status = 'ACTIVE';
+```
+
+---
+
+**Останнє оновлення:** 2025-12-11
