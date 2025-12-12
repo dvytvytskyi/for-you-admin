@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Image from 'next/image'
@@ -21,6 +21,77 @@ export default function PropertiesPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({})
+  const [duplicateMarkers, setDuplicateMarkers] = useState<Set<string>>(new Set())
+
+  // Функція для нормалізації імені (приведення до нижнього регістру, видалення зайвих пробілів)
+  const normalizeName = (name: string): string => {
+    if (!name) return ''
+    return name.toLowerCase().trim().replace(/\s+/g, ' ')
+  }
+
+  // Завантажуємо всі імена проектів для перевірки дублікатів
+  const loadAllPropertyNames = useCallback(async () => {
+    try {
+      const params: any = {
+        propertyType: propertyType,
+        limit: '10000', // Завантажуємо багато для перевірки дублікатів
+        page: '1',
+      }
+      
+      const { data } = await api.get('/properties', { params })
+      
+      let allProperties: any[] = []
+      if (data.data?.data && Array.isArray(data.data.data)) {
+        allProperties = data.data.data
+      } else if (data.data && Array.isArray(data.data)) {
+        allProperties = data.data
+      }
+
+      // Знаходимо дублікати серед всіх проектів
+      const nameMap = new Map<string, any[]>()
+      const markers = new Set<string>()
+
+      // Групуємо проекти за нормалізованими іменами
+      allProperties.forEach((property) => {
+        const normalizedName = normalizeName(property.name)
+        if (normalizedName) {
+          if (!nameMap.has(normalizedName)) {
+            nameMap.set(normalizedName, [])
+          }
+          nameMap.get(normalizedName)!.push(property)
+        }
+      })
+
+      // Для кожної групи дублікатів (більше 1 проекту) позначаємо один як дублікат
+      nameMap.forEach((group, normalizedName) => {
+        if (group.length > 1) {
+          // Сортуємо за датою створення (старіші першими) або за ID
+          // Позначаємо всі крім найстарішого
+          const sorted = group.sort((a, b) => {
+            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+            if (dateA !== dateB) return dateA - dateB
+            return (a.id || '').localeCompare(b.id || '')
+          })
+          
+          // Позначаємо всі крім першого (найстарішого)
+          for (let i = 1; i < sorted.length; i++) {
+            markers.add(sorted[i].id)
+          }
+        }
+      })
+
+      setDuplicateMarkers(markers)
+    } catch (error) {
+      console.error('Error loading property names for duplicate detection:', error)
+      setDuplicateMarkers(new Set())
+    }
+  }, [propertyType])
+
+  // Завантажуємо імена для перевірки дублікатів при зміні типу проекту
+  useEffect(() => {
+    loadAllPropertyNames()
+  }, [loadAllPropertyNames])
 
   // Скидаємо сторінку на 1 при зміні типу проекту або пошуку
   useEffect(() => {
@@ -275,13 +346,23 @@ export default function PropertiesPage() {
                               </svg>
                             </div>
                           )}
-                          <div>
-                            <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                              {property.name || 'Unnamed Property'}
-                            </span>
-                            <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                              ID: {property.id?.slice(0, 8)}...
-                            </span>
+                          <div className="flex items-start gap-2">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
+                                  {property.name || 'Unnamed Property'}
+                                </span>
+                                {duplicateMarkers.has(property.id) && (
+                                  <span 
+                                    className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" 
+                                    title="Duplicate property - consider removing"
+                                  />
+                                )}
+                              </div>
+                              <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                                ID: {property.id?.slice(0, 8)}...
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </TableCell>
