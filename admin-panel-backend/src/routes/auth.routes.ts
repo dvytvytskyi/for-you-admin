@@ -42,11 +42,13 @@ router.post('/login', async (req, res) => {
       }
       
       const token = jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: '7d' });
+      const refreshToken = jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: '30d' });
       
       // Якщо користувач не знайдений в БД, повертаємо мінімальні дані
       if (!adminUser) {
         return res.json(successResponse({ 
           token,
+          refreshToken,
           user: { 
             email, 
             role: 'ADMIN',
@@ -56,7 +58,7 @@ router.post('/login', async (req, res) => {
       }
       
       const { passwordHash: _, ...userWithoutPassword } = adminUser;
-      return res.json(successResponse({ token, user: userWithoutPassword }, 'Login successful'));
+      return res.json(successResponse({ token, refreshToken, user: userWithoutPassword }, 'Login successful'));
     }
 
     // Перевіряємо в БД для реєстрованих користувачів
@@ -83,9 +85,15 @@ router.post('/login', async (req, res) => {
       process.env.ADMIN_JWT_SECRET,
       { expiresIn: '7d' }
     );
+    
+    const refreshToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.ADMIN_JWT_SECRET,
+      { expiresIn: '30d' }
+    );
 
     const { passwordHash: _, ...userWithoutPassword } = user;
-    return res.json(successResponse({ token, user: userWithoutPassword }, 'Login successful'));
+    return res.json(successResponse({ token, refreshToken, user: userWithoutPassword }, 'Login successful'));
   } catch (error: any) {
     console.error('Login error:', error);
     return res.status(500).json({ 
@@ -195,17 +203,23 @@ router.post('/register', async (req, res) => {
 
     await userRepository.save(user);
 
-    // Generate JWT token
+    // Generate JWT tokens
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.ADMIN_JWT_SECRET!,
       { expiresIn: '7d' }
     );
+    
+    const refreshToken = jwt.sign(
+      { id: user.id, email: user.email, role: user.role },
+      process.env.ADMIN_JWT_SECRET!,
+      { expiresIn: '30d' }
+    );
 
     // Don't return password hash
     const { passwordHash: _, ...userWithoutPassword } = user;
 
-    return res.status(201).json(successResponse({ user: userWithoutPassword, accessToken: token }, 'User created successfully'));
+    return res.status(201).json(successResponse({ user: userWithoutPassword, accessToken: token, refreshToken }, 'User created successfully'));
   } catch (error: any) {
     console.error('Registration error:', error);
     return res.status(500).json({ success: false, message: 'Failed to create user' });
@@ -396,6 +410,48 @@ router.post('/reset-password', async (req, res) => {
   } catch (error: any) {
     console.error('Error in reset-password:', error);
     return res.status(500).json({ success: false, message: 'Failed to reset password' });
+  }
+});
+
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({ success: false, message: 'Refresh token is required' });
+    }
+
+    if (!process.env.ADMIN_JWT_SECRET) {
+      console.error('ADMIN_JWT_SECRET is not set');
+      return res.status(500).json({ success: false, message: 'Server configuration error' });
+    }
+
+    // Verify refresh token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(refreshToken, process.env.ADMIN_JWT_SECRET);
+    } catch (error) {
+      return res.status(401).json({ success: false, message: 'Invalid or expired refresh token' });
+    }
+
+    // Generate new access token
+    const token = jwt.sign(
+      { id: decoded.id, email: decoded.email, role: decoded.role },
+      process.env.ADMIN_JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Generate new refresh token
+    const newRefreshToken = jwt.sign(
+      { id: decoded.id, email: decoded.email, role: decoded.role },
+      process.env.ADMIN_JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    return res.json(successResponse({ token, refreshToken: newRefreshToken }, 'Token refreshed successfully'));
+  } catch (error: any) {
+    console.error('Refresh token error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to refresh token' });
   }
 });
 
