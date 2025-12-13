@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -187,6 +187,16 @@ const formatNumber = (num: number) => {
 export default function EditPropertyPage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
+  
+  // Отримуємо параметри для повернення
+  const getReturnUrl = () => {
+    const returnParams = searchParams.get('return')
+    if (returnParams) {
+      return `/properties?${returnParams}`
+    }
+    return '/properties'
+  }
   const propertyId = params?.id as string
   
   const [loading, setLoading] = useState(false)
@@ -372,7 +382,7 @@ export default function EditPropertyPage() {
     } catch (error) {
       console.error('Error loading property:', error)
       alert('Failed to load property. Please try again.')
-      router.push('/properties')
+      router.push(getReturnUrl())
     } finally {
       setLoadingProperty(false)
     }
@@ -498,7 +508,7 @@ export default function EditPropertyPage() {
     try {
       await api.delete(`/properties/${propertyId}`)
       alert('Property deleted successfully!')
-      router.push('/properties')
+      router.push(getReturnUrl())
     } catch (error: any) {
       console.error('Error deleting property:', error)
       alert(error.response?.data?.message || 'Failed to delete property. Please try again.')
@@ -556,7 +566,7 @@ export default function EditPropertyPage() {
       
       console.log('Property updated successfully')
       alert('Property updated successfully!')
-      router.push('/properties')
+      router.push(getReturnUrl())
     } catch (error: any) {
       console.error('Error updating property:', error)
       alert(error.response?.data?.message || 'Failed to update property. Please try again.')
@@ -593,7 +603,7 @@ export default function EditPropertyPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">Edit Property</h1>
-        <Button variant="outline" onClick={() => router.back()}>
+        <Button variant="outline" onClick={() => router.push(getReturnUrl())}>
           Cancel
         </Button>
       </div>
@@ -1298,7 +1308,7 @@ export default function EditPropertyPage() {
             Delete Property
           </Button>
           <div className="flex items-center gap-4">
-            <Button variant="outline" type="button" onClick={() => router.back()} disabled={loading}>
+            <Button variant="outline" type="button" onClick={() => router.push(getReturnUrl())} disabled={loading}>
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
