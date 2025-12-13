@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -184,14 +184,17 @@ const formatNumber = (num: number) => {
   })
 }
 
-function EditPropertyPageContent() {
+export default function EditPropertyPage() {
   const router = useRouter()
   const params = useParams()
-  const searchParams = useSearchParams()
   
-  // Отримуємо параметри для повернення
+  // Отримуємо параметри для повернення з URL
   const getReturnUrl = () => {
-    const returnParams = searchParams.get('return')
+    if (typeof window === 'undefined') {
+      return '/properties'
+    }
+    const urlParams = new URLSearchParams(window.location.search)
+    const returnParams = urlParams.get('return')
     if (returnParams) {
       return `/properties?${returnParams}`
     }
@@ -1318,17 +1321,5 @@ function EditPropertyPageContent() {
         </div>
       </form>
     </div>
-  )
-}
-
-export default function EditPropertyPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    }>
-      <EditPropertyPageContent />
-    </Suspense>
   )
 }
