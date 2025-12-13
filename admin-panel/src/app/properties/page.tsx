@@ -39,7 +39,7 @@ export default function PropertiesPage() {
   const [priceTo, setPriceTo] = useState<string>('')
   const [sizeFrom, setSizeFrom] = useState<string>('')
   const [sizeTo, setSizeTo] = useState<string>('')
-  const [showFilters, setShowFilters] = useState(false)
+  const [showFilters, setShowFilters] = useState(true)
 
   // Функція для копіювання назви проекту
   const copyPropertyName = async (name: string, propertyId: string, e: React.MouseEvent) => {
