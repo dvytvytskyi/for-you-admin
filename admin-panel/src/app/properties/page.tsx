@@ -433,14 +433,15 @@ export default function PropertiesPage() {
                                 )}
                                 <button
                                   onClick={(e) => copyPropertyName(property.name || 'Unnamed Property', property.id, e)}
-                                  className="flex items-center justify-center w-4 h-4 rounded hover:bg-gray-100 dark:hover:bg-white/10 transition-colors ml-1 opacity-70 hover:opacity-100"
+                                  className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 ml-2 transition-colors"
                                   title={copiedId === property.id ? 'Copied!' : 'Copy property name'}
                                   type="button"
                                 >
-                                  <CopyIcon 
-                                    className={`w-3 h-3 flex-shrink-0 ${copiedId === property.id ? 'text-green-500' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
-                                    style={{ display: 'block' }}
-                                  />
+                                  {copiedId === property.id ? (
+                                    <span className="text-green-500">copied</span>
+                                  ) : (
+                                    'copy'
+                                  )}
                                 </button>
                               </div>
                             <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
