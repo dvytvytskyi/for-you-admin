@@ -119,7 +119,8 @@ export default function PropertiesPage() {
     if (!loading && properties.length > 0) {
       loadAllPropertyNames()
     }
-  }, [loadAllPropertyNames, loading, properties.length])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, properties.length]) // loadAllPropertyNames не додаємо щоб уникнути зациклення
 
   // Оновлюємо URL при зміні параметрів
   useEffect(() => {
