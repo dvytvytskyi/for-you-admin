@@ -8,7 +8,7 @@ import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import Pagination from '@/components/tables/Pagination'
-import { PlusIcon, CopyIcon } from '@/icons'
+import { PlusIcon } from '@/icons'
 
 export default function PropertiesPage() {
   const router = useRouter()
