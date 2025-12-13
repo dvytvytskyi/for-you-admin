@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import Image from 'next/image'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
@@ -12,11 +12,18 @@ import { PlusIcon } from '@/icons'
 
 export default function PropertiesPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // Читаємо параметри з URL при завантаженні
+  const initialPropertyType = (searchParams.get('type') as 'off-plan' | 'secondary') || 'off-plan'
+  const initialPage = parseInt(searchParams.get('page') || '1', 10)
+  const initialSearch = searchParams.get('search') || ''
+  
   const [properties, setProperties] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>('off-plan')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [currentPage, setCurrentPage] = useState(1)
+  const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>(initialPropertyType)
+  const [searchQuery, setSearchQuery] = useState(initialSearch)
+  const [currentPage, setCurrentPage] = useState(initialPage)
   const [itemsPerPage] = useState(100)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -92,6 +99,20 @@ export default function PropertiesPage() {
   useEffect(() => {
     loadAllPropertyNames()
   }, [loadAllPropertyNames])
+
+  // Оновлюємо URL при зміні параметрів
+  useEffect(() => {
+    const params = new URLSearchParams()
+    if (propertyType !== 'off-plan') params.set('type', propertyType)
+    if (currentPage > 1) params.set('page', currentPage.toString())
+    if (searchQuery) params.set('search', searchQuery)
+    
+    const queryString = params.toString()
+    const newUrl = queryString ? `/properties?${queryString}` : '/properties'
+    
+    // Оновлюємо URL без перезавантаження сторінки
+    window.history.replaceState({}, '', newUrl)
+  }, [propertyType, currentPage, searchQuery])
 
   // Скидаємо сторінку на 1 при зміні типу проекту або пошуку
   useEffect(() => {
@@ -291,8 +312,16 @@ export default function PropertiesPage() {
                       key={property.id} 
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                       onClick={() => {
-                        // Відкриваємо в новій вкладці
-                        const url = `/properties/edit/${property.id}`
+                        // Відкриваємо в новій вкладці з параметрами для повернення
+                        const params = new URLSearchParams()
+                        if (propertyType !== 'off-plan') params.set('type', propertyType)
+                        if (currentPage > 1) params.set('page', currentPage.toString())
+                        if (searchQuery) params.set('search', searchQuery)
+                        
+                        const returnParams = params.toString()
+                        const url = returnParams 
+                          ? `/properties/edit/${property.id}?return=${encodeURIComponent(returnParams)}`
+                          : `/properties/edit/${property.id}`
                         window.open(url, '_blank', 'noopener,noreferrer')
                       }}
                     >
