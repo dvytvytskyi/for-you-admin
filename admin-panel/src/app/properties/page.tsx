@@ -402,6 +402,7 @@ export default function PropertiesPage() {
         </div>
 
         {showFilters && (
+          <div className="w-full">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
             {/* Developer Filter */}
             <div>
@@ -500,6 +501,7 @@ export default function PropertiesPage() {
                 onChange={(e) => setSizeTo(e.target.value)}
               />
             </div>
+          </div>
           </div>
         )}
       </div>
