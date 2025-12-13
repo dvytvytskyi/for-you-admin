@@ -214,17 +214,6 @@ export default function PropertiesPage() {
       behavior: 'smooth'
     })
   }, [currentPage])
-    const timeoutId = setTimeout(() => {
-      loadProperties()
-      // Scroll to top when tab changes
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      })
-    }, searchQuery ? 300 : 0) // Затримка тільки для пошуку
-    
-    return () => clearTimeout(timeoutId)
-  }, [loadProperties, propertyType, currentPage, searchQuery])
 
   return (
     <div className="space-y-6">
