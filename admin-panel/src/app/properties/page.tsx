@@ -362,8 +362,16 @@ export default function PropertiesPage() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
           >
+            <svg 
+              className="w-4 h-4" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+            </svg>
             <span>Filters</span>
             <svg 
               className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`}
@@ -386,7 +394,7 @@ export default function PropertiesPage() {
                 setSizeFrom('')
                 setSizeTo('')
               }}
-              className="text-sm text-error-500 hover:text-error-600"
+              className="px-4 py-2 text-sm font-medium text-error-500 hover:text-error-600 hover:bg-error-50 dark:hover:bg-error-900/20 rounded-lg transition-colors"
             >
               Clear filters
             </button>
