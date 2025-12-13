@@ -290,7 +290,11 @@ export default function PropertiesPage() {
                     <TableRow 
                       key={property.id} 
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
-                      onClick={() => router.push(`/properties/edit/${property.id}`)}
+                      onClick={(e) => {
+                        // Відкриваємо в новій вкладці
+                        e.preventDefault()
+                        window.open(`/properties/edit/${property.id}`, '_blank')
+                      }}
                     >
                       <TableCell className="px-5 py-4 sm:px-6 text-start">
                         <div className="flex items-center gap-3">
