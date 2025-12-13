@@ -51,9 +51,12 @@ export default function PropertiesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Тільки при монтуванні
 
-  // Завантажуємо всі імена проектів для перевірки дублікатів
+  // Завантажуємо всі імена проектів для перевірки дублікатів (в фоні, після основного завантаження)
   const loadAllPropertyNames = useCallback(async () => {
     try {
+      // Затримка щоб не блокувати основне завантаження - чекаємо поки основні дані завантажаться
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       const params: any = {
         propertyType: propertyType,
         limit: '10000', // Завантажуємо багато для перевірки дублікатів
@@ -110,10 +113,13 @@ export default function PropertiesPage() {
     }
   }, [propertyType])
 
-  // Завантажуємо імена для перевірки дублікатів при зміні типу проекту
+  // Завантажуємо імена для перевірки дублікатів при зміні типу проекту (в фоні, після завантаження основних даних)
   useEffect(() => {
-    loadAllPropertyNames()
-  }, [loadAllPropertyNames])
+    // Запускаємо в фоні тільки після того як основні дані завантажилися
+    if (!loading && properties.length > 0) {
+      loadAllPropertyNames()
+    }
+  }, [loadAllPropertyNames, loading, properties.length])
 
   // Оновлюємо URL при зміні параметрів
   useEffect(() => {
@@ -134,13 +140,18 @@ export default function PropertiesPage() {
     setCurrentPage(1)
   }, [propertyType, searchQuery])
 
+  // Debounce для пошуку
   useEffect(() => {
-    loadProperties()
-    // Scroll to top when tab changes
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const timeoutId = setTimeout(() => {
+      loadProperties()
+      // Scroll to top when tab changes
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }, searchQuery ? 300 : 0) // Затримка тільки для пошуку
+    
+    return () => clearTimeout(timeoutId)
   }, [propertyType, currentPage, searchQuery])
 
   // Scroll to top when page changes
@@ -151,7 +162,7 @@ export default function PropertiesPage() {
     })
   }, [currentPage])
 
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     setLoading(true)
     try {
       // Формуємо параметри для запиту
@@ -201,7 +212,7 @@ export default function PropertiesPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [propertyType, currentPage, searchQuery, itemsPerPage])
 
   return (
     <div className="space-y-6">
