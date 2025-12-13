@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, useCallback, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Image from 'next/image'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
@@ -10,20 +10,29 @@ import Input from '@/components/form/input/InputField'
 import Pagination from '@/components/tables/Pagination'
 import { PlusIcon } from '@/icons'
 
-function PropertiesPageContent() {
+export default function PropertiesPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   
-  // Читаємо параметри з URL при завантаженні
-  const initialPropertyType = (searchParams.get('type') as 'off-plan' | 'secondary') || 'off-plan'
-  const initialPage = parseInt(searchParams.get('page') || '1', 10)
-  const initialSearch = searchParams.get('search') || ''
+  // Функція для читання параметрів з URL
+  const getUrlParams = () => {
+    if (typeof window === 'undefined') {
+      return { type: 'off-plan', page: 1, search: '' }
+    }
+    const params = new URLSearchParams(window.location.search)
+    return {
+      type: (params.get('type') as 'off-plan' | 'secondary') || 'off-plan',
+      page: parseInt(params.get('page') || '1', 10),
+      search: params.get('search') || ''
+    }
+  }
+  
+  const urlParams = getUrlParams()
   
   const [properties, setProperties] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>(initialPropertyType)
-  const [searchQuery, setSearchQuery] = useState(initialSearch)
-  const [currentPage, setCurrentPage] = useState(initialPage)
+  const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>(urlParams.type)
+  const [searchQuery, setSearchQuery] = useState(urlParams.search)
+  const [currentPage, setCurrentPage] = useState(urlParams.page)
   const [itemsPerPage] = useState(100)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
@@ -472,17 +481,5 @@ function PropertiesPageContent() {
         )}
       </div>
     </div>
-  )
-}
-
-export default function PropertiesPage() {
-  return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-500">Loading...</div>
-      </div>
-    }>
-      <PropertiesPageContent />
-    </Suspense>
   )
 }
