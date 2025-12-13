@@ -215,6 +215,20 @@ export default function PropertiesPage() {
     }
   }, [propertyType, currentPage, searchQuery, itemsPerPage])
 
+  // Debounce для пошуку
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadProperties()
+      // Scroll to top when tab changes
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }, searchQuery ? 300 : 0) // Затримка тільки для пошуку
+    
+    return () => clearTimeout(timeoutId)
+  }, [loadProperties, propertyType, currentPage, searchQuery])
+
   return (
     <div className="space-y-6">
       {/* Header with Add Button */}
