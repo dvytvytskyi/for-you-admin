@@ -9,6 +9,8 @@ import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import Pagination from '@/components/tables/Pagination'
 import { PlusIcon } from '@/icons'
+import Select from '@/components/form/Select'
+import Label from '@/components/form/Label'
 
 export default function PropertiesPage() {
   const router = useRouter()
@@ -24,6 +26,20 @@ export default function PropertiesPage() {
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({})
   const [duplicateMarkers, setDuplicateMarkers] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  
+  // Filter states
+  const [developers, setDevelopers] = useState<any[]>([])
+  const [cities, setCities] = useState<any[]>([])
+  const [areas, setAreas] = useState<any[]>([])
+  const [selectedDeveloper, setSelectedDeveloper] = useState<string>('')
+  const [selectedCity, setSelectedCity] = useState<string>('')
+  const [selectedArea, setSelectedArea] = useState<string>('')
+  const [selectedBedrooms, setSelectedBedrooms] = useState<string>('')
+  const [priceFrom, setPriceFrom] = useState<string>('')
+  const [priceTo, setPriceTo] = useState<string>('')
+  const [sizeFrom, setSizeFrom] = useState<string>('')
+  const [sizeTo, setSizeTo] = useState<string>('')
+  const [showFilters, setShowFilters] = useState(false)
 
   // Функція для копіювання назви проекту
   const copyPropertyName = async (name: string, propertyId: string, e: React.MouseEvent) => {
@@ -149,10 +165,10 @@ export default function PropertiesPage() {
     window.history.replaceState({}, '', newUrl)
   }, [propertyType, currentPage, searchQuery])
 
-  // Скидаємо сторінку на 1 при зміні типу проекту або пошуку
+  // Скидаємо сторінку на 1 при зміні типу проекту, пошуку або фільтрів
   useEffect(() => {
     setCurrentPage(1)
-  }, [propertyType, searchQuery])
+  }, [propertyType, searchQuery, selectedDeveloper, selectedCity, selectedArea, selectedBedrooms, priceFrom, priceTo, sizeFrom, sizeTo])
 
   const loadProperties = useCallback(async () => {
     setLoading(true)
@@ -167,6 +183,32 @@ export default function PropertiesPage() {
       // Додаємо пошук, якщо є
       if (searchQuery) {
         params.search = searchQuery
+      }
+
+      // Додаємо фільтри
+      if (selectedDeveloper) {
+        params.developerId = selectedDeveloper
+      }
+      if (selectedCity) {
+        params.cityId = selectedCity
+      }
+      if (selectedArea) {
+        params.areaId = selectedArea
+      }
+      if (selectedBedrooms) {
+        params.bedrooms = selectedBedrooms
+      }
+      if (priceFrom) {
+        params.priceFrom = priceFrom
+      }
+      if (priceTo) {
+        params.priceTo = priceTo
+      }
+      if (sizeFrom) {
+        params.sizeFrom = sizeFrom
+      }
+      if (sizeTo) {
+        params.sizeTo = sizeTo
       }
 
       // Використовуємо params як другий аргумент axios.get для правильного форматування
@@ -204,7 +246,7 @@ export default function PropertiesPage() {
     } finally {
       setLoading(false)
     }
-  }, [propertyType, currentPage, searchQuery, itemsPerPage])
+  }, [propertyType, currentPage, searchQuery, itemsPerPage, selectedDeveloper, selectedCity, selectedArea, selectedBedrooms, priceFrom, priceTo, sizeFrom, sizeTo])
 
   // Debounce для пошуку
   useEffect(() => {
@@ -227,6 +269,42 @@ export default function PropertiesPage() {
       behavior: 'smooth'
     })
   }, [currentPage])
+
+  // Load filter data
+  useEffect(() => {
+    const loadFilterData = async () => {
+      try {
+        const [developersRes, citiesRes] = await Promise.all([
+          api.get('/settings/developers').catch(() => ({ data: { data: [] } })),
+          api.get('/settings/cities').catch(() => ({ data: { data: [] } })),
+        ])
+        setDevelopers(developersRes.data.data || [])
+        setCities(citiesRes.data.data || [])
+      } catch (error) {
+        console.error('Error loading filter data:', error)
+      }
+    }
+    loadFilterData()
+  }, [])
+
+  // Load areas when city changes
+  useEffect(() => {
+    const loadAreas = async () => {
+      if (selectedCity) {
+        try {
+          const { data } = await api.get(`/settings/areas?cityId=${selectedCity}`)
+          setAreas(data.data || [])
+        } catch (error) {
+          console.error('Error loading areas:', error)
+          setAreas([])
+        }
+      } else {
+        setAreas([])
+        setSelectedArea('')
+      }
+    }
+    loadAreas()
+  }, [selectedCity])
 
   return (
     <div className="space-y-6">
@@ -277,6 +355,145 @@ export default function PropertiesPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 flex items-center gap-2"
+          >
+            <span>Filters</span>
+            <svg 
+              className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          {(selectedDeveloper || selectedCity || selectedArea || selectedBedrooms || priceFrom || priceTo || sizeFrom || sizeTo) && (
+            <button
+              onClick={() => {
+                setSelectedDeveloper('')
+                setSelectedCity('')
+                setSelectedArea('')
+                setSelectedBedrooms('')
+                setPriceFrom('')
+                setPriceTo('')
+                setSizeFrom('')
+                setSizeTo('')
+              }}
+              className="text-sm text-error-500 hover:text-error-600"
+            >
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+            {/* Developer Filter */}
+            <div>
+              <Label>Developer</Label>
+              <Select
+                options={developers.map((d) => ({ value: d.id, label: d.name }))}
+                placeholder="All developers"
+                defaultValue={selectedDeveloper}
+                onChange={(value) => setSelectedDeveloper(value || '')}
+              />
+            </div>
+
+            {/* City Filter */}
+            <div>
+              <Label>City</Label>
+              <Select
+                options={cities.map((c) => ({ value: c.id, label: c.nameEn || c.name }))}
+                placeholder="All cities"
+                defaultValue={selectedCity}
+                onChange={(value) => {
+                  setSelectedCity(value || '')
+                  setSelectedArea('') // Reset area when city changes
+                }}
+              />
+            </div>
+
+            {/* Area Filter */}
+            <div>
+              <Label>Area</Label>
+              <Select
+                options={areas.map((a) => ({ value: a.id, label: a.nameEn || a.name }))}
+                placeholder="All areas"
+                defaultValue={selectedArea}
+                onChange={(value) => setSelectedArea(value || '')}
+                disabled={!selectedCity}
+              />
+            </div>
+
+            {/* Bedrooms Filter */}
+            <div>
+              <Label>Bedrooms</Label>
+              <Select
+                options={[
+                  { value: '1', label: '1' },
+                  { value: '2', label: '2' },
+                  { value: '3', label: '3' },
+                  { value: '4', label: '4' },
+                  { value: '5', label: '5+' },
+                ]}
+                placeholder="All bedrooms"
+                defaultValue={selectedBedrooms}
+                onChange={(value) => setSelectedBedrooms(value || '')}
+              />
+            </div>
+
+            {/* Price From */}
+            <div>
+              <Label>Price From (USD)</Label>
+              <Input
+                type="number"
+                placeholder="Min price"
+                value={priceFrom}
+                onChange={(e) => setPriceFrom(e.target.value)}
+              />
+            </div>
+
+            {/* Price To */}
+            <div>
+              <Label>Price To (USD)</Label>
+              <Input
+                type="number"
+                placeholder="Max price"
+                value={priceTo}
+                onChange={(e) => setPriceTo(e.target.value)}
+              />
+            </div>
+
+            {/* Size From */}
+            <div>
+              <Label>Size From (sq.m)</Label>
+              <Input
+                type="number"
+                placeholder="Min size"
+                value={sizeFrom}
+                onChange={(e) => setSizeFrom(e.target.value)}
+              />
+            </div>
+
+            {/* Size To */}
+            <div>
+              <Label>Size To (sq.m)</Label>
+              <Input
+                type="number"
+                placeholder="Max size"
+                value={sizeTo}
+                onChange={(e) => setSizeTo(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Datatable */}
