@@ -8,7 +8,7 @@ import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import Pagination from '@/components/tables/Pagination'
-import { PlusIcon } from '@/icons'
+import { PlusIcon, CopyIcon } from '@/icons'
 
 export default function PropertiesPage() {
   const router = useRouter()
@@ -23,6 +23,19 @@ export default function PropertiesPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({})
   const [duplicateMarkers, setDuplicateMarkers] = useState<Set<string>>(new Set())
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Функція для копіювання назви проекту
+  const copyPropertyName = async (name: string, propertyId: string, e: React.MouseEvent) => {
+    e.stopPropagation() // Запобігаємо відкриттю проекту при кліку на кнопку
+    try {
+      await navigator.clipboard.writeText(name)
+      setCopiedId(propertyId)
+      setTimeout(() => setCopiedId(null), 2000) // Скидаємо індикатор через 2 секунди
+    } catch (error) {
+      console.error('Failed to copy:', error)
+    }
+  }
 
   // Функція для нормалізації імені (приведення до нижнього регістру, видалення зайвих пробілів)
   const normalizeName = (name: string): string => {
