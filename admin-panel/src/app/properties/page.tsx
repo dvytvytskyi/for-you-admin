@@ -13,26 +13,11 @@ import { PlusIcon } from '@/icons'
 export default function PropertiesPage() {
   const router = useRouter()
   
-  // Функція для читання параметрів з URL
-  const getUrlParams = () => {
-    if (typeof window === 'undefined') {
-      return { type: 'off-plan', page: 1, search: '' }
-    }
-    const params = new URLSearchParams(window.location.search)
-    return {
-      type: (params.get('type') as 'off-plan' | 'secondary') || 'off-plan',
-      page: parseInt(params.get('page') || '1', 10),
-      search: params.get('search') || ''
-    }
-  }
-  
-  const urlParams = getUrlParams()
-  
   const [properties, setProperties] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>(urlParams.type)
-  const [searchQuery, setSearchQuery] = useState(urlParams.search)
-  const [currentPage, setCurrentPage] = useState(urlParams.page)
+  const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>('off-plan')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(100)
   const [totalCount, setTotalCount] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
