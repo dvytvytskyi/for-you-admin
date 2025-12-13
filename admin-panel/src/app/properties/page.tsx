@@ -141,28 +141,6 @@ export default function PropertiesPage() {
     setCurrentPage(1)
   }, [propertyType, searchQuery])
 
-  // Debounce для пошуку
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      loadProperties()
-      // Scroll to top when tab changes
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      })
-    }, searchQuery ? 300 : 0) // Затримка тільки для пошуку
-    
-    return () => clearTimeout(timeoutId)
-  }, [loadProperties, propertyType, currentPage, searchQuery])
-
-  // Scroll to top when page changes
-  useEffect(() => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
-  }, [currentPage])
-
   const loadProperties = useCallback(async () => {
     setLoading(true)
     try {
@@ -217,6 +195,25 @@ export default function PropertiesPage() {
 
   // Debounce для пошуку
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadProperties()
+      // Scroll to top when tab changes
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }, searchQuery ? 300 : 0) // Затримка тільки для пошуку
+    
+    return () => clearTimeout(timeoutId)
+  }, [loadProperties, propertyType, currentPage, searchQuery])
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }, [currentPage])
     const timeoutId = setTimeout(() => {
       loadProperties()
       // Scroll to top when tab changes
