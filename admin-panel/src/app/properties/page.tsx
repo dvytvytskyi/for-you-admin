@@ -30,6 +30,27 @@ export default function PropertiesPage() {
     return name.toLowerCase().trim().replace(/\s+/g, ' ')
   }
 
+  // Читаємо параметри з URL після монтування
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const urlType = params.get('type') as 'off-plan' | 'secondary'
+      const urlPage = parseInt(params.get('page') || '1', 10)
+      const urlSearch = params.get('search') || ''
+      
+      if (urlType && (urlType === 'off-plan' || urlType === 'secondary')) {
+        setPropertyType(urlType)
+      }
+      if (urlPage > 0 && urlPage !== currentPage) {
+        setCurrentPage(urlPage)
+      }
+      if (urlSearch !== searchQuery) {
+        setSearchQuery(urlSearch)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // Тільки при монтуванні
+
   // Завантажуємо всі імена проектів для перевірки дублікатів
   const loadAllPropertyNames = useCallback(async () => {
     try {
