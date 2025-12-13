@@ -152,7 +152,7 @@ export default function PropertiesPage() {
     }, searchQuery ? 300 : 0) // Затримка тільки для пошуку
     
     return () => clearTimeout(timeoutId)
-  }, [propertyType, currentPage, searchQuery])
+  }, [loadProperties, propertyType, currentPage, searchQuery])
 
   // Scroll to top when page changes
   useEffect(() => {
