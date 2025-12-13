@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { api } from '@/lib/api'
 import Image from 'next/image'
@@ -10,7 +10,7 @@ import Input from '@/components/form/input/InputField'
 import Pagination from '@/components/tables/Pagination'
 import { PlusIcon } from '@/icons'
 
-export default function PropertiesPage() {
+function PropertiesPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -472,5 +472,17 @@ export default function PropertiesPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function PropertiesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    }>
+      <PropertiesPageContent />
+    </Suspense>
   )
 }

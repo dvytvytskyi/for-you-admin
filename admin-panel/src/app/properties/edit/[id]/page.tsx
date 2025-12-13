@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -184,7 +184,7 @@ const formatNumber = (num: number) => {
   })
 }
 
-export default function EditPropertyPage() {
+function EditPropertyPageContent() {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
@@ -1318,5 +1318,17 @@ export default function EditPropertyPage() {
         </div>
       </form>
     </div>
+  )
+}
+
+export default function EditPropertyPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-gray-500">Loading...</div>
+      </div>
+    }>
+      <EditPropertyPageContent />
+    </Suspense>
   )
 }
