@@ -1035,6 +1035,14 @@ function DevelopersTab({ developers, onReload }: any) {
                         src={url}
                         alt={`Developer ${index + 1}`}
                         className="w-full aspect-square object-cover rounded-lg"
+                        onError={(e) => {
+                          console.error('Error loading developer image:', url)
+                          const img = e.target as HTMLImageElement
+                          img.style.display = 'none'
+                        }}
+                        onLoad={() => {
+                          console.log('Developer image loaded successfully:', url)
+                        }}
                       />
                       <button
                         onClick={() => handleRemoveDeveloperImage(index)}
