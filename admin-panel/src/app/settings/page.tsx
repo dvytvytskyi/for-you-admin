@@ -1497,9 +1497,42 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
       let imagesArray: string[] = []
       if (fullArea.images) {
         if (Array.isArray(fullArea.images)) {
+          // Фільтруємо та очищаємо URL
           imagesArray = fullArea.images
+            .filter((url: any) => url && typeof url === 'string' && url.trim().length > 0)
+            .map((url: string) => {
+              // Видаляємо фігурні дужки та інші зайві символи
+              let cleanedUrl = url.trim()
+              // Видаляємо фігурні дужки на початку та кінці
+              if (cleanedUrl.startsWith('{') && cleanedUrl.endsWith('}')) {
+                cleanedUrl = cleanedUrl.slice(1, -1)
+              }
+              // Видаляємо пробіли
+              cleanedUrl = cleanedUrl.trim()
+              return cleanedUrl
+            })
+            .filter((url: string) => {
+              // Валідуємо URL
+              return url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+            })
         } else if (typeof fullArea.images === 'string') {
-          imagesArray = [fullArea.images]
+          // Якщо це рядок, можливо це кома-розділений список (simple-array)
+          const trimmed = fullArea.images.trim()
+          if (trimmed) {
+            imagesArray = trimmed
+              .split(',')
+              .map((url: string) => {
+                let cleanedUrl = url.trim()
+                // Видаляємо фігурні дужки
+                if (cleanedUrl.startsWith('{') && cleanedUrl.endsWith('}')) {
+                  cleanedUrl = cleanedUrl.slice(1, -1).trim()
+                }
+                return cleanedUrl
+              })
+              .filter((url: string) => {
+                return url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+              })
+          }
         }
       }
       
@@ -1520,7 +1553,37 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
         title: typeof area.infrastructure === 'object' ? (area.infrastructure?.title || '') : '',
         description: typeof area.infrastructure === 'object' ? (area.infrastructure?.description || '') : (typeof area.infrastructure === 'string' ? area.infrastructure : '')
       })
-      setAreaImages(Array.isArray(area.images) ? area.images : (area.images ? [area.images] : []))
+      // Парсимо images з fallback
+      let fallbackImages: string[] = []
+      if (area.images) {
+        if (Array.isArray(area.images)) {
+          fallbackImages = area.images
+            .filter((url: any) => url && typeof url === 'string' && url.trim().length > 0)
+            .map((url: string) => {
+              let cleanedUrl = url.trim()
+              if (cleanedUrl.startsWith('{') && cleanedUrl.endsWith('}')) {
+                cleanedUrl = cleanedUrl.slice(1, -1).trim()
+              }
+              return cleanedUrl
+            })
+            .filter((url: string) => url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')))
+        } else if (typeof area.images === 'string') {
+          const trimmed = area.images.trim()
+          if (trimmed) {
+            fallbackImages = trimmed
+              .split(',')
+              .map((url: string) => {
+                let cleanedUrl = url.trim()
+                if (cleanedUrl.startsWith('{') && cleanedUrl.endsWith('}')) {
+                  cleanedUrl = cleanedUrl.slice(1, -1).trim()
+                }
+                return cleanedUrl
+              })
+              .filter((url: string) => url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/')))
+          }
+        }
+      }
+      setAreaImages(fallbackImages)
       setShowEditAreaModal(true)
     }
   }
