@@ -1494,6 +1494,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
       }
       
       // Обробляємо images (має бути масивом)
+      console.log('[handleEditAreaClick] Raw images from API:', fullArea.images, 'Type:', typeof fullArea.images, 'IsArray:', Array.isArray(fullArea.images))
       let imagesArray: string[] = []
       if (fullArea.images) {
         if (Array.isArray(fullArea.images)) {
@@ -1505,15 +1506,20 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
               let cleanedUrl = url.trim()
               // Видаляємо фігурні дужки на початку та кінці
               if (cleanedUrl.startsWith('{') && cleanedUrl.endsWith('}')) {
-                cleanedUrl = cleanedUrl.slice(1, -1)
+                cleanedUrl = cleanedUrl.slice(1, -1).trim()
               }
               // Видаляємо пробіли
               cleanedUrl = cleanedUrl.trim()
+              console.log('[handleEditAreaClick] Cleaned URL:', cleanedUrl.substring(0, 50))
               return cleanedUrl
             })
             .filter((url: string) => {
               // Валідуємо URL
-              return url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+              const isValid = url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+              if (!isValid) {
+                console.warn('[handleEditAreaClick] Invalid URL filtered out:', url.substring(0, 50))
+              }
+              return isValid
             })
         } else if (typeof fullArea.images === 'string') {
           // Якщо це рядок, можливо це кома-розділений список (simple-array)
@@ -1966,24 +1972,48 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
               
               {areaImages.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {areaImages.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={url}
-                        alt={`Area ${index + 1}`}
-                        className="w-full aspect-[3/4] object-cover rounded-lg"
-                      />
-                      <button
-                        onClick={() => handleRemoveImage(index)}
-                        className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                        title="Remove photo"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                          <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+                  {areaImages.map((url, index) => {
+                    // Перевіряємо чи URL валідний
+                    const trimmedUrl = url && typeof url === 'string' ? url.trim() : ''
+                    const isValidUrl = trimmedUrl.length > 0 && (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/'))
+                    
+                    if (!isValidUrl) {
+                      console.warn('Invalid area image URL at index', index, ':', url, 'Type:', typeof url)
+                      return null // Не відображаємо невалідні URL
+                    }
+                    
+                    return (
+                      <div key={index} className="relative group">
+                        <img
+                          src={trimmedUrl}
+                          alt={`Area ${index + 1}`}
+                          className="w-full aspect-[3/4] object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                          onError={(e) => {
+                            console.error('Error loading area image at index', index, ':', trimmedUrl)
+                            const img = e.target as HTMLImageElement
+                            img.style.display = 'none'
+                            // Приховуємо весь контейнер якщо зображення не завантажилось
+                            const parent = img.parentElement
+                            if (parent) {
+                              parent.style.display = 'none'
+                            }
+                          }}
+                          onLoad={() => {
+                            console.log('Area image loaded successfully at index', index, ':', trimmedUrl)
+                          }}
+                        />
+                        <button
+                          onClick={() => handleRemoveImage(index)}
+                          className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                          title="Remove photo"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
