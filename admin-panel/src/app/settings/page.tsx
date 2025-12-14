@@ -700,14 +700,21 @@ function DevelopersTab({ developers, onReload }: any) {
       
       // Ensure images is an array (TypeORM simple-array might return string)
       let images = editingDeveloper.images || []
+      console.log('Raw images from developer:', images, 'Type:', typeof images, 'IsArray:', Array.isArray(images))
+      
       if (typeof images === 'string') {
         // If it's a string (comma-separated), split it
         if (images.trim()) {
           images = images.split(',').map((url: string) => url.trim()).filter((url: string) => url.length > 0)
+          console.log('Parsed images from string:', images)
         } else {
           images = []
         }
-      } else if (!Array.isArray(images)) {
+      } else if (Array.isArray(images)) {
+        // Filter out empty strings and null values
+        images = images.filter((url: any) => url && typeof url === 'string' && url.trim().length > 0).map((url: string) => url.trim())
+        console.log('Filtered images array:', images)
+      } else {
         images = []
       }
       
@@ -715,7 +722,8 @@ function DevelopersTab({ developers, onReload }: any) {
         description: editingDeveloper.description || '',
         logo: editingDeveloper.logo || '',
         images: images,
-        imagesCount: images.length
+        imagesCount: images.length,
+        imageUrls: images
       })
       
       setDeveloperDescription(editingDeveloper.description || '')
@@ -1043,19 +1051,28 @@ function DevelopersTab({ developers, onReload }: any) {
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {developerImages.map((url, index) => {
                     // Перевіряємо чи URL валідний
-                    const isValidUrl = url && typeof url === 'string' && url.trim().length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+                    const trimmedUrl = url && typeof url === 'string' ? url.trim() : ''
+                    const isValidUrl = trimmedUrl.length > 0 && (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/'))
+                    
                     if (!isValidUrl) {
-                      console.warn('Invalid developer image URL:', url)
-                      return null
+                      console.warn('Invalid developer image URL at index', index, ':', url, 'Type:', typeof url)
+                      return (
+                        <div key={index} className="relative group">
+                          <div className="w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
+                            <span className="text-xs text-gray-400 dark:text-gray-500 text-center px-2">Invalid URL</span>
+                          </div>
+                        </div>
+                      )
                     }
+                    
                     return (
                       <div key={index} className="relative group">
                         <img
-                          src={url.trim()}
+                          src={trimmedUrl}
                           alt={`Developer ${index + 1}`}
                           className="w-full aspect-square object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                           onError={(e) => {
-                            console.error('Error loading developer image:', url)
+                            console.error('Error loading developer image at index', index, ':', trimmedUrl)
                             const img = e.target as HTMLImageElement
                             img.style.display = 'none'
                             // Show placeholder
@@ -1063,12 +1080,15 @@ function DevelopersTab({ developers, onReload }: any) {
                             if (parent && !parent.querySelector('.image-error-placeholder')) {
                               const placeholder = document.createElement('div')
                               placeholder.className = 'image-error-placeholder w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700'
-                              placeholder.innerHTML = '<span class="text-xs text-gray-400 dark:text-gray-500">Image not found</span>'
+                              const text = document.createElement('span')
+                              text.className = 'text-xs text-gray-400 dark:text-gray-500'
+                              text.textContent = 'Image not found'
+                              placeholder.appendChild(text)
                               parent.appendChild(placeholder)
                             }
                           }}
                           onLoad={() => {
-                            console.log('Developer image loaded successfully:', url)
+                            console.log('Developer image loaded successfully at index', index, ':', trimmedUrl)
                           }}
                         />
                         <button
