@@ -86,6 +86,7 @@ const offPlanSchema = z.object({
   facilityIds: z.array(z.string()).optional(),
   developerId: z.string().optional(),
   paymentPlan: z.string().optional(),
+  isForYouChoice: z.boolean().optional(),
 })
 
 const secondarySchema = z.object({
@@ -187,20 +188,24 @@ const formatNumber = (num: number) => {
 export default function EditPropertyPage() {
   const router = useRouter()
   const params = useParams()
+  const propertyId = params?.id as string
   
   // Отримуємо параметри для повернення з URL
   const getReturnUrl = () => {
     if (typeof window === 'undefined') {
       return '/properties'
     }
-    const urlParams = new URLSearchParams(window.location.search)
-    const returnParams = urlParams.get('return')
-    if (returnParams) {
-      return `/properties?${returnParams}`
+    try {
+      const urlParams = new URLSearchParams(window.location.search)
+      const returnParams = urlParams.get('return')
+      if (returnParams) {
+        return `/properties?${returnParams}`
+      }
+    } catch (e) {
+      console.error('Error parsing return params:', e)
     }
     return '/properties'
   }
-  const propertyId = params?.id as string
   
   const [loading, setLoading] = useState(false)
   const [loadingProperty, setLoadingProperty] = useState(true)
@@ -303,6 +308,7 @@ export default function EditPropertyPage() {
         description: property.description || '',
         developerId: property.developerId || '',
         paymentPlan: property.paymentPlan || '',
+        isForYouChoice: property.isForYouChoice || false,
         ...(property.propertyType === PropertyType.OFF_PLAN
           ? {
               priceFrom: String(property.priceFrom || ''),
@@ -532,6 +538,7 @@ export default function EditPropertyPage() {
         latitude: parseFloat(data.latitude),
         longitude: parseFloat(data.longitude),
         developerId: data.developerId || undefined,
+        isForYouChoice: data.isForYouChoice || false,
       }
 
       if (data.propertyType === PropertyType.OFF_PLAN) {
@@ -545,6 +552,7 @@ export default function EditPropertyPage() {
         payload.description = data.description
         payload.paymentPlan = data.paymentPlan || undefined
         payload.facilityIds = data.facilityIds || []
+        payload.isForYouChoice = data.isForYouChoice || false
 
         // Add units
         if (units.length > 0) {
@@ -1027,6 +1035,19 @@ export default function EditPropertyPage() {
                 />
               </div>
 
+              {/* For You Choice */}
+              <div>
+                <Checkbox
+                  id="isForYouChoice"
+                  label="ВЫБОР FOR YOU"
+                  checked={watch('isForYouChoice') || false}
+                  onChange={(checked) => setValue('isForYouChoice', checked)}
+                />
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Відмітити цей об'єкт як власний лістінг. Він буде відображатися вгорі у вкладці недвижимость та на головній сторінці.
+                </p>
+              </div>
+
               {/* Facilities */}
               <div>
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -1291,6 +1312,19 @@ export default function EditPropertyPage() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* For You Choice */}
+              <div>
+                <Checkbox
+                  id="isForYouChoice-secondary"
+                  label="ВЫБОР FOR YOU"
+                  checked={watch('isForYouChoice') || false}
+                  onChange={(checked) => setValue('isForYouChoice', checked)}
+                />
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Відмітити цей об'єкт як власний лістінг. Він буде відображатися вгорі у вкладці недвижимость та на головній сторінці.
+                </p>
               </div>
             </>
           )}
