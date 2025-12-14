@@ -1496,28 +1496,36 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
       // Обробляємо images (має бути масивом)
       console.log('[handleEditAreaClick] Raw images from API:', fullArea.images, 'Type:', typeof fullArea.images, 'IsArray:', Array.isArray(fullArea.images))
       let imagesArray: string[] = []
+      
+      // Helper function to clean URL
+      const cleanUrl = (url: string): string => {
+        if (!url || typeof url !== 'string') return ''
+        let cleaned = url.trim()
+        // Remove curly braces (можуть бути на початку/кінці або навколо всього)
+        while ((cleaned.startsWith('{') && cleaned.endsWith('}')) || cleaned.startsWith('{') || cleaned.endsWith('}')) {
+          if (cleaned.startsWith('{')) cleaned = cleaned.slice(1).trim()
+          if (cleaned.endsWith('}')) cleaned = cleaned.slice(0, -1).trim()
+        }
+        // Remove any whitespace
+        cleaned = cleaned.trim()
+        // Remove URL encoding if present
+        try {
+          cleaned = decodeURIComponent(cleaned)
+        } catch (e) {
+          // If decode fails, use original
+        }
+        return cleaned
+      }
+      
       if (fullArea.images) {
         if (Array.isArray(fullArea.images)) {
           // Фільтруємо та очищаємо URL
           imagesArray = fullArea.images
-            .filter((url: any) => url && typeof url === 'string' && url.trim().length > 0)
-            .map((url: string) => {
-              // Видаляємо фігурні дужки та інші зайві символи
-              let cleanedUrl = url.trim()
-              // Видаляємо фігурні дужки на початку та кінці
-              if (cleanedUrl.startsWith('{') && cleanedUrl.endsWith('}')) {
-                cleanedUrl = cleanedUrl.slice(1, -1).trim()
-              }
-              // Видаляємо пробіли
-              cleanedUrl = cleanedUrl.trim()
-              console.log('[handleEditAreaClick] Cleaned URL:', cleanedUrl.substring(0, 50))
-              return cleanedUrl
-            })
+            .map((url: any) => cleanUrl(String(url)))
             .filter((url: string) => {
-              // Валідуємо URL
               const isValid = url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
-              if (!isValid) {
-                console.warn('[handleEditAreaClick] Invalid URL filtered out:', url.substring(0, 50))
+              if (!isValid && url.length > 0) {
+                console.warn('[handleEditAreaClick] Invalid URL filtered out:', url.substring(0, 80))
               }
               return isValid
             })
@@ -1525,23 +1533,28 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
           // Якщо це рядок, можливо це кома-розділений список (simple-array)
           const trimmed = fullArea.images.trim()
           if (trimmed) {
-            imagesArray = trimmed
+            // Remove outer curly braces first
+            let toParse = trimmed
+            if (toParse.startsWith('{') && toParse.endsWith('}')) {
+              toParse = toParse.slice(1, -1).trim()
+            }
+            imagesArray = toParse
               .split(',')
-              .map((url: string) => {
-                let cleanedUrl = url.trim()
-                // Видаляємо фігурні дужки
-                if (cleanedUrl.startsWith('{') && cleanedUrl.endsWith('}')) {
-                  cleanedUrl = cleanedUrl.slice(1, -1).trim()
-                }
-                return cleanedUrl
-              })
+              .map((url: string) => cleanUrl(url))
               .filter((url: string) => {
-                return url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+                const isValid = url.length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+                if (!isValid && url.length > 0) {
+                  console.warn('[handleEditAreaClick] Invalid URL from string filtered out:', url.substring(0, 80))
+                }
+                return isValid
               })
           }
         }
       }
       
+      console.log('[handleEditAreaClick] Processed images:', imagesArray.map((url, i) => ({ index: i, url: url.substring(0, 60) })))
+      
+      console.log('[handleEditAreaClick] Final images array:', imagesArray, 'Length:', imagesArray.length)
       setEditingArea(fullArea)
       setAreaDescription(descriptionObj)
       setAreaInfrastructure(infrastructureObj)
