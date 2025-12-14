@@ -51,6 +51,15 @@ const parseAreaImages = (images: any): string[] | null => {
     })
     .filter((url: string) => url.length > 0);
   
+  // Log for debugging
+  if (urls.length > 0) {
+    console.log('[parseAreaImages] Parsed images:', {
+      original: images,
+      parsed: urls,
+      firstUrl: urls[0]?.substring(0, 50)
+    });
+  }
+  
   return urls.length > 0 ? urls : null;
 };
 
