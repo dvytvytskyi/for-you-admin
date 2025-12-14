@@ -1057,30 +1057,32 @@ function DevelopersTab({ developers, onReload }: any) {
                           onError={(e) => {
                             console.error('Error loading developer image:', url)
                             const img = e.target as HTMLImageElement
+                            img.style.display = 'none'
+                            // Show placeholder
                             const parent = img.parentElement
-                            if (parent) {
-                              parent.innerHTML = `
-                                <div class="w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
-                                  <span class="text-xs text-gray-400 dark:text-gray-500">Image not found</span>
-                                </div>
-                              `
+                            if (parent && !parent.querySelector('.image-error-placeholder')) {
+                              const placeholder = document.createElement('div')
+                              placeholder.className = 'image-error-placeholder w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700'
+                              placeholder.innerHTML = '<span class="text-xs text-gray-400 dark:text-gray-500">Image not found</span>'
+                              parent.appendChild(placeholder)
                             }
                           }}
                           onLoad={() => {
                             console.log('Developer image loaded successfully:', url)
                           }}
                         />
-                      <button
-                        onClick={() => handleRemoveDeveloperImage(index)}
-                        className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                        title="Remove photo"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                          <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                      </button>
-                    </div>
-                  ))}
+                        <button
+                          onClick={() => handleRemoveDeveloperImage(index)}
+                          className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                          title="Remove photo"
+                        >
+                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 
