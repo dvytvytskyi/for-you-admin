@@ -16,6 +16,37 @@ router.use((req, res, next) => {
   return authenticateJWT(req, res, next);
 });
 
+// Helper function to parse simple-array images from database
+// TypeORM simple-array stores as comma-separated string, may have curly braces
+const parseAreaImages = (images: any): string[] | null => {
+  if (!images) return null;
+  if (Array.isArray(images)) {
+    return images.map((url: string) => {
+      let cleaned = String(url).trim();
+      // Remove curly braces
+      if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+        cleaned = cleaned.slice(1, -1).trim();
+      }
+      return cleaned;
+    }).filter((url: string) => url.length > 0);
+  }
+  if (typeof images === 'string') {
+    // Parse comma-separated string (TypeORM simple-array format)
+    return images
+      .split(',')
+      .map((url: string) => {
+        let cleaned = url.trim();
+        // Remove curly braces
+        if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+          cleaned = cleaned.slice(1, -1).trim();
+        }
+        return cleaned;
+      })
+      .filter((url: string) => url.length > 0);
+  }
+  return null;
+};
+
 router.get('/countries', async (req, res) => {
   const countries = await AppDataSource.getRepository(Country).find({ relations: ['cities'] });
   res.json(successResponse(countries));
@@ -68,7 +99,7 @@ router.get('/areas', async (req, res) => {
         nameAr: row.nameAr,
         description: row.description || null,
         infrastructure: row.infrastructure || null,
-        images: row.images || null,
+        images: parseAreaImages(row.images),
       }));
       
       res.json(successResponse(areas));
@@ -116,7 +147,7 @@ router.get('/locations', async (req, res) => {
         nameAr: row.nameAr,
         description: row.description || null,
         infrastructure: row.infrastructure || null,
-        images: row.images || null,
+        images: parseAreaImages(row.images),
       }));
       
       res.json(successResponse({
@@ -272,7 +303,7 @@ router.get('/areas/:id', async (req, res) => {
         nameAr: row.nameAr,
         description: row.description || null,
         infrastructure: row.infrastructure || null,
-        images: row.images || null,
+        images: parseAreaImages(row.images),
       };
       
       res.json(successResponse(area));
