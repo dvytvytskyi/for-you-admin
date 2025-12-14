@@ -121,6 +121,7 @@ const secondarySchema = z.object({
     return String(val).trim()
   }).refine((val) => val.length > 0, { message: 'Size is required' }),
   developerId: z.string().optional(),
+  isForYouChoice: z.boolean().optional(),
 })
 
 const propertySchema = z.discriminatedUnion('propertyType', [offPlanSchema, secondarySchema])
