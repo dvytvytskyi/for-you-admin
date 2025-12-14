@@ -17,34 +17,41 @@ router.use((req, res, next) => {
 });
 
 // Helper function to parse simple-array images from database
-// TypeORM simple-array stores as comma-separated string, may have curly braces
+// TypeORM simple-array stores as comma-separated string, PostgreSQL returns as {url1,url2} format
 const parseAreaImages = (images: any): string[] | null => {
   if (!images) return null;
+  
+  let stringValue = '';
+  
   if (Array.isArray(images)) {
-    return images.map((url: string) => {
-      let cleaned = String(url).trim();
-      // Remove curly braces
-      if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-        cleaned = cleaned.slice(1, -1).trim();
+    // If already an array, join and process
+    stringValue = images.join(',');
+  } else if (typeof images === 'string') {
+    stringValue = images;
+  } else {
+    return null;
+  }
+  
+  // Remove outer curly braces if present (PostgreSQL array format)
+  let cleaned = stringValue.trim();
+  if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+    cleaned = cleaned.slice(1, -1).trim();
+  }
+  
+  // Split by comma and clean each URL
+  const urls = cleaned
+    .split(',')
+    .map((url: string) => {
+      let urlCleaned = url.trim();
+      // Remove any remaining curly braces from individual URLs
+      if (urlCleaned.startsWith('{') && urlCleaned.endsWith('}')) {
+        urlCleaned = urlCleaned.slice(1, -1).trim();
       }
-      return cleaned;
-    }).filter((url: string) => url.length > 0);
-  }
-  if (typeof images === 'string') {
-    // Parse comma-separated string (TypeORM simple-array format)
-    return images
-      .split(',')
-      .map((url: string) => {
-        let cleaned = url.trim();
-        // Remove curly braces
-        if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-          cleaned = cleaned.slice(1, -1).trim();
-        }
-        return cleaned;
-      })
-      .filter((url: string) => url.length > 0);
-  }
-  return null;
+      return urlCleaned;
+    })
+    .filter((url: string) => url.length > 0);
+  
+  return urls.length > 0 ? urls : null;
 };
 
 router.get('/countries', async (req, res) => {
