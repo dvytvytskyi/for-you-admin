@@ -167,17 +167,20 @@ router.get('/', async (req: AuthRequest, res) => {
       );
     }
 
-    // Сортування
+    // Сортування - спочатку featured (isForYouChoice = true), потім по іншим полям
     const sortField = sortBy?.toString() || 'createdAt';
     const sortDirection = sortOrder?.toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    
+    // Спочатку сортуємо по isForYouChoice (featured спочатку)
+    queryBuilder.addOrderBy('property.isForYouChoice', 'DESC');
     
     // Дозволені поля для сортування
     const allowedSortFields = ['createdAt', 'name', 'price', 'priceFrom', 'size', 'sizeFrom'];
     if (allowedSortFields.includes(sortField)) {
-      queryBuilder.orderBy(`property.${sortField}`, sortDirection);
+      queryBuilder.addOrderBy(`property.${sortField}`, sortDirection);
     } else {
       // За замовчуванням сортування по даті створення
-      queryBuilder.orderBy('property.createdAt', 'DESC');
+      queryBuilder.addOrderBy('property.createdAt', 'DESC');
     }
 
     // Пагінація - фронтенд завжди передає page та limit через infinite scroll
@@ -598,7 +601,8 @@ router.patch('/:id', async (req, res) => {
       'countryId', 'cityId', 'areaId', 'developerId',
       'priceFrom', 'bedroomsFrom', 'bedroomsTo', 'bathroomsFrom', 'bathroomsTo',
       'sizeFrom', 'sizeTo', 'paymentPlan',
-      'price', 'bedrooms', 'bathrooms', 'size', 'propertyType'
+      'price', 'bedrooms', 'bathrooms', 'size', 'propertyType',
+      'isForYouChoice'
     ];
 
     const updateData: any = {};

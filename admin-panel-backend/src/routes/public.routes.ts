@@ -26,8 +26,9 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
     const [properties, countries, cities, areas, developers, facilities, courses] = await Promise.all([
       AppDataSource.getRepository(Property).find({
         relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
-        order: { createdAt: 'DESC' },
+        order: { isForYouChoice: 'DESC', createdAt: 'DESC' },
         // No where clause - returns all properties from all areas
+        // Featured properties (isForYouChoice = true) will be first
       }),
       AppDataSource.getRepository(Country).find({
         order: { nameEn: 'ASC' },
@@ -96,6 +97,7 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
         bathroomsFrom: p.bathroomsFrom,
         bathroomsTo: p.bathroomsTo,
         paymentPlan: p.paymentPlan,
+        isForYouChoice: p.isForYouChoice || false,
         latitude: p.latitude,
         longitude: p.longitude,
         country: p.country ? {

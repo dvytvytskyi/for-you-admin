@@ -146,6 +146,8 @@ function DevelopersTab({ developers, onReload }: any) {
   const [developerImages, setDeveloperImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
   const [savingDeveloper, setSavingDeveloper] = useState(false)
+  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
+  const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
   
   // Helper to check if button should be enabled
   const hasValidInput = newDeveloper && newDeveloper.trim().length > 0
@@ -607,6 +609,8 @@ function DevelopersTab({ developers, onReload }: any) {
     setDeveloperDescription(developer.description || '')
     setDeveloperLogo(developer.logo || '')
     setDeveloperImages(images)
+    setLoadedImages(new Set())
+    setFailedImages(new Set())
     setShowEditDeveloperModal(true)
   }
 

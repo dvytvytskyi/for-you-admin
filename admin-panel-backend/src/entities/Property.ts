@@ -83,6 +83,9 @@ export class Property {
   @Column('text', { nullable: true })
   paymentPlan!: string;
 
+  @Column({ type: 'boolean', default: false })
+  isForYouChoice!: boolean;
+
   @OneToMany(() => PropertyUnit, unit => unit.property, { cascade: true })
   units!: PropertyUnit[];
 
