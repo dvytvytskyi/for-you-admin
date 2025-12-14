@@ -586,15 +586,22 @@ function DevelopersTab({ developers, onReload }: any) {
 
   const handleEditDeveloperClick = (developer: any) => {
     console.log('Opening developer modal with data:', developer)
+    console.log('Developer images raw:', developer.images, 'Type:', typeof developer.images)
     
     // Ensure images is an array (TypeORM simple-array might return string)
     let images = developer.images || []
     if (typeof images === 'string') {
       // If it's a string (comma-separated), split it
-      images = images.split(',').filter((url: string) => url.trim())
+      if (images.trim()) {
+        images = images.split(',').map((url: string) => url.trim()).filter((url: string) => url.length > 0)
+      } else {
+        images = []
+      }
     } else if (!Array.isArray(images)) {
       images = []
     }
+    
+    console.log('Processed images:', images)
     
     setEditingDeveloper(developer)
     setDeveloperDescription(developer.description || '')
@@ -695,7 +702,11 @@ function DevelopersTab({ developers, onReload }: any) {
       let images = editingDeveloper.images || []
       if (typeof images === 'string') {
         // If it's a string (comma-separated), split it
-        images = images.split(',').filter((url: string) => url.trim())
+        if (images.trim()) {
+          images = images.split(',').map((url: string) => url.trim()).filter((url: string) => url.length > 0)
+        } else {
+          images = []
+        }
       } else if (!Array.isArray(images)) {
         images = []
       }
@@ -703,7 +714,8 @@ function DevelopersTab({ developers, onReload }: any) {
       console.log('Setting modal fields:', {
         description: editingDeveloper.description || '',
         logo: editingDeveloper.logo || '',
-        images: images
+        images: images,
+        imagesCount: images.length
       })
       
       setDeveloperDescription(editingDeveloper.description || '')
@@ -1029,21 +1041,35 @@ function DevelopersTab({ developers, onReload }: any) {
               
               {developerImages.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {developerImages.map((url, index) => (
-                    <div key={index} className="relative group">
-                      <img
-                        src={url}
-                        alt={`Developer ${index + 1}`}
-                        className="w-full aspect-square object-cover rounded-lg"
-                        onError={(e) => {
-                          console.error('Error loading developer image:', url)
-                          const img = e.target as HTMLImageElement
-                          img.style.display = 'none'
-                        }}
-                        onLoad={() => {
-                          console.log('Developer image loaded successfully:', url)
-                        }}
-                      />
+                  {developerImages.map((url, index) => {
+                    // Перевіряємо чи URL валідний
+                    const isValidUrl = url && typeof url === 'string' && url.trim().length > 0 && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('/'))
+                    if (!isValidUrl) {
+                      console.warn('Invalid developer image URL:', url)
+                      return null
+                    }
+                    return (
+                      <div key={index} className="relative group">
+                        <img
+                          src={url.trim()}
+                          alt={`Developer ${index + 1}`}
+                          className="w-full aspect-square object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                          onError={(e) => {
+                            console.error('Error loading developer image:', url)
+                            const img = e.target as HTMLImageElement
+                            const parent = img.parentElement
+                            if (parent) {
+                              parent.innerHTML = `
+                                <div class="w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
+                                  <span class="text-xs text-gray-400 dark:text-gray-500">Image not found</span>
+                                </div>
+                              `
+                            }
+                          }}
+                          onLoad={() => {
+                            console.log('Developer image loaded successfully:', url)
+                          }}
+                        />
                       <button
                         onClick={() => handleRemoveDeveloperImage(index)}
                         className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
