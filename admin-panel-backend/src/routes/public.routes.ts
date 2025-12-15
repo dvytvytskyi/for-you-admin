@@ -23,7 +23,7 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
     });
 
     // Fetch ALL properties without any areaId filtering - this is intentional for client-side filtering
-    const [properties, countries, cities, areas, developers, facilities, courses] = await Promise.all([
+    const [properties, countries, cities, areasRaw, developers, facilities, courses] = await Promise.all([
       AppDataSource.getRepository(Property).find({
         relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
         order: { isForYouChoice: 'DESC', createdAt: 'DESC' },
@@ -40,35 +40,6 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
       AppDataSource.getRepository(Area).find({
         relations: ['city', 'city.country'],
         order: { nameEn: 'ASC' },
-      }).then(areas => {
-        // Parse images from simple-array format
-        return areas.map(area => {
-          if (area.images) {
-            // Helper to parse simple-array images
-            let images = area.images;
-            if (typeof images === 'string') {
-              // Remove outer curly braces if present (PostgreSQL array format)
-              let cleaned = images.trim();
-              if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-                cleaned = cleaned.slice(1, -1).trim();
-              }
-              // Split by comma and clean each URL
-              images = cleaned
-                .split(',')
-                .map((url: string) => {
-                  let urlCleaned = url.trim();
-                  // Remove any remaining curly braces
-                  if (urlCleaned.startsWith('{') && urlCleaned.endsWith('}')) {
-                    urlCleaned = urlCleaned.slice(1, -1).trim();
-                  }
-                  return urlCleaned;
-                })
-                .filter((url: string) => url.length > 0);
-            }
-            area.images = Array.isArray(images) && images.length > 0 ? images : null;
-          }
-          return area;
-        });
       }),
       AppDataSource.getRepository(Developer).find({
         order: { name: 'ASC' },
@@ -81,6 +52,37 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
         order: { order: 'ASC' },
       }),
     ]);
+
+    // Parse area images from simple-array format
+    const areas = areasRaw.map(area => {
+      if (area.images) {
+        // Helper to parse simple-array images
+        let images: any = area.images;
+        if (typeof images === 'string') {
+          // Remove outer curly braces if present (PostgreSQL array format)
+          let cleaned = images.trim();
+          if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+            cleaned = cleaned.slice(1, -1).trim();
+          }
+          // Split by comma and clean each URL
+          images = cleaned
+            .split(',')
+            .map((url: string) => {
+              let urlCleaned = url.trim();
+              // Remove any remaining curly braces
+              if (urlCleaned.startsWith('{') && urlCleaned.endsWith('}')) {
+                urlCleaned = urlCleaned.slice(1, -1).trim();
+              }
+              return urlCleaned;
+            })
+            .filter((url: string) => url.length > 0);
+        }
+        area.images = Array.isArray(images) && images.length > 0 ? images : undefined;
+      } else {
+        area.images = undefined;
+      }
+      return area;
+    });
 
     // Transform properties with conversions
     const transformedProperties = properties.map(p => {
