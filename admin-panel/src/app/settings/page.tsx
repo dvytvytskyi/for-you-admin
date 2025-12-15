@@ -1986,23 +1986,39 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
               {areaImages.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {areaImages.map((url, index) => {
-                    // Перевіряємо чи URL валідний
-                    const trimmedUrl = url && typeof url === 'string' ? url.trim() : ''
-                    const isValidUrl = trimmedUrl.length > 0 && (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/'))
+                    // Додаткова очистка URL перед відображенням
+                    let displayUrl = url && typeof url === 'string' ? url.trim() : ''
+                    
+                    // Видаляємо фігурні дужки якщо вони все ще є
+                    while ((displayUrl.startsWith('{') && displayUrl.endsWith('}')) || displayUrl.startsWith('{') || displayUrl.endsWith('}')) {
+                      if (displayUrl.startsWith('{')) displayUrl = displayUrl.slice(1).trim()
+                      if (displayUrl.endsWith('}')) displayUrl = displayUrl.slice(0, -1).trim()
+                    }
+                    
+                    // Декодуємо URL якщо потрібно
+                    try {
+                      displayUrl = decodeURIComponent(displayUrl)
+                    } catch (e) {
+                      // Якщо декодування не вдалося, використовуємо оригінал
+                    }
+                    
+                    const isValidUrl = displayUrl.length > 0 && (displayUrl.startsWith('http://') || displayUrl.startsWith('https://') || displayUrl.startsWith('/'))
                     
                     if (!isValidUrl) {
-                      console.warn('Invalid area image URL at index', index, ':', url, 'Type:', typeof url)
+                      console.warn('[Area Image Display] Invalid area image URL at index', index, ':', url, 'Cleaned:', displayUrl.substring(0, 80))
                       return null // Не відображаємо невалідні URL
                     }
+                    
+                    console.log('[Area Image Display] Rendering image', index, ':', displayUrl.substring(0, 60))
                     
                     return (
                       <div key={index} className="relative group">
                         <img
-                          src={trimmedUrl}
+                          src={displayUrl}
                           alt={`Area ${index + 1}`}
                           className="w-full aspect-[3/4] object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                           onError={(e) => {
-                            console.error('Error loading area image at index', index, ':', trimmedUrl)
+                            console.error('[Area Image Display] Error loading area image at index', index, ':', displayUrl.substring(0, 80))
                             const img = e.target as HTMLImageElement
                             img.style.display = 'none'
                             // Приховуємо весь контейнер якщо зображення не завантажилось
@@ -2012,7 +2028,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
                             }
                           }}
                           onLoad={() => {
-                            console.log('Area image loaded successfully at index', index, ':', trimmedUrl)
+                            console.log('[Area Image Display] Area image loaded successfully at index', index, ':', displayUrl.substring(0, 60))
                           }}
                         />
                         <button
