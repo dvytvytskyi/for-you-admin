@@ -35,12 +35,19 @@ async function importAreas() {
 
     const areaRepository = AppDataSource.getRepository(Area);
 
-    // Видаляємо всі поточні areas
-    console.log('🗑️  Deleting all existing areas...');
-    const deleteResult = await areaRepository.delete({});
-    console.log(`✅ Deleted ${deleteResult.affected || 0} existing areas\n`);
+    // Step 1: Delete all existing areas
+    console.log('\n🗑️  Deleting all existing areas...');
+    const existingAreas = await areaRepository.find();
+    const existingCount = existingAreas.length;
+    
+    if (existingCount > 0) {
+      await areaRepository.remove(existingAreas);
+      console.log(`✅ Deleted ${existingCount} existing areas`);
+    } else {
+      console.log('ℹ️  No existing areas to delete');
+    }
 
-    // Шукаємо CSV файл
+    // Step 2: Find and read CSV file
     const possiblePaths = [
       path.resolve(__dirname, '../../../area_updated.csv'),
       path.resolve(process.cwd(), 'area_updated.csv'),
@@ -60,7 +67,7 @@ async function importAreas() {
       throw new Error(`CSV file not found. Tried: ${possiblePaths.join(', ')}`);
     }
 
-    console.log(`📖 Reading CSV file: ${csvPath}...`);
+    console.log(`\n📖 Reading CSV file: ${csvPath}...`);
     const csvContent = fs.readFileSync(csvPath, 'utf-8');
     
     console.log('🔄 Parsing CSV...');
@@ -68,90 +75,97 @@ async function importAreas() {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-      relax_column_count: true,
+      relax_quotes: true,
+      escape: '"',
     });
 
     console.log(`📊 Found ${records.length} areas to import\n`);
 
     let successCount = 0;
     let errorCount = 0;
-    let areasWithDescription = 0;
-    let areasWithInfrastructure = 0;
-    let areasWithImages = 0;
-    let totalImages = 0;
     const errors: string[] = [];
 
     for (let i = 0; i < records.length; i++) {
       const row = records[i];
       try {
-        // Парсимо description в новому форматі з мовами
+        // Parse description in new format with en/ru
         let description: any = undefined;
-        const hasEnDesc = row.descriptionEnTitle || row.descriptionEnText;
-        const hasRuDesc = row.descriptionRuTitle || row.descriptionRuText;
-        
-        if (hasEnDesc || hasRuDesc) {
-          description = {};
-          if (hasEnDesc) {
-            description.en = {
+        if (row.descriptionEnTitle || row.descriptionEnText || row.descriptionRuTitle || row.descriptionRuText) {
+          description = {
+            en: {
               title: row.descriptionEnTitle || undefined,
               description: row.descriptionEnText || undefined,
-            };
-          }
-          if (hasRuDesc) {
-            description.ru = {
+            },
+            ru: {
               title: row.descriptionRuTitle || undefined,
               description: row.descriptionRuText || undefined,
-            };
+            },
+          };
+          // Remove empty language objects
+          if (!description.en.title && !description.en.description) {
+            delete description.en;
           }
-          areasWithDescription++;
+          if (!description.ru.title && !description.ru.description) {
+            delete description.ru;
+          }
+          // If both languages are empty, set to undefined
+          if (Object.keys(description).length === 0) {
+            description = undefined;
+          }
         }
 
-        // Парсимо infrastructure в новому форматі з мовами
+        // Parse infrastructure in new format with en/ru
         let infrastructure: any = undefined;
-        const hasEnInfra = row.infrastructureEnTitle || row.infrastructureEnText;
-        const hasRuInfra = row.infrastructureRuTitle || row.infrastructureRuText;
-        
-        if (hasEnInfra || hasRuInfra) {
-          infrastructure = {};
-          if (hasEnInfra) {
-            infrastructure.en = {
+        if (row.infrastructureEnTitle || row.infrastructureEnText || row.infrastructureRuTitle || row.infrastructureRuText) {
+          infrastructure = {
+            en: {
               title: row.infrastructureEnTitle || undefined,
               description: row.infrastructureEnText || undefined,
-            };
-          }
-          if (hasRuInfra) {
-            infrastructure.ru = {
+            },
+            ru: {
               title: row.infrastructureRuTitle || undefined,
               description: row.infrastructureRuText || undefined,
-            };
+            },
+          };
+          // Remove empty language objects
+          if (!infrastructure.en.title && !infrastructure.en.description) {
+            delete infrastructure.en;
           }
-          areasWithInfrastructure++;
+          if (!infrastructure.ru.title && !infrastructure.ru.description) {
+            delete infrastructure.ru;
+          }
+          // If both languages are empty, set to undefined
+          if (Object.keys(infrastructure).length === 0) {
+            infrastructure = undefined;
+          }
         }
 
-        // Парсимо images - розділені через " | " (пробіл, вертикальна риска, пробіл)
+        // Parse images - split by ' | ' (space, pipe, space)
         let images: string[] | undefined = undefined;
         if (row.images && row.images.trim()) {
-          images = row.images
+          const imageUrls = row.images
             .split(' | ')
             .map(url => url.trim())
             .filter(url => url.length > 0 && (url.startsWith('http://') || url.startsWith('https://')))
-            .slice(0, 8); // Максимум 8 фото
+            .slice(0, 8); // Maximum 8 images
           
-          if (images.length > 0) {
-            areasWithImages++;
-            totalImages += images.length;
-          } else {
-            images = undefined;
+          if (imageUrls.length > 0) {
+            images = imageUrls;
           }
         }
 
-        // Створюємо area
+        // Validate required fields
+        if (!row.id || !row.nameEn || !row.cityId) {
+          throw new Error(`Missing required fields: id=${!!row.id}, nameEn=${!!row.nameEn}, cityId=${!!row.cityId}`);
+        }
+
+        // Create new area
         const area = areaRepository.create({
-          id: row.id,
-          cityId: row.cityId,
-          nameEn: row.nameEn || '',
-          nameRu: row.nameRu || row.nameEn || '',
-          nameAr: row.nameAr || row.nameEn || '',
+          id: row.id.trim(),
+          cityId: row.cityId.trim(),
+          nameEn: row.nameEn.trim() || row.nameEn,
+          nameRu: row.nameRu?.trim() || row.nameEn.trim() || '',
+          nameAr: row.nameAr?.trim() || row.nameEn.trim() || '',
           description: description,
           infrastructure: infrastructure,
           images: images,
@@ -176,10 +190,6 @@ async function importAreas() {
     console.log('\n📊 Import Statistics:');
     console.log(`   ✅ Successfully imported: ${successCount}`);
     console.log(`   ❌ Failed: ${errorCount}`);
-    console.log(`   📝 Areas with description: ${areasWithDescription}`);
-    console.log(`   🏗️  Areas with infrastructure: ${areasWithInfrastructure}`);
-    console.log(`   📸 Areas with images: ${areasWithImages}`);
-    console.log(`   🖼️  Total images imported: ${totalImages}`);
     
     if (errors.length > 0 && errors.length <= 20) {
       console.log('\n❌ Errors:');
@@ -188,6 +198,17 @@ async function importAreas() {
       console.log(`\n❌ First 20 errors (total ${errors.length}):`);
       errors.slice(0, 20).forEach(err => console.log(`   • ${err}`));
     }
+
+    // Statistics
+    const allAreas = await areaRepository.find();
+    const areasWithImages = allAreas.filter(a => a.images && a.images.length > 0).length;
+    const areasWithDescription = allAreas.filter(a => a.description).length;
+    const areasWithInfrastructure = allAreas.filter(a => a.infrastructure).length;
+
+    console.log('\n📈 Final Statistics:');
+    console.log(`   📸 Areas with images: ${areasWithImages}`);
+    console.log(`   📝 Areas with description: ${areasWithDescription}`);
+    console.log(`   🏗️  Areas with infrastructure: ${areasWithInfrastructure}`);
 
     console.log('\n✅ Import completed!');
     await AppDataSource.destroy();
