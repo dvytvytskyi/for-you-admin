@@ -40,6 +40,35 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
       AppDataSource.getRepository(Area).find({
         relations: ['city', 'city.country'],
         order: { nameEn: 'ASC' },
+      }).then(areas => {
+        // Parse images from simple-array format
+        return areas.map(area => {
+          if (area.images) {
+            // Helper to parse simple-array images
+            let images = area.images;
+            if (typeof images === 'string') {
+              // Remove outer curly braces if present (PostgreSQL array format)
+              let cleaned = images.trim();
+              if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+                cleaned = cleaned.slice(1, -1).trim();
+              }
+              // Split by comma and clean each URL
+              images = cleaned
+                .split(',')
+                .map((url: string) => {
+                  let urlCleaned = url.trim();
+                  // Remove any remaining curly braces
+                  if (urlCleaned.startsWith('{') && urlCleaned.endsWith('}')) {
+                    urlCleaned = urlCleaned.slice(1, -1).trim();
+                  }
+                  return urlCleaned;
+                })
+                .filter((url: string) => url.length > 0);
+            }
+            area.images = Array.isArray(images) && images.length > 0 ? images : null;
+          }
+          return area;
+        });
       }),
       AppDataSource.getRepository(Developer).find({
         order: { name: 'ASC' },
