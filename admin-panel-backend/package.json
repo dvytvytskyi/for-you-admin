@@ -54,6 +54,7 @@
     "import:countries": "ts-node-dev src/scripts/importCountriesFromCSV.ts",
     "import:cities": "ts-node-dev src/scripts/importCitiesFromCSV.ts",
     "import:areas": "ts-node-dev src/scripts/importAreasFromCSV.ts",
+    "import:areas:updated": "ts-node-dev src/scripts/importAreasFromUpdatedCSV.ts",
     "import:developers": "ts-node-dev src/scripts/importDevelopersFromCSV.ts"
   },
   "keywords": [],
