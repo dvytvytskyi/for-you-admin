@@ -1,5 +1,6 @@
 import { AppDataSource } from '../config/database';
 import { Area } from '../entities/Area';
+import { Property } from '../entities/Property';
 import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'csv-parse/sync';
@@ -195,31 +196,56 @@ async function importAreas() {
       }
     }
 
-    // Step 3: Delete areas that are not in CSV (only if they're not used by properties)
-    console.log('\n🗑️  Checking for areas to remove (not in CSV and not used by properties)...');
+    // Step 3: Sync properties with new areas and delete old areas
+    console.log('\n🔄 Syncing properties with new areas...');
     const csvAreaIds = new Set(records.map(r => r.id.trim()));
+    const csvAreasMap = new Map(records.map(r => [r.id.trim(), r]));
     const areasToRemove = existingAreas.filter(a => !csvAreaIds.has(a.id));
     
     if (areasToRemove.length > 0) {
-      // Check which areas are used by properties
-      const { Property } = await import('../entities/Property');
       const propertyRepository = AppDataSource.getRepository(Property);
-      const usedAreaIds = new Set(
-        (await propertyRepository.find({ select: ['areaId'] })).map(p => p.areaId)
-      );
+      const propertiesUsingOldAreas = await propertyRepository.find({
+        where: areasToRemove.map(a => ({ areaId: a.id })),
+      });
       
-      const safeToRemove = areasToRemove.filter(a => !usedAreaIds.has(a.id));
-      const cannotRemove = areasToRemove.filter(a => usedAreaIds.has(a.id));
+      console.log(`   📊 Found ${propertiesUsingOldAreas.length} properties using old areas`);
       
-      if (safeToRemove.length > 0) {
-        await areaRepository.remove(safeToRemove);
-        console.log(`   ✅ Removed ${safeToRemove.length} unused areas`);
+      if (propertiesUsingOldAreas.length > 0) {
+        // Try to find matching area in CSV by name
+        let updatedCount = 0;
+        let deletedCount = 0;
+        
+        for (const property of propertiesUsingOldAreas) {
+          const oldArea = areasToRemove.find(a => a.id === property.areaId);
+          if (!oldArea) continue;
+          
+          // Try to find matching area in CSV by name (case-insensitive)
+          const matchingArea = Array.from(csvAreasMap.values()).find(
+            csvArea => csvArea.nameEn.toLowerCase() === oldArea.nameEn.toLowerCase()
+          );
+          
+          if (matchingArea) {
+            // Update property to use new area
+            property.areaId = matchingArea.id.trim();
+            await propertyRepository.save(property);
+            updatedCount++;
+          } else {
+            // No matching area found - delete property
+            await propertyRepository.remove(property);
+            deletedCount++;
+          }
+        }
+        
+        console.log(`   ✅ Updated ${updatedCount} properties to use new areas`);
+        console.log(`   🗑️  Deleted ${deletedCount} properties (no matching area in CSV)`);
       }
-      if (cannotRemove.length > 0) {
-        console.log(`   ⚠️  Skipped ${cannotRemove.length} areas (used by properties)`);
-      }
+      
+      // Now we can safely delete all old areas
+      console.log(`\n🗑️  Deleting ${areasToRemove.length} old areas...`);
+      await areaRepository.remove(areasToRemove);
+      console.log(`   ✅ Deleted ${areasToRemove.length} old areas`);
     } else {
-      console.log('   ℹ️  No areas to remove');
+      console.log('   ℹ️  No old areas to remove');
     }
 
     console.log('\n📊 Import Statistics:');
