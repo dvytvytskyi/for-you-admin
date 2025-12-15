@@ -11,6 +11,7 @@ import Button from '@/components/ui/button/Button'
 import Input from '@/components/form/input/InputField'
 import TextArea from '@/components/form/input/TextArea'
 import Select from '@/components/form/Select'
+import SearchableSelect from '@/components/form/SearchableSelect'
 import Label from '@/components/form/Label'
 import Checkbox from '@/components/form/input/Checkbox'
 
@@ -851,9 +852,9 @@ export default function EditPropertyPage() {
 
                   <div>
                     <Label htmlFor="developerId">Developer</Label>
-                    <Select
+                    <SearchableSelect
                       options={developers.map((d) => ({ value: d.id, label: d.name }))}
-                      placeholder="Select developer"
+                      placeholder="Search developer..."
                       defaultValue={watch('developerId') || ''}
                       onChange={(value) => setValue('developerId', value)}
                     />
@@ -1230,9 +1231,9 @@ export default function EditPropertyPage() {
 
                   <div>
                     <Label htmlFor="developerId">Developer</Label>
-                    <Select
+                    <SearchableSelect
                       options={developers.map((d) => ({ value: d.id, label: d.name }))}
-                      placeholder="Select developer"
+                      placeholder="Search developer..."
                       defaultValue={watch('developerId') || ''}
                       onChange={(value) => setValue('developerId', value)}
                     />
