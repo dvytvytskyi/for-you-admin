@@ -35,17 +35,11 @@ async function importAreas() {
 
     const areaRepository = AppDataSource.getRepository(Area);
 
-    // Step 1: Delete all existing areas
-    console.log('\n🗑️  Deleting all existing areas...');
+    // Step 1: Get all existing areas (we'll update them instead of deleting due to foreign key constraints)
+    console.log('\n📋 Loading existing areas...');
     const existingAreas = await areaRepository.find();
-    const existingCount = existingAreas.length;
-    
-    if (existingCount > 0) {
-      await areaRepository.remove(existingAreas);
-      console.log(`✅ Deleted ${existingCount} existing areas`);
-    } else {
-      console.log('ℹ️  No existing areas to delete');
-    }
+    const existingAreasMap = new Map(existingAreas.map(a => [a.id, a]));
+    console.log(`ℹ️  Found ${existingAreas.length} existing areas (will be updated if in CSV)`);
 
     // Step 2: Find and read CSV file
     const possiblePaths = [
@@ -159,17 +153,31 @@ async function importAreas() {
           throw new Error(`Missing required fields: id=${!!row.id}, nameEn=${!!row.nameEn}, cityId=${!!row.cityId}`);
         }
 
-        // Create new area
-        const area = areaRepository.create({
-          id: row.id.trim(),
-          cityId: row.cityId.trim(),
-          nameEn: row.nameEn.trim() || row.nameEn,
-          nameRu: row.nameRu?.trim() || row.nameEn.trim() || '',
-          nameAr: row.nameAr?.trim() || row.nameEn.trim() || '',
-          description: description,
-          infrastructure: infrastructure,
-          images: images,
-        });
+        const areaId = row.id.trim();
+        let area = existingAreasMap.get(areaId);
+
+        if (area) {
+          // Update existing area
+          area.cityId = row.cityId.trim();
+          area.nameEn = row.nameEn.trim() || row.nameEn;
+          area.nameRu = row.nameRu?.trim() || row.nameEn.trim() || '';
+          area.nameAr = row.nameAr?.trim() || row.nameEn.trim() || '';
+          area.description = description;
+          area.infrastructure = infrastructure;
+          area.images = images;
+        } else {
+          // Create new area
+          area = areaRepository.create({
+            id: areaId,
+            cityId: row.cityId.trim(),
+            nameEn: row.nameEn.trim() || row.nameEn,
+            nameRu: row.nameRu?.trim() || row.nameEn.trim() || '',
+            nameAr: row.nameAr?.trim() || row.nameEn.trim() || '',
+            description: description,
+            infrastructure: infrastructure,
+            images: images,
+          });
+        }
 
         await areaRepository.save(area);
         successCount++;
@@ -187,8 +195,35 @@ async function importAreas() {
       }
     }
 
+    // Step 3: Delete areas that are not in CSV (only if they're not used by properties)
+    console.log('\n🗑️  Checking for areas to remove (not in CSV and not used by properties)...');
+    const csvAreaIds = new Set(records.map(r => r.id.trim()));
+    const areasToRemove = existingAreas.filter(a => !csvAreaIds.has(a.id));
+    
+    if (areasToRemove.length > 0) {
+      // Check which areas are used by properties
+      const { Property } = await import('../entities/Property');
+      const propertyRepository = AppDataSource.getRepository(Property);
+      const usedAreaIds = new Set(
+        (await propertyRepository.find({ select: ['areaId'] })).map(p => p.areaId)
+      );
+      
+      const safeToRemove = areasToRemove.filter(a => !usedAreaIds.has(a.id));
+      const cannotRemove = areasToRemove.filter(a => usedAreaIds.has(a.id));
+      
+      if (safeToRemove.length > 0) {
+        await areaRepository.remove(safeToRemove);
+        console.log(`   ✅ Removed ${safeToRemove.length} unused areas`);
+      }
+      if (cannotRemove.length > 0) {
+        console.log(`   ⚠️  Skipped ${cannotRemove.length} areas (used by properties)`);
+      }
+    } else {
+      console.log('   ℹ️  No areas to remove');
+    }
+
     console.log('\n📊 Import Statistics:');
-    console.log(`   ✅ Successfully imported: ${successCount}`);
+    console.log(`   ✅ Successfully imported/updated: ${successCount}`);
     console.log(`   ❌ Failed: ${errorCount}`);
     
     if (errors.length > 0 && errors.length <= 20) {
