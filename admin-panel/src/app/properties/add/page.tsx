@@ -717,9 +717,9 @@ export default function AddPropertyPage() {
 
                   <div>
                     <Label htmlFor="developerId">Developer</Label>
-                    <Select
+                    <SearchableSelect
                       options={developers.map((d) => ({ value: d.id, label: d.name }))}
-                      placeholder="Select developer"
+                      placeholder="Search developer..."
                       defaultValue={watch('developerId') || ''}
                       onChange={(value) => setValue('developerId', value)}
                     />
