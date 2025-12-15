@@ -95,9 +95,18 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     }
   };
 
-  const handleInputClick = () => {
+  const handleInputClick = (e: React.MouseEvent<HTMLInputElement>) => {
     if (!disabled) {
+      e.stopPropagation();
       setIsOpen(true);
+      setSearchQuery("");
+      // Focus and select text after opening
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      }, 0);
     }
   };
 
@@ -146,49 +155,45 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <div className="relative">
-        <div
+        <input
+          ref={inputRef}
+          type="text"
+          value={isOpen ? searchQuery : selectedOption?.label || ""}
+          onChange={handleInputChange}
+          onFocus={handleInputFocus}
           onClick={handleInputClick}
-          className="relative cursor-pointer"
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          disabled={disabled}
+          readOnly={!isOpen}
+          className={`h-11 w-full appearance-none rounded-lg border border-gray-300 px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${
+            selectedValue
+              ? "text-gray-800 dark:text-white/90"
+              : "text-gray-400 dark:text-gray-400"
+          } ${
+            disabled
+              ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60"
+              : ""
+          } ${!isOpen ? "cursor-pointer" : ""}`}
+        />
+        <div
+          className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"
         >
-          <input
-            ref={inputRef}
-            type="text"
-            value={isOpen ? searchQuery : selectedOption?.label || ""}
-            onChange={handleInputChange}
-            onFocus={handleInputFocus}
-            onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            disabled={disabled}
-            readOnly={!isOpen}
-            className={`h-11 w-full appearance-none rounded-lg border border-gray-300 px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${
-              selectedValue
-                ? "text-gray-800 dark:text-white/90"
-                : "text-gray-400 dark:text-gray-400"
-            } ${
-              disabled
-                ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60"
-                : ""
-            } ${!isOpen ? "cursor-pointer" : ""}`}
-          />
-          <div
-            className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none"
+          <svg
+            className={`w-5 h-5 text-gray-400 transition-transform ${
+              isOpen ? "rotate-180" : ""
+            }`}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className={`w-5 h-5 text-gray-400 transition-transform ${
-                isOpen ? "rotate-180" : ""
-              }`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 9l-7 7-7-7"
+            />
+          </svg>
         </div>
       </div>
 
