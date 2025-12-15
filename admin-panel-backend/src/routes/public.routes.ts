@@ -54,10 +54,13 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
     ]);
 
     // Parse area images from simple-array format
+    // TypeORM simple-array automatically converts comma-separated string to array
+    // But we need to ensure it's always an array and clean URLs
     const areas = areasRaw.map(area => {
       if (area.images) {
-        // Helper to parse simple-array images
         let images: any = area.images;
+        
+        // TypeORM simple-array should return array, but handle both cases
         if (typeof images === 'string') {
           // Remove outer curly braces if present (PostgreSQL array format)
           let cleaned = images.trim();
@@ -76,7 +79,21 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
               return urlCleaned;
             })
             .filter((url: string) => url.length > 0);
+        } else if (Array.isArray(images)) {
+          // Already an array, just clean each URL
+          images = images
+            .map((url: any) => {
+              if (typeof url !== 'string') return '';
+              let urlCleaned = url.trim();
+              // Remove any curly braces
+              if (urlCleaned.startsWith('{') && urlCleaned.endsWith('}')) {
+                urlCleaned = urlCleaned.slice(1, -1).trim();
+              }
+              return urlCleaned;
+            })
+            .filter((url: string) => url.length > 0 && (url.startsWith('http://') || url.startsWith('https://')));
         }
+        
         area.images = Array.isArray(images) && images.length > 0 ? images : undefined;
       } else {
         area.images = undefined;
