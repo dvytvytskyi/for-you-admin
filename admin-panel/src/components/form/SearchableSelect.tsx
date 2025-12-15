@@ -71,6 +71,16 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   const handleInputFocus = () => {
     setIsOpen(true);
+    if (inputRef.current) {
+      inputRef.current.select();
+    }
+  };
+
+  const handleInputClick = () => {
+    setIsOpen(true);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -78,11 +88,13 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
+      setIsOpen(true);
       setHighlightedIndex((prev) =>
         prev < filteredOptions.length - 1 ? prev + 1 : prev
       );
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
+      setIsOpen(true);
       setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : -1));
     } else if (e.key === "Enter" && highlightedIndex >= 0) {
       e.preventDefault();
@@ -90,8 +102,18 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
     } else if (e.key === "Escape") {
       setIsOpen(false);
       setSearchQuery("");
+      if (inputRef.current) {
+        inputRef.current.blur();
+      }
     }
   };
+
+  // When dropdown opens, clear search if there's a selected value to show all options
+  useEffect(() => {
+    if (isOpen && !searchQuery && selectedValue) {
+      setSearchQuery("");
+    }
+  }, [isOpen]);
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -102,31 +124,57 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           value={isOpen ? searchQuery : selectedOption?.label || ""}
           onChange={handleInputChange}
           onFocus={handleInputFocus}
+          onClick={handleInputClick}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={disabled}
+          readOnly={!isOpen}
           className={`h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 pr-11 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 ${
             selectedValue
               ? "text-gray-800 dark:text-white/90"
               : "text-gray-400 dark:text-gray-400"
-          } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60" : ""}`}
+          } ${disabled ? "bg-gray-50 dark:bg-gray-800 cursor-not-allowed opacity-60" : ""} ${!isOpen ? "cursor-pointer" : ""}`}
         />
-        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-          <svg
-            className={`w-5 h-5 text-gray-400 transition-transform ${
-              isOpen ? "rotate-180" : ""
-            }`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
+        <div 
+          className="absolute inset-y-0 right-0 flex items-center pr-3 cursor-pointer"
+          onClick={() => {
+            if (!disabled) {
+              setIsOpen(!isOpen);
+              if (!isOpen && inputRef.current) {
+                inputRef.current.focus();
+              }
+            }
+          }}
+        >
+          {isOpen ? (
+            <svg
+              className="w-5 h-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          ) : (
+            <svg
+              className="w-5 h-5 text-gray-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          )}
         </div>
       </div>
 
