@@ -77,9 +77,7 @@ ENV_EOF
   fi
 
   echo "🏗  Rebuilding and Restarting Services..."
-  # Remove existing containers to avoid conflicts
-  docker rm -f for-you-admin-panel-backend-prod 41c92101c69f_for-you-admin-panel-backend-prod 2>/dev/null
-  docker rm -f for-you-admin-panel-frontend-prod 2>/dev/null
+  docker-compose -f docker-compose.prod.yml down --remove-orphans || true
   
   docker-compose -f docker-compose.prod.yml build admin-panel-backend
   docker-compose -f docker-compose.prod.yml build admin-panel-frontend

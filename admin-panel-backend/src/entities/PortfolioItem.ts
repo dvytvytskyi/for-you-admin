@@ -71,6 +71,9 @@ export class PortfolioItem {
 
     // Sales planning
     @Column({ nullable: true })
+    purchaseDate?: string; // Format: "MM/YYYY"
+
+    @Column({ nullable: true })
     plannedSaleDate?: string; // Format: "MM/YYYY"
 
     @Column({ nullable: true })
