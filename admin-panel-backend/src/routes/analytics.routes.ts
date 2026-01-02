@@ -73,20 +73,48 @@ router.get(
       }
 
       const leadRepo = AppDataSource.getRepository(AmoCrmLead);
-      
-      // TODO: Фільтр по брокеру потребує мапінгу між User.id та AmoCrmUser.amoUserId
-      // Поки що показуємо всі leads для всіх користувачів
-      // Якщо користувач - брокер, потрібно фільтрувати по responsibleUserId
       const queryBuilder = leadRepo.createQueryBuilder('lead');
 
-      // Якщо користувач - брокер, фільтруємо по його AMO user ID
-      // Поки що показуємо всі leads
-      // if (dbUser.role === UserRole.BROKER) {
-      //   // Потрібен мапінг User.id → AmoCrmUser.amoUserId → responsibleUserId
-      // }
+      // 1. Фільтрація по брокеру
+      if (dbUser.role === UserRole.BROKER) {
+        // Завантажуємо зв'язок з AmoCrmUser, якщо він ще не завантажений
+        if (!dbUser.amoCrmUser) {
+          const userWithAmo = await userRepo.findOne({
+            where: { id: userId },
+            relations: ['amoCrmUser'],
+          });
+          if (userWithAmo) {
+            dbUser.amoCrmUser = userWithAmo.amoCrmUser;
+          }
+        }
 
-      // Отримуємо всі leads
+        if (dbUser.amoCrmUser?.amoUserId) {
+          queryBuilder.andWhere('lead.responsible_user_id = :amoUserId', {
+            amoUserId: dbUser.amoCrmUser.amoUserId
+          });
+        } else {
+          // Якщо брокер не прив'язаний до AmoCRM, повертаємо нулі
+          return res.json({
+            newLeads: 0,
+            activeDeals: 0,
+            totalAmount: 0,
+            // Залишаємо детальні дані для сумісності/дебагу
+            total: 0,
+            totalPrice: 0,
+            byStatus: { NEW: 0, IN_PROGRESS: 0, QUALIFIED: 0, CLOSED_WON: 0, CLOSED_LOST: 0 },
+            totalPriceByStatus: { NEW: 0, IN_PROGRESS: 0, QUALIFIED: 0, CLOSED_WON: 0, CLOSED_LOST: 0 },
+          });
+        }
+      }
+
+      // Отримуємо всі leads (вже відфільтровані)
       const allLeads = await queryBuilder.getMany();
+
+      // Попередньо завантажуємо всі стадії для мапінгу (оптимізація)
+      const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+      const allStages = await stageRepo.find();
+      const stagesMap = new Map<number, AmoCrmStage>();
+      allStages.forEach(s => stagesMap.set(s.amoStageId, s));
 
       // Мапимо статуси та підраховуємо статистику
       const stats = {
@@ -101,9 +129,25 @@ router.get(
         totalPrice: 0,
       };
 
+      // Функція синхронного мапінгу (копія з leads.routes.ts для ізоляції)
+      const mapStatusSync = (statusId: number | undefined): 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | null => {
+        if (!statusId) return null;
+        const stage = stagesMap.get(statusId);
+        if (!stage || !stage.mappedStatus) return null;
+
+        switch (stage.mappedStatus) {
+          case LeadStatus.NEW: return 'NEW';
+          case LeadStatus.IN_PROGRESS: return 'IN_PROGRESS';
+          case LeadStatus.QUALIFIED: return 'QUALIFIED';
+          case LeadStatus.CLOSED_WON: return 'CLOSED_WON';
+          case LeadStatus.CLOSED_LOST: return 'CLOSED_LOST';
+          default: return null;
+        }
+      };
+
       // Підраховуємо статистику
       for (const lead of allLeads) {
-        const mappedStatus = await mapStatus(lead.statusId);
+        const mappedStatus = mapStatusSync(lead.statusId);
         const status = mappedStatus || 'NEW';
         const price = lead.price ? Number(lead.price) : 0;
 
@@ -116,10 +160,26 @@ router.get(
         }
       }
 
+      // Розрахунок полів для мобільного дешборду
+      // newLeads = NEW
+      // activeDeals = IN_PROGRESS + QUALIFIED (або всі не закриті)
+      // totalAmount = сума всіх активних (або всіх взагалі - залежить від вимог. Зазвичай Total Amount це Pipeline Volume)
+
+      const newLeads = stats.byStatus.NEW.count;
+      const activeDeals = stats.byStatus.NEW.count + stats.byStatus.IN_PROGRESS.count + stats.byStatus.QUALIFIED.count;
+      // Total Amount зазвичай включає всі відкриті угоди
+      const totalAmount = stats.byStatus.NEW.totalPrice + stats.byStatus.IN_PROGRESS.totalPrice + stats.byStatus.QUALIFIED.totalPrice;
+
       // Форматуємо відповідь
       const response = {
+        // Основні поля для мобільного дешборду
+        newLeads,
+        activeDeals,
+        totalAmount,
+
+        // Деталі (залишаємо про всяк випадок)
         total: stats.total,
-        totalPrice: stats.totalPrice,
+        totalPrice: stats.totalPrice, // Це сума ВСІХ, включаючи закриті
         byStatus: {
           NEW: stats.byStatus.NEW.count,
           IN_PROGRESS: stats.byStatus.IN_PROGRESS.count,

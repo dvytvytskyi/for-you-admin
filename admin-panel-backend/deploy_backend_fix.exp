@@ -1,0 +1,13 @@
+#!/usr/bin/expect -f
+set timeout 300
+set password "xTVvPEwrpaF4"
+
+# 1. Sync backend src
+spawn scp -r -o StrictHostKeyChecking=no /Users/vytvytskyi/admin_for_you/admin-panel-backend/src root@135.181.201.185:/root/admin-panel/admin-panel-backend/
+expect "password:" { send "$password\r" }
+expect eof
+
+# 2. Rebuild and restart backend
+spawn ssh -o StrictHostKeyChecking=no root@135.181.201.185 "cd /root/admin-panel && docker-compose -f docker-compose.prod.yml stop admin-panel-backend && docker-compose -f docker-compose.prod.yml rm -f admin-panel-backend && docker-compose -f docker-compose.prod.yml up -d --build admin-panel-backend"
+expect "password:" { send "$password\r" }
+expect eof

@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne, JoinColumn } from 'typeorm';
+import { AmoCrmUser } from './AmoCrmUser';
 
 export enum UserRole {
   CLIENT = 'CLIENT',
@@ -62,6 +63,13 @@ export class User {
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
+
+  @Column({ name: 'amo_crm_user_id', nullable: true })
+  amoCrmUserId?: string;
+
+  @OneToOne(() => AmoCrmUser, (amoUser) => amoUser.user)
+  @JoinColumn({ name: 'amo_crm_user_id' })
+  amoCrmUser?: AmoCrmUser;
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;

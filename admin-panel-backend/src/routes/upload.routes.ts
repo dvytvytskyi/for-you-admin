@@ -9,7 +9,7 @@ router.use(authenticateJWT);
 
 // Configure multer to use memory storage for Cloudinary upload
 const storage = multer.memoryStorage();
-const upload = multer({ 
+const upload = multer({
   storage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB
@@ -21,6 +21,29 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error('Invalid file type. Only images are allowed.'));
+    }
+  },
+});
+
+const docUpload = multer({
+  storage,
+  limits: {
+    fileSize: 20 * 1024 * 1024, // 20MB
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = [
+      'application/pdf',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    if (allowedMimes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      // For Cloudinary 'raw' we can be more flexible
+      cb(null, true);
     }
   },
 });
@@ -83,11 +106,43 @@ router.post('/images', upload.array('files', 10), async (req, res) => {
 
     const results = await Promise.all(uploadPromises);
     const urls = results.map((result: any) => result.secure_url);
-    
+
     res.json(successResponse({ urls }));
   } catch (error: any) {
     console.error('Cloudinary upload error:', error);
     res.status(500).json({ error: error.message || 'Failed to upload images' });
+  }
+});
+
+// Upload document (PDF, Excel, etc.) to Cloudinary
+router.post('/document', docUpload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'documents',
+          resource_type: 'auto', // Auto handles PDF, Excel, etc.
+          public_id: req.file?.originalname.split('.')[0] + '_' + Date.now(),
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      uploadStream.end(req.file!.buffer);
+    });
+
+    const url = (uploadResult as any).secure_url;
+    res.json(successResponse({ url, originalName: req.file.originalname }));
+  } catch (error: any) {
+    console.error('Cloudinary upload error:', error);
+    res.status(500).json({ error: error.message || 'Failed to upload document' });
   }
 });
 

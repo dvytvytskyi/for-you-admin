@@ -25,15 +25,15 @@ function extractContactInfo(lead: AmoCrmLead, contact?: AmoCrmContact): { email?
     return {
       email: contact.email || undefined,
       phone: contact.phone || undefined,
-      name: contact.name || contact.firstName && contact.lastName 
-        ? `${contact.firstName} ${contact.lastName}`.trim() 
+      name: contact.name || contact.firstName && contact.lastName
+        ? `${contact.firstName} ${contact.lastName}`.trim()
         : contact.name,
     };
   }
 
   // Нарешті з custom fields lead
   if (lead.customFields) {
-    const emailField = Array.isArray(lead.customFields) 
+    const emailField = Array.isArray(lead.customFields)
       ? lead.customFields.find((f: any) => f.field_code === 'EMAIL' || f.field_name?.toLowerCase().includes('email'))
       : null;
     const phoneField = Array.isArray(lead.customFields)
@@ -50,43 +50,49 @@ function extractContactInfo(lead: AmoCrmLead, contact?: AmoCrmContact): { email?
 }
 
 /**
- * Мапінг статусу AMO CRM на наші статуси
+ * Синхронний мапінг статусу AMO CRM на наші статуси (використовує попередньо завантажені стадії)
+ */
+function mapStatusSync(statusId: number | undefined, stagesMap: Map<number, AmoCrmStage>): 'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | null {
+  if (!statusId) return null;
+  const stage = stagesMap.get(statusId);
+  if (!stage || !stage.mappedStatus) return null;
+
+  switch (stage.mappedStatus) {
+    case LeadStatus.NEW: return 'NEW';
+    case LeadStatus.IN_PROGRESS: return 'IN_PROGRESS';
+    case LeadStatus.QUALIFIED: return 'QUALIFIED';
+    case LeadStatus.CLOSED_WON: return 'CLOSED_WON';
+    case LeadStatus.CLOSED_LOST: return 'CLOSED_LOST';
+    default: return null;
+  }
+}
+
+/**
+ * Отримати реальну назву стадії з AMO CRM
+ */
+function getStageNameSync(statusId: number | undefined, stagesMap: Map<number, AmoCrmStage>): string | null {
+  if (!statusId) return null;
+  const stage = stagesMap.get(statusId);
+  return stage ? stage.name : null;
+}
+
+/**
+ * Мапінг статусу AMO CRM на наші статуси (залишено для зворотної сумісності, якщо потрібно)
  */
 async function mapStatus(statusId?: number): Promise<'NEW' | 'IN_PROGRESS' | 'QUALIFIED' | 'CLOSED_WON' | 'CLOSED_LOST' | null> {
   if (!statusId) return null;
-
   try {
-    // Перевірка ініціалізації БД
-    if (!AppDataSource.isInitialized) {
-      console.warn('Database not initialized in mapStatus');
-      return null;
-    }
-
+    if (!AppDataSource.isInitialized) return null;
     const stageRepo = AppDataSource.getRepository(AmoCrmStage);
-    const stage = await stageRepo.findOne({
-      where: { amoStageId: statusId },
-    });
+    const stage = await stageRepo.findOne({ where: { amoStageId: statusId } });
+    if (!stage) return null;
 
-    if (!stage || !stage.mappedStatus) return null;
-
-    // Мапінг LeadStatus enum на строкові значення
-    switch (stage.mappedStatus) {
-      case LeadStatus.NEW:
-        return 'NEW';
-      case LeadStatus.IN_PROGRESS:
-        return 'IN_PROGRESS';
-      case LeadStatus.QUALIFIED:
-        return 'QUALIFIED';
-      case LeadStatus.CLOSED_WON:
-        return 'CLOSED_WON';
-      case LeadStatus.CLOSED_LOST:
-        return 'CLOSED_LOST';
-      default:
-        return null;
-    }
-  } catch (error: any) {
-    console.error('Error mapping status:', error);
-    return null; // Повертаємо null при помилці, щоб не ламати весь запит
+    // Створюємо тимчасову мапу для використання спільної логіки
+    const tempMap = new Map<number, AmoCrmStage>();
+    tempMap.set(statusId, stage);
+    return mapStatusSync(statusId, tempMap);
+  } catch (error) {
+    return null;
   }
 }
 
@@ -193,10 +199,29 @@ router.get(
       // Поки що пропускаємо цей фільтр для AMO CRM leads
 
       // Якщо користувач - брокер, показуємо тільки його leads
-      // (потрібно мапінг між User.id та AmoCrmUser.amoUserId)
       if (user.role === UserRole.BROKER) {
-        // TODO: Реалізувати мапінг між User та AmoCrmUser
-        // Поки що показуємо всі leads
+        const currentUserRepo = AppDataSource.getRepository(User);
+        const currentUser = await currentUserRepo.findOne({
+          where: { id: user.id },
+          relations: ['amoCrmUser'],
+        });
+
+        if (currentUser?.amoCrmUser?.amoUserId) {
+          queryBuilder.andWhere('lead.responsible_user_id = :amoUserId', {
+            amoUserId: currentUser.amoCrmUser.amoUserId
+          });
+          console.log(`🔒 Filtering leads for broker ${user.id} (Amo ID: ${currentUser.amoCrmUser.amoUserId})`);
+        } else {
+          console.warn(`⚠️ Broker ${user.id} has no linked AmoCrmUser, showing no leads.`);
+          // Якщо брокер не прив'язаний до AmoCRM, він не повинен бачити нічого
+          return res.json({
+            data: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          });
+        }
       }
 
       // Підрахунок загальної кількості (БЕЗ limit та skip)
@@ -238,11 +263,18 @@ router.get(
         contacts.forEach(c => contactsMap.set(c.amoContactId, c));
       }
 
+      // Попередньо завантажуємо всі стадії для мапінгу (оптимізація)
+      const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+      const allStages = await stageRepo.find();
+      const stagesMap = new Map<number, AmoCrmStage>();
+      allStages.forEach(s => stagesMap.set(s.amoStageId, s));
+
       // Трансформація даних для сумісності з main backend форматом
-      const transformedLeads = await Promise.all(leads.map(async (lead) => {
+      const transformedLeads = leads.map((lead) => {
         const contact = lead.amoContactId ? contactsMap.get(lead.amoContactId) : undefined;
         const contactInfo = extractContactInfo(lead, contact);
-        const mappedStatus = await mapStatus(lead.statusId);
+        const mappedStatus = mapStatusSync(lead.statusId, stagesMap);
+        const statusName = getStageNameSync(lead.statusId, stagesMap);
 
         return {
           id: lead.id, // Використовуємо UUID з нашої БД
@@ -250,6 +282,7 @@ router.get(
           guestPhone: contactInfo.phone || null,
           guestEmail: contactInfo.email || null,
           status: mappedStatus || 'NEW',
+          statusName: statusName || null, // Додаємо реальну назву стадії
           price: lead.price ? Number(lead.price) : null,
           amoLeadId: lead.amoLeadId || null,
           pipelineId: lead.pipelineId || null, // ID пайплайну з AMO CRM
@@ -262,7 +295,7 @@ router.get(
           clientId: null,
           propertyId: null,
         };
-      }));
+      });
 
       // Відповідь у форматі main backend
       return res.json({
@@ -295,7 +328,7 @@ router.get(
 
       const { id } = req.params;
       const leadRepo = AppDataSource.getRepository(AmoCrmLead);
-      
+
       // Спробуємо знайти по UUID (наш ID)
       let lead = await leadRepo.findOne({
         where: { id },
@@ -316,10 +349,16 @@ router.get(
       }
 
       // Перевірка доступу (брокер може бачити тільки свої leads)
-      // TODO: Реалізувати мапінг між User та AmoCrmUser для перевірки
       if (user.role === UserRole.BROKER) {
-        // Поки що дозволяємо всім брокерам бачити всі leads
-        // Потрібно додати мапінг між User.id та AmoCrmUser.amoUserId
+        const currentUserRepo = AppDataSource.getRepository(User);
+        const currentUser = await currentUserRepo.findOne({
+          where: { id: user.id },
+          relations: ['amoCrmUser'],
+        });
+
+        if (!currentUser?.amoCrmUser?.amoUserId || lead.responsibleUserId !== currentUser.amoCrmUser.amoUserId) {
+          return res.status(403).json(errorResponse('You do not have permission to view this lead'));
+        }
       }
 
       // Отримуємо контакт
@@ -332,8 +371,15 @@ router.get(
         contact = foundContact || undefined;
       }
 
+      // Отримуємо стадії для детального перегляду
+      const stageRepo = AppDataSource.getRepository(AmoCrmStage);
+      const allStages = await stageRepo.find();
+      const stagesMap = new Map<number, AmoCrmStage>();
+      allStages.forEach(s => stagesMap.set(s.amoStageId, s));
+
       const contactInfo = extractContactInfo(lead, contact);
-      const mappedStatus = await mapStatus(lead.statusId);
+      const mappedStatus = mapStatusSync(lead.statusId, stagesMap);
+      const statusName = getStageNameSync(lead.statusId, stagesMap);
 
       // Трансформація даних
       const transformedLead = {
@@ -342,6 +388,7 @@ router.get(
         guestPhone: contactInfo.phone || null,
         guestEmail: contactInfo.email || null,
         status: mappedStatus || 'NEW',
+        statusName: statusName || null, // Додаємо реальну назву стадії
         price: lead.price ? Number(lead.price) : null,
         amoLeadId: lead.amoLeadId || null,
         pipelineId: lead.pipelineId || null, // ID пайплайну з AMO CRM

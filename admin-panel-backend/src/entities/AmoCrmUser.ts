@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToOne } from 'typeorm';
+import { User } from './User';
 
 @Entity('amo_crm_users')
 export class AmoCrmUser {
@@ -40,5 +41,8 @@ export class AmoCrmUser {
 
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt!: Date;
+
+  @OneToOne(() => User, (user) => user.amoCrmUser)
+  user?: User;
 }
 

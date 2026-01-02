@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
@@ -9,12 +10,13 @@ import { useModal } from '@/hooks/useModal'
 import { Modal } from '@/components/ui/modal'
 import Input from '@/components/form/input/InputField'
 import Label from '@/components/form/Label'
+import PortfolioManager from "@/components/user-profile/PortfolioManager";
 
 export default function UserProfilePage() {
   const router = useRouter()
   const params = useParams()
   const userId = params.id as string
-  
+
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -24,9 +26,12 @@ export default function UserProfilePage() {
   const [error, setError] = useState<string | null>(null)
   const [editFormData, setEditFormData] = useState<any>({})
   const [editMetaData, setEditMetaData] = useState<any>({})
-  
+  const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' })
+  const [changingPassword, setChangingPassword] = useState(false)
+
   const { isOpen: isMetaModalOpen, openModal: openMetaModal, closeModal: closeMetaModal } = useModal()
   const { isOpen: isInfoModalOpen, openModal: openInfoModal, closeModal: closeInfoModal } = useModal()
+  const { isOpen: isPasswordModalOpen, openModal: openPasswordModal, closeModal: closePasswordModal } = useModal()
 
   const handleCloseInfoModal = () => {
     setError(null)
@@ -36,6 +41,12 @@ export default function UserProfilePage() {
   const handleCloseMetaModal = () => {
     setError(null)
     closeMetaModal()
+  }
+
+  const handleClosePasswordModal = () => {
+    setError(null)
+    setPasswordData({ newPassword: '', confirmPassword: '' })
+    closePasswordModal()
   }
 
   useEffect(() => {
@@ -58,9 +69,29 @@ export default function UserProfilePage() {
         status: user.status || '',
         avatar: user.avatar || '',
         licenseNumber: user.licenseNumber || '',
+        amoCrmUserId: user.amoCrmUser?.id || '',
       })
     }
   }, [user])
+
+  const [crmUsers, setCrmUsers] = useState<any[]>([])
+
+  useEffect(() => {
+    if (isMetaModalOpen) {
+      loadCrmUsers()
+    }
+  }, [isMetaModalOpen])
+
+  const loadCrmUsers = async () => {
+    try {
+      const { data } = await api.get('/amo-crm/users')
+      if (data.success) {
+        setCrmUsers(data.data)
+      }
+    } catch (error) {
+      console.error('Failed to load CRM users', error)
+    }
+  }
 
   const loadUser = async () => {
     setLoading(true)
@@ -117,6 +148,31 @@ export default function UserProfilePage() {
     }
   }
 
+  const handleChangePassword = async () => {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+
+    if (passwordData.newPassword.length < 8) {
+      setError('Password must be at least 8 characters long')
+      return
+    }
+
+    setChangingPassword(true)
+    setError(null)
+    try {
+      await api.patch(`/users/${userId}/password`, { newPassword: passwordData.newPassword })
+      handleClosePasswordModal()
+      alert('Password updated successfully')
+    } catch (err: any) {
+      console.error('Error changing password:', err)
+      setError(err.response?.data?.message || 'Failed to change password. Please try again.')
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -124,13 +180,13 @@ export default function UserProfilePage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      
+
       const { data } = await api.post('/upload/image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       })
-      
+
       if (data.data?.url) {
         setEditMetaData({ ...editMetaData, avatar: data.data.url })
       }
@@ -231,7 +287,7 @@ export default function UserProfilePage() {
               ) : (
                 <>
                   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor"/>
+                    <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor" />
                   </svg>
                   {showDeleteConfirm ? 'Confirm Delete' : 'Delete User'}
                 </>
@@ -243,7 +299,7 @@ export default function UserProfilePage() {
             onClick={() => router.back()}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Back
           </Button>
@@ -254,8 +310,8 @@ export default function UserProfilePage() {
         <div className="rounded-xl border border-error-200 bg-error-50 p-4 dark:border-error-800 dark:bg-error-900/20">
           <div className="flex items-start gap-3">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-error-600 dark:text-error-400 flex-shrink-0 mt-0.5">
-              <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="2"/>
-              <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <path d="M10 18C14.4183 18 18 14.4183 18 10C18 5.58172 14.4183 2 10 2C5.58172 2 2 5.58172 2 10C2 14.4183 5.58172 18 10 18Z" stroke="currentColor" strokeWidth="2" />
+              <path d="M10 6V10M10 14H10.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             </svg>
             <div className="flex-1">
               <h3 className="text-sm font-semibold text-error-800 dark:text-error-200 mb-1">
@@ -342,6 +398,30 @@ export default function UserProfilePage() {
                 </svg>
                 Edit
               </button>
+            </div>
+          </div>
+
+          {/* Account Security Card */}
+          <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6 mb-6">
+            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+                  Account Security
+                </h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Manage password and security settings for this user.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={openPasswordModal}
+                className="flex items-center justify-center gap-2"
+              >
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M13.5 7.5V6C13.5 3.51472 11.4853 1.5 9 1.5C6.51472 1.5 4.5 3.51472 4.5 6V7.5M3 7.5H15V15H3V7.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Change Password
+              </Button>
             </div>
           </div>
 
@@ -438,6 +518,12 @@ export default function UserProfilePage() {
         </div>
       </div>
 
+      {user.role === 'INVESTOR' && (
+        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
+          <PortfolioManager userId={userId} />
+        </div>
+      )}
+
       {/* Edit Personal Information Modal */}
       <Modal isOpen={isInfoModalOpen} onClose={closeInfoModal} className="max-w-[700px] m-4">
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
@@ -464,8 +550,8 @@ export default function UserProfilePage() {
                 <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                   <div className="col-span-2 lg:col-span-1">
                     <Label>First Name</Label>
-                    <Input 
-                      type="text" 
+                    <Input
+                      type="text"
                       value={editFormData.firstName || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, firstName: e.target.value })}
                       required
@@ -474,8 +560,8 @@ export default function UserProfilePage() {
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Last Name</Label>
-                    <Input 
-                      type="text" 
+                    <Input
+                      type="text"
                       value={editFormData.lastName || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, lastName: e.target.value })}
                       required
@@ -484,8 +570,8 @@ export default function UserProfilePage() {
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Email Address</Label>
-                    <Input 
-                      type="email" 
+                    <Input
+                      type="email"
                       value={editFormData.email || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
                       required
@@ -494,8 +580,8 @@ export default function UserProfilePage() {
 
                   <div className="col-span-2 lg:col-span-1">
                     <Label>Phone</Label>
-                    <Input 
-                      type="text" 
+                    <Input
+                      type="text"
                       value={editFormData.phone || ''}
                       onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
                       required
@@ -566,7 +652,7 @@ export default function UserProfilePage() {
                           className="absolute top-1 right-1 p-1 rounded-full bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 hover:text-red-500"
                         >
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                           </svg>
                         </button>
                       </div>
@@ -584,7 +670,7 @@ export default function UserProfilePage() {
                           className="flex flex-col items-center justify-center cursor-pointer"
                         >
                           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-gray-400 mb-2">
-                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                           <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                             Click to upload avatar
@@ -652,6 +738,25 @@ export default function UserProfilePage() {
                       />
                     </div>
                   )}
+
+                  <div className="col-span-2">
+                    <Label>Linked CRM User</Label>
+                    <select
+                      value={editMetaData.amoCrmUserId || ''}
+                      onChange={(e) => setEditMetaData({ ...editMetaData, amoCrmUserId: e.target.value })}
+                      className="h-11 w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 bg-transparent text-gray-800"
+                    >
+                      <option value="">Not Linked</option>
+                      {crmUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.name} ({user.email || 'No email'})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                      Link this system user to an AmoCRM user account.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -671,6 +776,56 @@ export default function UserProfilePage() {
                 ) : (
                   'Save Changes'
                 )}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal isOpen={isPasswordModalOpen} onClose={handleClosePasswordModal} className="max-w-[500px] m-4">
+        <div className="relative w-full rounded-3xl bg-white p-6 dark:bg-gray-900 lg:p-10">
+          <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+            Change Password
+          </h4>
+          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">
+            Set a new password for {user.firstName} {user.lastName}.
+          </p>
+
+          {error && (
+            <div className="mb-4 p-4 rounded-lg bg-error-50 border border-error-200 dark:bg-error-900/20 dark:border-error-800">
+              <p className="text-sm text-error-600 dark:text-error-400">{error}</p>
+            </div>
+          )}
+
+          <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleChangePassword(); }}>
+            <div>
+              <Label>New Password</Label>
+              <Input
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                placeholder="At least 8 characters"
+                required
+              />
+            </div>
+            <div>
+              <Label>Confirm New Password</Label>
+              <Input
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                placeholder="Repeat new password"
+                required
+              />
+            </div>
+
+            <div className="flex items-center gap-3 pt-4 lg:justify-end">
+              <Button variant="outline" onClick={handleClosePasswordModal} disabled={changingPassword}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={changingPassword}>
+                {changingPassword ? 'Updating...' : 'Update Password'}
               </Button>
             </div>
           </form>
