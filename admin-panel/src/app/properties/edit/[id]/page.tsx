@@ -654,6 +654,21 @@ export default function EditPropertyPage() {
                 )}
               </div>
 
+              <div className="md:col-span-2 flex items-center gap-2">
+                <Controller
+                  name="isForYouChoice"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="isForYouChoice"
+                      checked={field.value || false}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                      label="Special from ForYou"
+                    />
+                  )}
+                />
+              </div>
+
               <div>
                 <Label htmlFor="countryId">Country *</Label>
                 <Select

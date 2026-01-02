@@ -87,6 +87,7 @@ const offPlanSchema = z.object({
   facilityIds: z.array(z.string()).optional(),
   developerId: z.string().optional(),
   paymentPlan: z.string().optional(),
+  isForYouChoice: z.boolean().default(false),
 })
 
 const secondarySchema = z.object({
@@ -121,6 +122,7 @@ const secondarySchema = z.object({
     return String(val).trim()
   }).refine((val) => val.length > 0, { message: 'Size is required' }),
   developerId: z.string().optional(),
+  isForYouChoice: z.boolean().default(false),
 })
 
 const propertySchema = z.discriminatedUnion('propertyType', [offPlanSchema, secondarySchema])
@@ -382,6 +384,7 @@ export default function AddPropertyPage() {
         latitude: parseFloat(data.latitude),
         longitude: parseFloat(data.longitude),
         developerId: data.developerId || undefined,
+        isForYouChoice: data.isForYouChoice || false,
       }
 
       // Set first photo as main photo
@@ -519,6 +522,21 @@ export default function AddPropertyPage() {
                 {(errors as any).name && (
                   <p className="mt-1 text-sm text-error-500">{(errors as any).name.message}</p>
                 )}
+              </div>
+
+              <div className="md:col-span-2 flex items-center gap-2">
+                <Controller
+                  name="isForYouChoice"
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      id="isForYouChoice"
+                      checked={field.value || false}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                      label="Special from ForYou"
+                    />
+                  )}
+                />
               </div>
 
               <div>
