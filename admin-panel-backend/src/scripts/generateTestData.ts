@@ -316,15 +316,15 @@ async function generateTestData() {
     console.log('\n📝 Creating investments...');
     const activeInvestors = investors.filter(u => u.status === UserStatus.ACTIVE);
     const activeProperties = properties.filter(p => p.propertyType === PropertyType.OFF_PLAN);
-    
+
     for (let i = 0; i < Math.min(15, activeInvestors.length * 3); i++) {
       const investor = activeInvestors[Math.floor(Math.random() * activeInvestors.length)];
       const property = activeProperties[Math.floor(Math.random() * activeProperties.length)];
-      
-      const existing = await investmentRepo.findOne({ 
-        where: { userId: investor.id, propertyId: property.id } 
+
+      const existing = await investmentRepo.findOne({
+        where: { userId: investor.id, propertyId: property.id }
       });
-      
+
       if (!existing) {
         const propertyPrice = property.priceFrom || 1000000;
         const statuses = [InvestmentStatus.PENDING, InvestmentStatus.CONFIRMED, InvestmentStatus.COMPLETED];
@@ -343,15 +343,15 @@ async function generateTestData() {
     // 8. Створюємо Favorites
     console.log('\n📝 Creating favorites...');
     const activeUsers = [...clients, ...brokers.filter(b => b.status === UserStatus.ACTIVE), ...activeInvestors];
-    
+
     for (let i = 0; i < Math.min(30, activeUsers.length * 3); i++) {
       const user = activeUsers[Math.floor(Math.random() * activeUsers.length)];
       const property = properties[Math.floor(Math.random() * properties.length)];
-      
-      const existing = await favoriteRepo.findOne({ 
-        where: { userId: user.id, propertyId: property.id } 
+
+      const existing = await favoriteRepo.findOne({
+        where: { userId: user.id, propertyId: property.id }
       });
-      
+
       if (!existing) {
         const favorite = favoriteRepo.create({
           userId: user.id,
@@ -367,19 +367,19 @@ async function generateTestData() {
     for (let i = 0; i < 5; i++) {
       const user = activeUsers[Math.floor(Math.random() * activeUsers.length)];
       const collectionName = `My Collection ${i + 1}`;
-      
-      const existing = await collectionRepo.findOne({ 
-        where: { userId: user.id, name: collectionName } 
+
+      const existing = await collectionRepo.findOne({
+        where: { userId: user.id, title: collectionName }
       });
-      
+
       if (!existing) {
         const collection = collectionRepo.create({
           userId: user.id,
-          name: collectionName,
+          title: collectionName,
           description: `A curated collection of properties by ${user.firstName} ${user.lastName}`,
         });
         const saved = await collectionRepo.save(collection);
-        
+
         // Додаємо properties до collection
         const selectedProperties = properties.slice(i * 2, (i + 1) * 2);
         saved.properties = selectedProperties;

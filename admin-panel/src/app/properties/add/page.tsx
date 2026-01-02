@@ -83,7 +83,7 @@ const offPlanSchema = z.object({
     if (val === null || val === undefined || val === '') return ''
     return String(val).trim()
   }).refine((val) => val.length > 0, { message: 'Size to is required' }),
-  description: z.string().min(1, 'Description is required'),
+  description: z.string().min(1, 'Description is required').max(400, 'Description cannot exceed 400 characters'),
   facilityIds: z.array(z.string()).optional(),
   developerId: z.string().optional(),
   paymentPlan: z.string().optional(),
@@ -196,7 +196,7 @@ export default function AddPropertyPage() {
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [photos, setPhotos] = useState<string[]>([])
   const [units, setUnits] = useState<Unit[]>([])
-  
+
   // Track values for real-time conversion display
   const [priceFromValue, setPriceFromValue] = useState<string>('')
   const [priceValue, setPriceValue] = useState<string>('')
@@ -309,7 +309,7 @@ export default function AddPropertyPage() {
       const updatedPhotos = [...photos, ...newPhotos]
       setPhotos(updatedPhotos)
       setValue('photos', updatedPhotos, { shouldValidate: true })
-      
+
       // Reset input
       e.target.value = ''
     } catch (error: any) {
@@ -421,18 +421,18 @@ export default function AddPropertyPage() {
 
       const response = await api.post('/properties', payload)
       console.log('Property created successfully:', response.data)
-      
+
       // Show success message
       alert('Property created successfully!')
-      
+
       // Redirect to properties list
       router.push('/properties')
     } catch (error: any) {
       console.error('Error creating property:', error)
-      const errorMessage = 
-        error.response?.data?.message || 
-        error.response?.data?.error || 
-        error.message || 
+      const errorMessage =
+        error.response?.data?.message ||
+        error.response?.data?.error ||
+        error.message ||
         'Failed to create property. Please check all required fields.'
       alert(errorMessage)
     } finally {
@@ -469,22 +469,20 @@ export default function AddPropertyPage() {
           <button
             type="button"
             onClick={() => setPropertyType(PropertyType.OFF_PLAN)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              propertyType === PropertyType.OFF_PLAN
-                ? 'bg-brand-500 text-white'
-                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === PropertyType.OFF_PLAN
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
           >
             Off-Plan
           </button>
           <button
             type="button"
             onClick={() => setPropertyType(PropertyType.SECONDARY)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              propertyType === PropertyType.SECONDARY
-                ? 'bg-brand-500 text-white'
-                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === PropertyType.SECONDARY
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
           >
             Secondary
           </button>

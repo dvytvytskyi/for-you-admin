@@ -6,8 +6,9 @@ interface ModalProps {
   onClose: () => void;
   className?: string;
   children: React.ReactNode;
-  showCloseButton?: boolean; // New prop to control close button visibility
-  isFullscreen?: boolean; // Default to false for backwards compatibility
+  showCloseButton?: boolean;
+  isFullscreen?: boolean;
+  overlayClassName?: string;
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -15,9 +16,10 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   children,
   className,
-  showCloseButton = true, // Default to true for backwards compatibility
+  showCloseButton = true,
   isFullscreen = false,
-}) => {
+  overlayClassName,
+}: any) => {
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,13 +54,13 @@ export const Modal: React.FC<ModalProps> = ({
 
   const contentClasses = isFullscreen
     ? "w-full h-full"
-    : "relative w-full max-w-lg mx-4 rounded-3xl bg-white dark:bg-gray-900 shadow-xl";
+    : `relative w-full ${className?.includes('max-w-') ? '' : 'max-w-lg'} ${className?.includes('bg-') ? '' : 'bg-white dark:bg-gray-900'} mx-4 rounded-3xl shadow-xl`;
 
   return (
     <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999 p-4">
       {!isFullscreen && (
         <div
-          className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
+          className={overlayClassName || "fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"}
           onClick={onClose}
         ></div>
       )}

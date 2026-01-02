@@ -101,3 +101,78 @@ ForYou Real Estate
   }
 };
 
+export const sendBrokerInvitationEmail = async (email: string, password: string): Promise<void> => {
+  const transporter = createTransporter();
+  const fromEmail = process.env.EMAIL_FROM || process.env.SMTP_USER || 'noreply@foryou-realestate.com';
+
+  if (!transporter) {
+    console.log(`[EMAIL] Broker Invitation for ${email}`);
+    console.log(`[EMAIL] Password: ${password}`);
+    return;
+  }
+
+  try {
+    const mailOptions = {
+      from: fromEmail,
+      to: email,
+      subject: 'Welcome to ForYou Real Estate - Invitation',
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #4F46E5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+            .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+            .info-box { background-color: #fff; border: 1px solid #e5e7eb; padding: 20px; margin: 20px 0; border-radius: 8px; }
+            .credential-label { font-weight: bold; color: #6b7280; font-size: 14px; }
+            .credential-value { font-family: monospace; font-size: 16px; color: #111827; margin-bottom: 10px; }
+            .login-btn { display: inline-block; background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center; }
+            .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Welcome Aboard!</h1>
+            </div>
+            <div class="content">
+              <p>Hello,</p>
+              <p>You have been invited to join the ForYou Real Estate application as a Broker.</p>
+              <p>Here are your login credentials:</p>
+              
+              <div class="info-box">
+                <div class="credential-label">Email</div>
+                <div class="credential-value">${email}</div>
+                
+                <div class="credential-label">Password</div>
+                <div class="credential-value">${password}</div>
+              </div>
+              
+              <div style="text-align: center; margin-top: 30px;">
+                <a href="https://admin.foryou-realestate.com" class="login-btn">Login to Dashboard</a>
+              </div>
+              
+              <p style="margin-top: 30px;">Please change your password after your first login.</p>
+              
+              <div class="footer">
+                <p>ForYou Real Estate</p>
+                <p>This is an automated message, please do not reply.</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Broker invitation email sent to ${email}`);
+  } catch (error: any) {
+    console.error('❌ Error sending invitation email:', error);
+    console.log(`[EMAIL FALLBACK] Broker Invitation for ${email}: ${password}`);
+  }
+};
+

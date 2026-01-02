@@ -14,8 +14,11 @@ export class Collection {
   @JoinColumn({ name: 'userId' })
   user!: User;
 
-  @Column()
-  name!: string;
+  @Column({ nullable: true })
+  title!: string;
+
+  @Column({ nullable: true })
+  image?: string;
 
   @Column('text', { nullable: true })
   description?: string;

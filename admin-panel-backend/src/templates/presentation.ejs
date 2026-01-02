@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= property.name %> - Presentation
+    </title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --primary: #1F2937;
+            --accent: #D4AF37;
+            --text-gray: #6B7280;
+            --bg-gray: #F9FAFB;
+        }
+
+        @page {
+            size: A4 landscape;
+            margin: 0;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            color: var(--primary);
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+
+        /* A4 Landscape Page Setup */
+        .page {
+            width: 297mm;
+            height: 210mm;
+            /* A4 Landscape height */
+            padding: 0;
+            margin: 0;
+            background: white;
+            overflow: hidden;
+            position: relative;
+            page-break-after: always;
+            box-sizing: border-box;
+        }
+
+        /* Cover Page */
+        .cover-page {
+            display: flex;
+            background: rgb(0, 48, 119);
+            /* Blue background */
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .cover-image-container {
+            width: 65%;
+            /* Give image more space */
+            height: 100%;
+            display: flex;
+            align-items: center;
+            /* Vertical alignment: Middle */
+            justify-content: flex-end;
+            /* Horizontal alignment: Right */
+            padding-right: 30px;
+            /* Small offset from right edge */
+            box-sizing: border-box;
+        }
+
+        .cover-image {
+            width: 100%;
+            height: 85%;
+            /* Not full height, to show centering */
+            object-fit: cover;
+            border-radius: 12px;
+            /* More visible rounding */
+        }
+
+        /* Gradient overlay removed */
+
+        .cover-sidebar {
+            width: 35%;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: transparent;
+            /* Transparent to show blue background */
+            color: white;
+            position: relative;
+        }
+
+        .cover-logo-area {
+            position: absolute;
+            top: 40px;
+            left: 50px;
+        }
+
+        .cover-logo-img {
+            width: 135px;
+            /* Reduced by 25% from 180px */
+            height: auto;
+            object-fit: contain;
+        }
+
+        .property-title {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            line-height: 1.1;
+        }
+
+        .property-location {
+            font-size: 20px;
+            font-weight: 400;
+            margin-bottom: 40px;
+            opacity: 0.8;
+            padding-left: 2px;
+        }
+
+        .specs-grid-cover {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            padding-top: 30px;
+        }
+
+        .spec-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .spec-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            margin-bottom: 5px;
+        }
+
+        .spec-value {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        /* Detail Page */
+        .detail-page {
+            padding: 40px 50px;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            box-sizing: border-box;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #E5E7EB;
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+        }
+
+        .header-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .header-meta {
+            color: var(--text-gray);
+            font-size: 14px;
+        }
+
+        .content-columns {
+            display: flex;
+            gap: 40px;
+            height: 100%;
+        }
+
+        .col-left {
+            width: 40%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .col-right {
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .description {
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-gray);
+            margin-bottom: 25px;
+            white-space: pre-line;
+            text-align: justify;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .info-card {
+            background: var(--bg-gray);
+            padding: 20px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .info-card.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .info-card-label {
+            font-size: 11px;
+            color: var(--text-gray);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .info-card-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .amenities-list {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .amenity-tag {
+            font-size: 12px;
+            padding: 8px 12px;
+            background: white;
+            border: 1px solid #E5E7EB;
+            border-radius: 4px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .gallery-img {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        /* Page 3 Styles */
+        .full-gallery-page {
+            padding: 40px 50px;
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mosaic-gallery {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 15px;
+            height: 480px;
+            /* Fixed height for landscape gallery */
+            flex-grow: 1;
+        }
+
+        .mosaic-item-main {
+            grid-column: 1;
+            grid-row: 1 /span 2;
+        }
+
+        .mosaic-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+
+
+        /* Last Page: Contact */
+        .contact-page {
+            background: rgb(0, 48, 119);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .contact-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            align-items: center;
+        }
+
+        /* Layout 2: 3-Column Grid */
+        .gallery-layout-2 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            /* Removed fixed height 100% and fixed rows to preventing stretching */
+            align-content: start;
+        }
+
+        .gallery-layout-2 img {
+            width: 100%;
+            aspect-ratio: 21 / 20;
+            /* Slightly shorter than square (~5%) */
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        /* Layout 3: 2x2 Grid */
+        .gallery-layout-3 {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            align-content: start;
+        }
+
+        .gallery-layout-3 img {
+            width: 100%;
+            aspect-ratio: 21 / 13;
+            /* Taller by ~3% (1.615 vs 1.667) */
+            object-fit: cover;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- PAGE 1: COVER (Landscape) -->
+    <div class="page cover-page">
+        <div class="cover-sidebar">
+            <div class="cover-logo-area">
+                <img src="https://foryou-realestate.com/new%20logo.png" class="cover-logo-img"
+                    alt="For You Real Estate">
+            </div>
+
+            <div style="margin-top: auto; margin-bottom: auto;">
+                <div class="property-title">
+                    <%= property.name %>
+                </div>
+                <div class="property-location">
+                    <%= property.area || property.city %>
+                </div>
+
+                <div class="specs-grid-cover">
+                    <div class="spec-item">
+                        <span class="spec-label">Price</span>
+                        <span class="spec-value">
+                            <%= property.price || property.priceFrom || 'On Request' %>
+                        </span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">Type</span>
+                        <span class="spec-value">
+                            <%= property.propertyType==='secondary' ? 'Secondary' : 'Off-Plan' %>
+                        </span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">Bedrooms</span>
+                        <span class="spec-value">
+                            <%= property.bedrooms || (property.bedroomsFrom ? property.bedroomsFrom + '+' : 'Studio' )
+                                %>
+                        </span>
+                    </div>
+                    <div class="spec-item">
+                        <span class="spec-label">Size (sq.ft)</span>
+                        <span class="spec-value">
+                            <%= property.size || property.sizeFrom || '-' %>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Contact Info Section -->
+                <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <% if (typeof agent !=='undefined' && agent) { %>
+                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 5px;">
+                            <%= agent.name %>
+                        </div>
+                        <div style="font-size: 14px; opacity: 0.9; margin-bottom: 2px;">
+                            <%= agent.phone %>
+                        </div>
+                        <div style="font-size: 14px; opacity: 0.8;">
+                            <%= agent.email %>
+                        </div>
+                        <% } else { %>
+                            <div style="font-size: 18px; font-weight: 600; margin-bottom: 5px;">For You Real Estate
+                            </div>
+                            <div style="font-size: 14px; opacity: 0.9; margin-bottom: 2px;">+971 50 123 4567</div>
+                            <div style="font-size: 14px; opacity: 0.8;">info@foryou.ae</div>
+                            <% } %>
+                </div>
+            </div>
+
+            <div style="font-size: 12px; opacity: 0.5; margin-top: auto;">
+                Presented by For You Real Estate
+            </div>
+        </div>
+
+        <div class="cover-image-container">
+            <img src="<%= property.photos[0] %>" class="cover-image" alt="Cover">
+            <div class="cover-overlay"></div>
+        </div>
+    </div>
+
+    <!-- PAGE 2: DETAILS & FEATURES (Landscape Split) -->
+    <div class="page detail-page">
+        <div class="page-header">
+            <div class="header-title">Property Overview</div>
+            <div class="header-meta">REF: <%= property.id.split('-')[0].toUpperCase() %>
+            </div>
+        </div>
+
+        <div class="content-columns">
+            <!-- Left Column: Key Info & Description -->
+            <div class="col-left">
+                <div class="info-grid">
+                    <!-- Row 1: Developer & Location -->
+                    <div class="info-card">
+                        <div class="info-card-label">Developer</div>
+                        <div class="info-card-value">
+                            <%= property.developer || 'Private' %>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-card-label">Location</div>
+                        <div class="info-card-value">
+                            <%= property.city %>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Completion (Full Width) -->
+                    <div class="info-card full-width">
+                        <div class="info-card-label">Completion / Payment Plan</div>
+                        <div class="info-card-value">
+                            <%= property.completion || 'Ready' %>
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Starting Price (span 2) -> To balance
+                    -->
+                </div>
+
+                <div class="description">
+                    <%= property.description ? property.description.substring(0, 400) + (property.description.length>
+                        400 ? '...' : '') : '' %>
+                </div>
+
+            </div>
+
+            <!-- Right Column: Gallery Grid -->
+            <div class="col-right">
+                <div class="gallery-grid">
+                    <% property.photos.slice(1, 5).forEach(function(photo) { %>
+                        <img src="<%= photo %>" class="gallery-img" alt="Property">
+                        <% }); %>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 3: AMENITIES -->
+    <div class="page detail-page">
+        <div class="page-header">
+            <div class="header-title">Amenities & Features</div>
+        </div>
+
+        <% if (property.facilities && property.facilities.length> 0) { %>
+            <div class="amenities-list" style="grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                <% property.facilities.forEach(function(facility) { %>
+                    <div class="amenity-tag" style="font-size: 14px; padding: 12px 16px;">
+                        <span>•</span>
+                        <%= facility.nameEn || facility.name %>
+                    </div>
+                    <% }); %>
+            </div>
+            <% } %>
+    </div>
+
+    <!-- PAGE 3.5: MAP PAGE -->
+    <% if (mapUrl) { %>
+        <div class="page full-gallery-page">
+            <div class="page-header">
+                <div class="header-title">Location</div>
+                <div class="header-meta">
+                    <%= property.area || property.city %>
+                </div>
+            </div>
+
+            <div style="flex-grow: 1; position: relative; border-radius: 6px; overflow: hidden; background: #eee;">
+                <img src="<%= mapUrl %>" style="width: 100%; height: 100%; object-fit: cover; transform: scale(1.06);"
+                    alt="Map">
+
+                <!-- Optional: Overlay with property name or marker -->
+                <!-- Since Mapbox Static can't add custom HTML markers easily without complex URL params, we use the raw image.
+                 The style likely has markers if property features are part of it, but here we just show location. -->
+            </div>
+        </div>
+        <% } %>
+
+            <!-- PAGE 4: GALLERY 1 (Mosaic: 1 Main + 4 Small) -->
+            <div class="page full-gallery-page">
+                <div class="page-header">
+                    <div class="header-title">Gallery</div>
+                </div>
+
+                <div class="mosaic-gallery">
+                    <% if (property.photos[5]) { %>
+                        <div class="mosaic-item-main">
+                            <img src="<%= property.photos[5] %>" class="mosaic-img" alt="Main">
+                        </div>
+                        <% } %>
+                            <% if (property.photos[6]) { %> <img src="<%= property.photos[6] %>" class="mosaic-img"
+                                    alt="Img">
+                                <% } %>
+                                    <% if (property.photos[7]) { %> <img src="<%= property.photos[7] %>"
+                                            class="mosaic-img" alt="Img">
+                                        <% } %>
+                                            <% if (property.photos[8]) { %> <img src="<%= property.photos[8] %>"
+                                                    class="mosaic-img" alt="Img">
+                                                <% } %>
+                                                    <% if (property.photos[9]) { %> <img src="<%= property.photos[9] %>"
+                                                            class="mosaic-img" alt="Img">
+                                                        <% } %>
+                </div>
+            </div>
+
+            <!-- PAGE 5: GALLERY 2 (Grid: 6 Photos) -->
+            <% if (property.photos[10]) { %>
+                <div class="page full-gallery-page">
+                    <div class="page-header">
+                        <div class="header-title">Gallery</div>
+                    </div>
+
+                    <div class="gallery-layout-2">
+                        <% for(let i=10; i<=15; i++) { %>
+                            <% if (property.photos[i]) { %>
+                                <img src="<%= property.photos[i] %>" alt="Img <%= i %>">
+                                <% } %>
+                                    <% } %>
+                    </div>
+                </div>
+                <% } %>
+
+                    <!-- PAGE 6: GALLERY 3 (Layout: 2x2 Grid) -->
+                    <% if (property.photos[16]) { %>
+                        <div class="page full-gallery-page">
+                            <div class="page-header">
+                                <div class="header-title">Gallery</div>
+                            </div>
+
+                            <div class="gallery-layout-3">
+                                <% for(let i=16; i<=19; i++) { %>
+                                    <% if (property.photos[i]) { %>
+                                        <img src="<%= property.photos[i] %>" alt="Img <%= i %>">
+                                        <% } %>
+                                            <% } %>
+                            </div>
+                        </div>
+                        <% } %>
+
+                            <!-- PAGE 6: CONTACT (Landscape) -->
+                            <div class="page contact-page">
+                                <div class="contact-content">
+                                    <div
+                                        style="font-size: 14px; opacity: 0.8; text-transform: uppercase; letter-spacing: 2px;">
+                                        Interested in
+                                        this property?</div>
+
+                                    <% if (typeof agent !=='undefined' && agent) { %>
+                                        <!-- Agent Specific View -->
+                                        <% if (agent.photo) { %>
+                                            <img src="<%= agent.photo %>"
+                                                style="width: 120px; height: 120px; border-radius: 50%; object-fit: cover; border: 3px solid var(--accent); margin-top: 15px; margin-bottom: 10px;"
+                                                alt="Agent">
+                                            <% } %>
+
+                                                <div style="font-size: 32px; font-weight: 700; margin: 5px 0;">
+                                                    <%= agent.name %>
+                                                </div>
+
+                                                <div
+                                                    style="width: 50px; height: 2px; background: var(--accent); margin: 15px 0;">
+                                                </div>
+
+                                                <div style="font-size: 24px; font-weight: 600;">
+                                                    <%= agent.phone %>
+                                                </div>
+                                                <div style="font-size: 18px; opacity: 0.9;">
+                                                    <%= agent.email %>
+                                                </div>
+                                                <% } else { %>
+                                                    <!-- Default Company View -->
+                                                    <div style="font-size: 32px; font-weight: 700; margin: 10px 0;">
+                                                        Contact For You Real
+                                                        Estate
+                                                    </div>
+
+                                                    <div
+                                                        style="width: 50px; height: 2px; background: var(--accent); margin: 20px 0;">
+                                                    </div>
+
+                                                    <div style="font-size: 24px; font-weight: 600;">+971 50 123 4567
+                                                    </div>
+                                                    <div style="font-size: 18px; opacity: 0.9;">info@foryou.ae</div>
+                                                    <% } %>
+
+                                                        <div style="font-size: 16px; opacity: 0.7; margin-top: 15px;">
+                                                            www.foryou-realestate.com
+                                                        </div>
+                                </div>
+
+                                <div
+                                    style="position: absolute; bottom: 40px; left: 0; width: 100%; text-align: center;">
+                                    <img src="https://foryou-realestate.com/new%20logo.png"
+                                        style="width: 120px; opacity: 0.8;" alt="Logo">
+                                </div>
+                            </div>
+
+</body>
+
+</html>

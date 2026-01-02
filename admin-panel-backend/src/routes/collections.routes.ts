@@ -38,16 +38,17 @@ router.post('/', async (req: any, res) => {
       return res.status(401).json(errorResponse('User not authenticated'));
     }
 
-    const { name, description } = req.body;
+    const { title, description, image } = req.body;
 
-    if (!name) {
-      return res.status(400).json(errorResponse('Name is required'));
+    if (!title) {
+      return res.status(400).json(errorResponse('Title is required'));
     }
 
     const collection = AppDataSource.getRepository(Collection).create({
       userId,
-      name,
+      title,
       description,
+      image,
       properties: [],
     });
 
@@ -60,12 +61,12 @@ router.post('/', async (req: any, res) => {
   }
 });
 
-// PUT /api/collections/:id - Update collection
-router.put('/:id', async (req: any, res) => {
+// PATCH /api/collections/:id - Update collection
+router.patch('/:id', async (req: any, res) => {
   try {
     const userId = req.user?.id;
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { title, description, image } = req.body;
 
     const collection = await AppDataSource.getRepository(Collection).findOne({
       where: { id, userId },
@@ -75,14 +76,15 @@ router.put('/:id', async (req: any, res) => {
       return res.status(404).json(errorResponse('Collection not found'));
     }
 
-    if (name) collection.name = name;
+    if (title !== undefined) collection.title = title;
     if (description !== undefined) collection.description = description;
+    if (image !== undefined) collection.image = image;
 
     const updated = await AppDataSource.getRepository(Collection).save(collection);
 
     const collectionWithRelations = await AppDataSource.getRepository(Collection).findOne({
       where: { id: updated.id },
-      relations: ['properties'],
+      relations: ['properties'], // We might want other relations too, but usually list is enough or detailed fetch
     });
 
     res.json(successResponse(collectionWithRelations));
@@ -115,16 +117,11 @@ router.delete('/:id', async (req: any, res) => {
   }
 });
 
-// POST /api/collections/:id/properties - Add property to collection
-router.post('/:id/properties', async (req: any, res) => {
+// POST /api/collections/:id/properties/:propertyId - Add property to collection
+router.post('/:id/properties/:propertyId', async (req: any, res) => {
   try {
     const userId = req.user?.id;
-    const { id } = req.params;
-    const { propertyId } = req.body;
-
-    if (!propertyId) {
-      return res.status(400).json(errorResponse('Property ID is required'));
-    }
+    const { id, propertyId } = req.params;
 
     const collection = await AppDataSource.getRepository(Collection).findOne({
       where: { id, userId },

@@ -83,7 +83,7 @@ const offPlanSchema = z.object({
     if (val === null || val === undefined || val === '') return ''
     return String(val).trim()
   }).refine((val) => val.length > 0, { message: 'Size to is required' }),
-  description: z.string().min(1, 'Description is required'),
+  description: z.string().min(1, 'Description is required').max(400, 'Description cannot exceed 400 characters'),
   facilityIds: z.array(z.string()).optional(),
   developerId: z.string().optional(),
   paymentPlan: z.string().optional(),
@@ -191,7 +191,7 @@ export default function EditPropertyPage() {
   const router = useRouter()
   const params = useParams()
   const propertyId = params?.id as string
-  
+
   // Отримуємо параметри для повернення з URL
   const getReturnUrl = () => {
     if (typeof window === 'undefined') {
@@ -208,7 +208,7 @@ export default function EditPropertyPage() {
     }
     return '/properties'
   }
-  
+
   const [loading, setLoading] = useState(false)
   const [loadingProperty, setLoadingProperty] = useState(true)
   const [propertyType, setPropertyType] = useState<PropertyType>(PropertyType.OFF_PLAN)
@@ -219,7 +219,7 @@ export default function EditPropertyPage() {
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [photos, setPhotos] = useState<string[]>([])
   const [units, setUnits] = useState<Unit[]>([])
-  
+
   // Track values for real-time conversion display
   const [priceFromValue, setPriceFromValue] = useState<string>('')
   const [priceValue, setPriceValue] = useState<string>('')
@@ -281,13 +281,13 @@ export default function EditPropertyPage() {
 
       // Set property type
       setPropertyType(property.propertyType)
-      
+
       // Load cities and areas based on property location
       if (property.countryId) {
         try {
           const { data: citiesData } = await api.get(`/settings/cities?countryId=${property.countryId}`)
           setCities(citiesData.data || [])
-          
+
           if (property.cityId) {
             const { data: areasData } = await api.get(`/settings/areas?cityId=${property.cityId}`)
             setAreas(areasData.data || [])
@@ -313,26 +313,26 @@ export default function EditPropertyPage() {
         isForYouChoice: property.isForYouChoice || false,
         ...(property.propertyType === PropertyType.OFF_PLAN
           ? {
-              priceFrom: String(property.priceFrom || ''),
-              bedroomsFrom: String(property.bedroomsFrom || ''),
-              bedroomsTo: String(property.bedroomsTo || ''),
-              bathroomsFrom: String(property.bathroomsFrom || ''),
-              bathroomsTo: String(property.bathroomsTo || ''),
-              sizeFrom: String(property.sizeFrom || ''),
-              sizeTo: String(property.sizeTo || ''),
-              facilityIds: property.facilities?.map((f: Facility) => f.id) || [],
-            }
+            priceFrom: String(property.priceFrom || ''),
+            bedroomsFrom: String(property.bedroomsFrom || ''),
+            bedroomsTo: String(property.bedroomsTo || ''),
+            bathroomsFrom: String(property.bathroomsFrom || ''),
+            bathroomsTo: String(property.bathroomsTo || ''),
+            sizeFrom: String(property.sizeFrom || ''),
+            sizeTo: String(property.sizeTo || ''),
+            facilityIds: property.facilities?.map((f: Facility) => f.id) || [],
+          }
           : {
-              price: String(property.price || ''),
-              bedrooms: String(property.bedrooms || ''),
-              bathrooms: String(property.bathrooms || ''),
-              size: String(property.size || ''),
-            }),
+            price: String(property.price || ''),
+            bedrooms: String(property.bedrooms || ''),
+            bathrooms: String(property.bathrooms || ''),
+            size: String(property.size || ''),
+          }),
       } as PropertyFormData)
 
       // Set photos
       setPhotos(property.photos || [])
-      
+
       // Set conversion values and update form fields
       if (property.priceFrom) {
         const priceFromStr = String(property.priceFrom)
@@ -370,7 +370,7 @@ export default function EditPropertyPage() {
           setValue('size', sizeStr, { shouldValidate: false })
         }, 0)
       }
-      
+
       // Ensure facilityIds are set properly - do this after form is reset
       const facilityIds = property.facilities?.map((f: Facility) => f.id) || []
       setTimeout(() => {
@@ -453,7 +453,7 @@ export default function EditPropertyPage() {
       const updatedPhotos = [...photos, ...newPhotos]
       setPhotos(updatedPhotos)
       setValue('photos', updatedPhotos, { shouldValidate: true })
-      
+
       e.target.value = ''
     } catch (error: any) {
       console.error('Error uploading photos:', error)
@@ -576,7 +576,7 @@ export default function EditPropertyPage() {
 
       // Update property instead of creating
       await api.patch(`/properties/${propertyId}`, payload)
-      
+
       console.log('Property updated successfully')
       alert('Property updated successfully!')
       router.push(getReturnUrl())
@@ -1337,9 +1337,9 @@ export default function EditPropertyPage() {
 
         {/* Form Actions */}
         <div className="flex items-center justify-between gap-4">
-          <Button 
-            variant="outline" 
-            type="button" 
+          <Button
+            variant="outline"
+            type="button"
             onClick={handleDelete}
             disabled={loading}
             className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"

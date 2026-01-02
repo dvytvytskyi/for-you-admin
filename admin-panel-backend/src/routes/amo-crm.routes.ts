@@ -116,7 +116,7 @@ router.get('/callback', async (req, res) => {
       console.error('Error exchanging code:', error);
       const errorMsg = encodeURIComponent(error.message || 'auth_failed');
       const deepLink = `foryoure://amo-crm/callback?error=${errorMsg}`;
-      
+
       return res.send(`
         <!DOCTYPE html>
         <html>
@@ -182,7 +182,7 @@ router.get('/callback', async (req, res) => {
     // Backend вже обміняв code на токени ПЕРЕД показом HTML
     const stateParam = state ? `&state=${encodeURIComponent(state as string)}` : '';
     const deepLink = `foryoure://amo-crm/callback?success=true${stateParam}`;
-    
+
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -250,7 +250,7 @@ router.get('/callback', async (req, res) => {
     console.error('Callback error:', error);
     const errorMsg = encodeURIComponent(error.message || 'auth_failed');
     const deepLink = `foryoure://amo-crm/callback?error=${errorMsg}`;
-    
+
     return res.send(`
       <!DOCTYPE html>
       <html>
@@ -324,15 +324,15 @@ router.get(
       if (!userId) {
         return res.status(401).json(errorResponse('User not authenticated'));
       }
-      
+
       const amoCrmTokenRepository = AppDataSource.getRepository(AmoCrmToken);
-      
+
       // Спочатку шукаємо токени для користувача
       let token = await amoCrmTokenRepository.findOne({
         where: { userId: userId },
         order: { createdAt: 'DESC' },
       });
-      
+
       // Якщо немає для користувача - перевіряємо глобальні (userId IS NULL)
       if (!token) {
         token = await amoCrmTokenRepository.findOne({
@@ -340,17 +340,17 @@ router.get(
           order: { createdAt: 'DESC' },
         });
       }
-      
+
       // Перевіряємо, чи токен валідний (не прострочений)
       const hasValidToken = token && token.expiresAt > new Date();
-      
+
       const status = {
         connected: hasValidToken,
         hasTokens: !!token,
         domain: process.env.AMO_DOMAIN || '',
         accountId: process.env.AMO_ACCOUNT_ID || '',
       };
-      
+
       return res.json(successResponse(status));
     } catch (error: any) {
       console.error('Error getting connection status:', error);
@@ -394,7 +394,7 @@ router.get(
 
       // Отримуємо токени для користувача
       const pipelines = await amoCrmService.getPipelines(userId);
-      
+
       // Форматуємо відповідь
       const formattedPipelines = pipelines.map((pipeline: any) => ({
         id: pipeline.id,
@@ -424,7 +424,7 @@ router.get(
 
 /**
  * POST /api/amo-crm/sync/leads
- * Синхронізація leads
+ * Синхронізація leads (початкова пачка)
  */
 router.post(
   '/sync/leads',
@@ -443,6 +443,138 @@ router.post(
 );
 
 /**
+ * POST /api/amo-crm/sync/leads/full
+ * Повна синхронізація всіх leads (посторінково)
+ */
+router.post(
+  '/sync/leads/full',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || parseInt(req.body.limit as string) || 50;
+      const result = await amoCrmService.syncAllLeads(limit);
+      return res.json(successResponse(result, 'Повна синхронізація лідів завершена'));
+    } catch (error: any) {
+      console.error('Error in full leads sync:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to sync all leads'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/test/create-leads
+ * Створення тестових лідів для брокера
+ */
+router.post(
+  '/test/create-leads',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { amoUserId, count = 10 } = req.body;
+
+      if (!amoUserId) {
+        return res.status(400).json(errorResponse('amoUserId is required'));
+      }
+
+      console.log(`[TEST] Creating ${count} test leads for amoUserId: ${amoUserId}...`);
+
+      const createdIds = [];
+      for (let i = 1; i <= count; i++) {
+        const leadId = await amoCrmService.createLead({
+          name: `Test Lead for CRM Verification #${i} (${new Date().toLocaleDateString()})`,
+          price: Math.floor(Math.random() * 1000000) + 100000,
+          responsible_user_id: parseInt(amoUserId),
+        });
+        createdIds.push(leadId);
+
+        // Також синхронізуємо щойно створений лід локально
+        const amoLead = await amoCrmService.getLead(leadId);
+        await amoCrmService.saveLeadLocally(amoLead);
+      }
+
+      return res.json(successResponse({ createdIds }, `${count} тестових лідів створено та синхронізовано`));
+    } catch (error: any) {
+      console.error('Error creating test leads:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to create test leads'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/test/enrich-leads
+ * Збагачення тестових лідів даними (Contacts, Notes)
+ */
+router.post(
+  '/test/enrich-leads',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { amoUserId, limit = 20 } = req.body;
+
+      if (!amoUserId) {
+        return res.status(400).json(errorResponse('amoUserId is required'));
+      }
+
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmLead } = await import('../entities/AmoCrmLead');
+      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
+
+      const leads = await leadRepo.find({
+        where: { responsibleUserId: amoUserId },
+        order: { createdAt: 'DESC' },
+        take: limit
+      });
+
+      console.log(`Processing enrichment for ${leads.length} leads...`);
+
+      for (const [index, lead] of leads.entries()) {
+        try {
+          // 1. Create Contact
+          const contactName = `Guest ${index + 1} (${lead.name.substring(0, 10)}...)`;
+          const contactId = await amoCrmService.createContact({ name: contactName });
+
+          // 2. Link
+          await amoCrmService.linkContactToLead(lead.amoLeadId, contactId);
+
+          // 3. Note
+          const budget = lead.price ? `AED ${Number(lead.price).toLocaleString()}` : 'Undisclosed';
+          const preferences = ['Sea View', 'High Floor', 'Near Metro', 'Balcony', 'Gym Access'][Math.floor(Math.random() * 5)];
+          const nationality = ['UK', 'France', 'Germany', 'Russia', 'India', 'UAE'][Math.floor(Math.random() * 6)];
+
+          const noteText = `
+⭐⭐⭐ CLIENT DETAILS ⭐⭐⭐
+Name: ${contactName}
+Nationality: ${nationality}
+Budget: ${budget}
+Preferences: ${preferences}
+Phone: +971 50 ${Math.floor(1000000 + Math.random() * 9000000)}
+Email: client${index}@example.com
+
+💬 LATEST COMMENT:
+Client is very interested in 2BR apartments in Downtown or Marina. Waiting for floor plans.
+           `.trim();
+
+          await amoCrmService.addNote(lead.amoLeadId, 'leads', noteText);
+
+          // Delay
+          await new Promise(r => setTimeout(r, 200));
+        } catch (e: any) {
+          console.error(`Failed to enrich lead ${lead.amoLeadId}:`, e.message);
+        }
+      }
+
+      return res.json(successResponse({ processed: leads.length }, 'Leads enriched successfully'));
+    } catch (error: any) {
+      console.error('Error enriching leads:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to enrich leads'));
+    }
+  },
+);
+
+/**
  * GET /api/amo-crm/leads
  * Отримати leads з локальної БД
  */
@@ -454,7 +586,7 @@ router.get(
     try {
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmLead } = await import('../entities/AmoCrmLead');
-      
+
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const skip = (page - 1) * limit;
@@ -491,10 +623,10 @@ router.get(
     try {
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmLead } = await import('../entities/AmoCrmLead');
-      
+
       const { id } = req.params;
       const leadRepo = AppDataSource.getRepository(AmoCrmLead);
-      
+
       const lead = await leadRepo.findOne({
         where: { amoLeadId: parseInt(id) },
       });
@@ -703,7 +835,7 @@ router.get(
     try {
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmContact } = await import('../entities/AmoCrmContact');
-      
+
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const skip = (page - 1) * limit;
@@ -759,7 +891,7 @@ router.get(
     try {
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmUser } = await import('../entities/AmoCrmUser');
-      
+
       const userRepo = AppDataSource.getRepository(AmoCrmUser);
       const users = await userRepo.find({
         order: { name: 'ASC' },
@@ -769,6 +901,38 @@ router.get(
     } catch (error: any) {
       console.error('Error fetching users:', error);
       return res.status(500).json(errorResponse(error.message || 'Failed to fetch users'));
+    }
+  },
+);
+
+/**
+ * GET /api/amo-crm/users/unlinked
+ * Отримати список AmoCRM користувачів, які ще не прив'язані до користувачів системи
+ */
+router.get(
+  '/users/unlinked',
+  authenticateJWT,
+  requireAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { AppDataSource } = await import('../config/database');
+      const { AmoCrmUser } = await import('../entities/AmoCrmUser');
+
+      const userRepo = AppDataSource.getRepository(AmoCrmUser);
+
+      // Знаходимо користувачів, які не мають зв'язку з таблицею users
+      const unlinkedUsers = await userRepo
+        .createQueryBuilder('amoUser')
+        .leftJoinAndSelect('amoUser.user', 'user')
+        .where('user.id IS NULL')
+        .andWhere('amoUser.isActive = :isActive', { isActive: true }) // Тільки активні
+        .orderBy('amoUser.name', 'ASC')
+        .getMany();
+
+      return res.json(successResponse(unlinkedUsers));
+    } catch (error: any) {
+      console.error('Error fetching unlinked users:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch unlinked users'));
     }
   },
 );
@@ -805,7 +969,7 @@ router.get(
     try {
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmTask } = await import('../entities/AmoCrmTask');
-      
+
       const { entityType, entityId, isCompleted } = req.query;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -902,9 +1066,9 @@ router.get(
 
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmStage } = await import('../entities/AmoCrmStage');
-      
+
       const stageRepo = AppDataSource.getRepository(AmoCrmStage);
-      
+
       const stages = await stageRepo.find({
         where: { amoPipelineId: pipelineId },
         order: { sort: 'ASC' },
@@ -948,10 +1112,10 @@ router.get(
 
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmStage } = await import('../entities/AmoCrmStage');
-      
+
       const { pipelineId } = req.query;
       const stageRepo = AppDataSource.getRepository(AmoCrmStage);
-      
+
       const queryBuilder = stageRepo.createQueryBuilder('stage');
       if (pipelineId) {
         queryBuilder.andWhere('stage.amoPipelineId = :pipelineId', { pipelineId: parseInt(pipelineId as string) });
@@ -994,7 +1158,7 @@ router.get(
     try {
       const { AppDataSource } = await import('../config/database');
       const { AmoCrmStage, LeadStatus } = await import('../entities/AmoCrmStage');
-      
+
       const stageRepo = AppDataSource.getRepository(AmoCrmStage);
       const stages = await stageRepo.find({
         where: { mappedStatus: Not(null as any) },

@@ -24,7 +24,7 @@ const finalDatabaseUrl = isLocal || envDatabaseUrl.includes('/admin_panel')
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: finalDatabaseUrl,
-  synchronize: false, // Вимикаємо синхронізацію після створення таблиць
+  synchronize: true, // Вмикаємо синхронізацію для створення таблиць портфоліо
   logging: process.env.NODE_ENV === 'development',
   entities: entities, // Використовуємо масив класів напряму
   migrations: migrationsPath,

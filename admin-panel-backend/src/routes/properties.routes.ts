@@ -11,7 +11,7 @@ const router = express.Router();
 router.use((req: AuthRequest, res, next) => {
   const apiKey = req.headers['x-api-key'] as string;
   const apiSecret = req.headers['x-api-secret'] as string;
-  
+
   // If both API key and secret are provided, use API Key/Secret authentication
   if (apiKey && apiSecret) {
     // authenticateApiKeyWithSecret is async and handles errors internally
@@ -24,7 +24,7 @@ router.use((req: AuthRequest, res, next) => {
     });
     return;
   }
-  
+
   // Otherwise, use JWT authentication
   return authenticateJWT(req, res, next);
 });
@@ -38,10 +38,10 @@ router.get('/', async (req: AuthRequest, res) => {
       authMethod: req.apiKey ? 'API Key' : (req.user ? 'JWT' : 'Unknown'),
     });
 
-    const { 
-      propertyType, 
-      developerId, 
-      cityId, 
+    const {
+      propertyType,
+      developerId,
+      cityId,
       areaId,
       bedrooms,
       sizeFrom,
@@ -54,9 +54,9 @@ router.get('/', async (req: AuthRequest, res) => {
       page,
       limit
     } = req.query;
-    
+
     const where: any = {};
-    
+
     // Базові фільтри
     if (propertyType) where.propertyType = propertyType;
     if (developerId) where.developerId = developerId;
@@ -90,14 +90,14 @@ router.get('/', async (req: AuthRequest, res) => {
     // Фільтр по кількості спалень (multiselect - можна передати кілька значень через кому)
     if (bedrooms) {
       // Нормалізуємо bedrooms до масиву рядків
-      const bedroomsArray: string[] = Array.isArray(bedrooms) 
+      const bedroomsArray: string[] = Array.isArray(bedrooms)
         ? bedrooms.map(b => String(b))
         : String(bedrooms).split(',');
-      
+
       const bedroomsConditions = bedroomsArray.map((bed: string, index: number) => {
         const bedNum = parseInt(bed.trim(), 10);
         if (isNaN(bedNum)) return null;
-        
+
         // Для off-plan: перевіряємо bedroomsFrom та bedroomsTo
         // Для secondary: перевіряємо bedrooms
         return `(
@@ -106,7 +106,7 @@ router.get('/', async (req: AuthRequest, res) => {
           (property.propertyType = 'secondary' AND property.bedrooms = :bed${index})
         )`;
       }).filter((item): item is string => item !== null);
-      
+
       if (bedroomsConditions.length > 0) {
         queryBuilder.andWhere(`(${bedroomsConditions.join(' OR ')})`);
         bedroomsArray.forEach((bed: string, index: number) => {
@@ -170,10 +170,10 @@ router.get('/', async (req: AuthRequest, res) => {
     // Сортування - спочатку featured (isForYouChoice = true), потім по іншим полям
     const sortField = sortBy?.toString() || 'createdAt';
     const sortDirection = sortOrder?.toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    
+
     // Спочатку сортуємо по isForYouChoice (featured спочатку)
     queryBuilder.addOrderBy('property.isForYouChoice', 'DESC');
-    
+
     // Дозволені поля для сортування
     const allowedSortFields = ['createdAt', 'name', 'price', 'priceFrom', 'size', 'sizeFrom'];
     if (allowedSortFields.includes(sortField)) {
@@ -187,7 +187,7 @@ router.get('/', async (req: AuthRequest, res) => {
     // Якщо параметри не передані, використовуємо мінімальні значення для безпеки
     const pageNum = page ? parseInt(page.toString(), 10) : 1;
     const limitNum = limit ? parseInt(limit.toString(), 10) : 20; // Мінімальний limit якщо не передано
-    
+
     // Максимальний limit для безпеки (на випадок якщо хтось передасть дуже велике значення)
     const MAX_LIMIT = 100;
     const finalLimit = Math.min(limitNum, MAX_LIMIT);
@@ -241,7 +241,7 @@ router.get('/', async (req: AuthRequest, res) => {
     // Повертаємо формат з пагінацією
     // total - загальна кількість всіх properties з урахуванням фільтрів (НЕ кількість завантажених)
     const totalPages = Math.ceil(totalCount / finalLimit);
-    
+
     res.json(successResponse({
       data: propertiesWithConversions,
       pagination: {
@@ -369,6 +369,74 @@ router.get('/stats', async (req: AuthRequest, res) => {
   }
 });
 
+import { PdfService } from '../services/pdf.service';
+
+router.get('/:id/presentation', async (req, res) => {
+  try {
+    const propertyRepo = AppDataSource.getRepository(Property);
+    const property = await propertyRepo.findOne({
+      where: { id: req.params.id },
+      relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
+    });
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    // Prepare data for template (similar to partial conversion logic)
+    // We want clean strings for the PDF
+    let areaName = property.area?.nameEn || '';
+    if (property.area && property.propertyType === 'off-plan' && property.city) {
+      areaName = `${property.area.nameEn}, ${property.city.nameEn}`;
+    }
+
+    const presentationData = {
+      ...property,
+      area: areaName,
+      city: property.city?.nameEn || '',
+      developer: property.developer?.name || '',
+      type: property.propertyType,
+      completion: property.propertyType === 'secondary' ? 'Ready' : (property.paymentPlan ? property.paymentPlan : 'Off-Plan'),
+      price: property.price ? `$${property.price.toLocaleString()}` : null,
+      priceFrom: property.priceFrom ? `$${property.priceFrom.toLocaleString()}` : null,
+      size: property.size ? property.size.toLocaleString() : null,
+      sizeFrom: property.sizeFrom ? property.sizeFrom.toLocaleString() : null,
+      sizeTo: property.sizeTo ? property.sizeTo.toLocaleString() : null,
+      facilities: property.facilities || []
+    };
+
+    const { agentName, agentPhone, agentEmail, agentPhoto } = req.query;
+    let agent = null;
+    if (agentName || agentPhone || agentEmail) {
+      agent = {
+        name: agentName ? String(agentName) : '',
+        phone: agentPhone ? String(agentPhone) : '',
+        email: agentEmail ? String(agentEmail) : '',
+        photo: agentPhoto ? String(agentPhoto) : ''
+      };
+    }
+
+    const pdfService = new PdfService();
+    const pdfBuffer = await pdfService.generatePropertyPresentation(presentationData, agent);
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${property.name.replace(/[^a-z0-9]/gi, '_')}.pdf"`,
+      'Content-Length': pdfBuffer.length
+    });
+
+    res.send(pdfBuffer);
+
+  } catch (error: any) {
+    console.error('Error generating PDF:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to generate presentation',
+      error: error.message
+    });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   const property = await AppDataSource.getRepository(Property).findOne({
     where: { id: req.params.id },
@@ -381,7 +449,7 @@ router.post('/', async (req, res) => {
   try {
     // Transform string values to numbers for numeric fields
     const propertyData = { ...req.body };
-    
+
     // Transform latitude and longitude (they come as strings)
     // Valid ranges: latitude -90 to 90, longitude -180 to 180
     // Database: latitude decimal(10,8), longitude decimal(11,8)
@@ -405,7 +473,7 @@ router.post('/', async (req, res) => {
       }
       propertyData.longitude = lng;
     }
-    
+
     // Transform Off-Plan numeric fields
     if (propertyData.priceFrom !== undefined && propertyData.priceFrom !== null && propertyData.priceFrom !== '') {
       const price = parseFloat(propertyData.priceFrom);
@@ -419,7 +487,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.priceFrom = null;
     }
-    
+
     if (propertyData.bedroomsFrom !== undefined && propertyData.bedroomsFrom !== null && propertyData.bedroomsFrom !== '') {
       const bedrooms = parseInt(propertyData.bedroomsFrom, 10);
       if (isNaN(bedrooms) || bedrooms < 0) {
@@ -432,7 +500,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.bedroomsFrom = null;
     }
-    
+
     if (propertyData.bedroomsTo !== undefined && propertyData.bedroomsTo !== null && propertyData.bedroomsTo !== '') {
       const bedrooms = parseInt(propertyData.bedroomsTo, 10);
       if (isNaN(bedrooms) || bedrooms < 0) {
@@ -445,7 +513,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.bedroomsTo = null;
     }
-    
+
     if (propertyData.bathroomsFrom !== undefined && propertyData.bathroomsFrom !== null && propertyData.bathroomsFrom !== '') {
       const bathrooms = parseInt(propertyData.bathroomsFrom, 10);
       if (isNaN(bathrooms) || bathrooms < 0) {
@@ -458,7 +526,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.bathroomsFrom = null;
     }
-    
+
     if (propertyData.bathroomsTo !== undefined && propertyData.bathroomsTo !== null && propertyData.bathroomsTo !== '') {
       const bathrooms = parseInt(propertyData.bathroomsTo, 10);
       if (isNaN(bathrooms) || bathrooms < 0) {
@@ -471,7 +539,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.bathroomsTo = null;
     }
-    
+
     if (propertyData.sizeFrom !== undefined && propertyData.sizeFrom !== null && propertyData.sizeFrom !== '') {
       const size = parseFloat(propertyData.sizeFrom);
       if (isNaN(size) || size < 0) {
@@ -484,7 +552,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.sizeFrom = null;
     }
-    
+
     if (propertyData.sizeTo !== undefined && propertyData.sizeTo !== null && propertyData.sizeTo !== '') {
       const size = parseFloat(propertyData.sizeTo);
       if (isNaN(size) || size < 0) {
@@ -497,7 +565,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.sizeTo = null;
     }
-    
+
     // Transform Secondary numeric fields
     if (propertyData.price !== undefined && propertyData.price !== null && propertyData.price !== '') {
       const price = parseFloat(propertyData.price);
@@ -511,7 +579,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.price = null;
     }
-    
+
     if (propertyData.bedrooms !== undefined && propertyData.bedrooms !== null && propertyData.bedrooms !== '') {
       const bedrooms = parseInt(propertyData.bedrooms, 10);
       if (isNaN(bedrooms) || bedrooms < 0) {
@@ -524,7 +592,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.bedrooms = null;
     }
-    
+
     if (propertyData.bathrooms !== undefined && propertyData.bathrooms !== null && propertyData.bathrooms !== '') {
       const bathrooms = parseInt(propertyData.bathrooms, 10);
       if (isNaN(bathrooms) || bathrooms < 0) {
@@ -537,7 +605,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.bathrooms = null;
     }
-    
+
     if (propertyData.size !== undefined && propertyData.size !== null && propertyData.size !== '') {
       const size = parseFloat(propertyData.size);
       if (isNaN(size) || size < 0) {
@@ -550,7 +618,7 @@ router.post('/', async (req, res) => {
     } else {
       propertyData.size = null;
     }
-    
+
     // Transform units if present
     if (propertyData.units && Array.isArray(propertyData.units)) {
       propertyData.units = propertyData.units.map((unit: any) => ({
@@ -560,20 +628,20 @@ router.post('/', async (req, res) => {
         price: unit.price ? parseFloat(unit.price) : null,
       }));
     }
-    
+
     const property = await AppDataSource.getRepository(Property).save(propertyData);
-    
+
     // Fetch with relations to return complete data
     const completeProperty = await AppDataSource.getRepository(Property).findOne({
       where: { id: property.id },
       relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
     });
-    
+
     res.json(successResponse(completeProperty));
   } catch (error: any) {
     console.error('Error creating property:', error);
-    res.status(500).json({ 
-      success: false, 
+    res.status(500).json({
+      success: false,
       message: error.message || 'Failed to create property',
       error: error.message,
     });
@@ -692,9 +760,9 @@ router.patch('/:id', async (req, res) => {
 
     // Fetch updated property with all relations
     const updatedProperty = await propertyRepo.findOne({
-    where: { id: req.params.id },
+      where: { id: req.params.id },
       relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
-  });
+    });
 
     res.json(successResponse(updatedProperty));
   } catch (error: any) {

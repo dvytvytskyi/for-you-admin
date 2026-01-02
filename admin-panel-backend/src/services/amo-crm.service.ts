@@ -172,7 +172,7 @@ export class AmoCrmService {
     // Спочатку перевіряємо локальне зберігання
     try {
       const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
-      
+
       // Якщо передано userId, спочатку шукаємо токен для користувача
       if (userId) {
         let token = await tokenRepo.findOne({
@@ -294,14 +294,14 @@ export class AmoCrmService {
   async saveTokensLocally(authData: AmoAuthResponse | { access_token: string; refresh_token?: string; expires_in: number; token_type?: string }): Promise<void> {
     try {
       const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
-      
+
       // Видалити старі глобальні токени (без userId)
       await tokenRepo.delete({ userId: IsNull() });
 
       // Створити новий токен
       const expiresAt = new Date();
       // Якщо expires_in дуже великий (більше 1 року), встановлюємо максимальний термін
-      const expiresInSeconds = authData.expires_in > 31536000 
+      const expiresInSeconds = authData.expires_in > 31536000
         ? Math.min(authData.expires_in, 157680000) // Максимум 5 років
         : authData.expires_in;
       expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
@@ -329,13 +329,13 @@ export class AmoCrmService {
   async saveTokensForUser(userId: string, authData: AmoAuthResponse | { access_token: string; refresh_token?: string; expires_in: number; token_type?: string }): Promise<void> {
     try {
       const tokenRepo = AppDataSource.getRepository(AmoCrmToken);
-      
+
       // Видалити старі токени для цього користувача
       await tokenRepo.delete({ userId });
 
       // Створити новий токен
       const expiresAt = new Date();
-      const expiresInSeconds = authData.expires_in > 31536000 
+      const expiresInSeconds = authData.expires_in > 31536000
         ? Math.min(authData.expires_in, 157680000)
         : authData.expires_in;
       expiresAt.setSeconds(expiresAt.getSeconds() + expiresInSeconds);
@@ -408,10 +408,10 @@ export class AmoCrmService {
 
       // Зберегти токени в Main Backend та локально (глобально)
       await Promise.all([
-        this.saveTokensToMainBackend(response.data).catch(err => 
+        this.saveTokensToMainBackend(response.data).catch(err =>
           console.warn('Failed to save tokens to Main Backend:', err)
         ),
-        this.saveTokensLocally(response.data).catch(err => 
+        this.saveTokensLocally(response.data).catch(err =>
           console.warn('Failed to save tokens locally:', err)
         ),
       ]);
@@ -720,11 +720,7 @@ export class AmoCrmService {
       console.log(`[AMO CRM] Syncing leads, limit: ${limit}, API Domain: ${this.apiDomain}`);
 
       // Отримати leads з AMO CRM
-      // Використовуємо domain замість apiDomain, оскільки токен видано для domain
-      const apiUrl = this.domain; // Використовуємо domain, а не apiDomain
-      console.log(`[AMO CRM] Requesting leads from: https://${apiUrl}/api/v4/leads`);
-      console.log(`[AMO CRM] Access token length: ${accessToken.length}, preview: ${accessToken.substring(0, 30)}...`);
-      
+      const apiUrl = this.domain;
       const response = await axios.get<{ _embedded: { leads: AmoLead[] } }>(
         `https://${apiUrl}/api/v4/leads`,
         {
@@ -734,100 +730,136 @@ export class AmoCrmService {
           },
           params: {
             limit,
-            with: 'contacts', // Отримати також контакти
+            with: 'contacts',
           },
-          validateStatus: (status) => status < 500, // Не кидати помилку для 4xx
+          validateStatus: (status) => status < 500,
         },
       );
 
       if (response.status === 401) {
-        console.error('[AMO CRM] 401 Unauthorized - Token may be invalid or expired');
-        console.error('[AMO CRM] Response:', response.data);
         throw new Error('AMO CRM authentication failed. Token may be invalid or expired.');
       }
 
       if (response.status !== 200) {
-        console.error(`[AMO CRM] Unexpected status: ${response.status}`, response.data);
         throw new Error(`AMO CRM API returned status ${response.status}`);
       }
 
       const leads = response.data._embedded?.leads || [];
-      console.log(`[AMO CRM] Received ${leads.length} leads from AMO CRM`);
-
-      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
       let synced = 0;
       let errors = 0;
 
-      // Зберегти leads локально в БД
       for (const lead of leads) {
-        if (!lead.id) {
-          console.warn(`[AMO CRM] Lead without ID, skipping`);
-          errors++;
-          continue;
-        }
-
+        if (!lead.id) continue;
         try {
-          // Перевірити, чи lead вже існує
-          const existingLead = await leadRepo.findOne({
-            where: { amoLeadId: lead.id },
-          });
-
-          const leadData: any = {
-            amoLeadId: lead.id,
-            name: lead.name,
-            price: lead.price ?? undefined,
-            statusId: lead.status_id ?? undefined,
-            pipelineId: lead.pipeline_id ?? undefined,
-            responsibleUserId: lead.responsible_user_id ?? undefined,
-            createdAtAmo: lead.created_at ?? undefined,
-            updatedAtAmo: lead.updated_at ?? undefined,
-            customFields: lead.custom_fields_values ?? undefined,
-            embedded: lead._embedded ?? undefined,
-            rawData: lead, // Зберегти повні дані
-          };
-
-          if (existingLead) {
-            // Оновити існуючий lead
-            await leadRepo.update({ amoLeadId: lead.id }, leadData);
-            synced++;
-          } else {
-            // Створити новий lead
-            const newLead = leadRepo.create(leadData);
-            await leadRepo.save(newLead);
-            synced++;
-          }
-
-          // Також спробувати відправити в Main Backend (якщо налаштовано)
-          if (this.mainBackendUrl && this.mainBackendApiKey) {
-            try {
-              await axios.post(
-                `${this.mainBackendUrl}/integrations/amo-crm/sync-lead`,
-                { lead },
-                {
-                  headers: {
-                    'X-API-Key': this.mainBackendApiKey,
-                  },
-                },
-              );
-            } catch (mainBackendError: any) {
-              // Не критична помилка, просто логуємо
-              console.warn(`[AMO CRM] Failed to sync lead ${lead.id} to Main Backend:`, mainBackendError.message);
-            }
-          }
+          await this.saveLeadLocally(lead);
+          synced++;
         } catch (error: any) {
-          console.error(`[AMO CRM] Error saving lead ${lead.id}:`, error.message);
           errors++;
         }
       }
 
-      console.log(`[AMO CRM] Synced ${synced} leads, ${errors} errors`);
       return { synced, errors };
     } catch (error: any) {
       console.error('[AMO CRM] Error syncing leads:', error.response?.data || error.message);
-      if (error.response?.status === 401) {
-        throw new Error('AMO CRM authentication failed. Please check your tokens.');
-      }
       throw new Error(`Failed to sync leads from AMO CRM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Синхронізація лідів, змінених за останні N хвилин
+   */
+  async syncRecentLeads(minutes: number = 5): Promise<{ synced: number; errors: number }> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const updatedAtFrom = Math.floor((Date.now() - minutes * 60 * 1000) / 1000);
+
+      const response = await axios.get<{ _embedded: { leads: AmoLead[] } }>(
+        `https://${this.domain}/api/v4/leads`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          params: {
+            limit: 50,
+            'filter[updated_at][from]': updatedAtFrom,
+            with: 'contacts'
+          },
+          validateStatus: (status) => status < 500
+        }
+      );
+
+      if (response.status !== 200) return { synced: 0, errors: 0 };
+
+      const leads = response.data._embedded?.leads || [];
+      let synced = 0;
+      let errors = 0;
+
+      for (const lead of leads) {
+        if (!lead.id) continue;
+        try {
+          await this.saveLeadLocally(lead);
+          synced++;
+        } catch (e) {
+          errors++;
+        }
+      }
+      if (synced > 0) {
+        console.log(`[AMO CRM] Background sync: ${synced} leads updated`);
+      }
+      return { synced, errors };
+    } catch (error: any) {
+      console.error('[AMO CRM] Error in syncRecentLeads:', error.message);
+      return { synced: 0, errors: 1 };
+    }
+  }
+
+  /**
+   * Зберегти дані ліда локально в БД та відправити на Main Backend
+   */
+  async saveLeadLocally(lead: AmoLead): Promise<void> {
+    if (!lead.id) return;
+
+    const leadRepo = AppDataSource.getRepository(AmoCrmLead);
+    const existingLead = await leadRepo.findOne({
+      where: { amoLeadId: lead.id },
+    });
+
+    const leadData: any = {
+      amoLeadId: lead.id,
+      name: lead.name,
+      price: lead.price ?? undefined,
+      statusId: lead.status_id ?? undefined,
+      pipelineId: lead.pipeline_id ?? undefined,
+      responsibleUserId: lead.responsible_user_id ?? undefined,
+      createdAtAmo: lead.created_at ?? undefined,
+      updatedAtAmo: lead.updated_at ?? undefined,
+      customFields: lead.custom_fields_values ?? undefined,
+      embedded: lead._embedded ?? undefined,
+      rawData: lead,
+    };
+
+    if (existingLead) {
+      await leadRepo.update({ amoLeadId: lead.id }, leadData);
+    } else {
+      const newLead = leadRepo.create(leadData);
+      await leadRepo.save(newLead);
+    }
+
+    // Відправка на Main Backend
+    if (this.mainBackendUrl && this.mainBackendApiKey) {
+      try {
+        await axios.post(
+          `${this.mainBackendUrl}/integrations/amo-crm/sync-lead`,
+          { lead },
+          {
+            headers: {
+              'X-API-Key': this.mainBackendApiKey,
+            },
+          },
+        );
+      } catch (error: any) {
+        console.warn(`[AMO CRM] Failed to forward lead ${lead.id} to Main Backend:`, error.message);
+      }
     }
   }
 
@@ -989,9 +1021,9 @@ export class AmoCrmService {
             where: { amoTaskId: task.id },
           });
 
-          const entityType = task.entity_type === '1' || task.entity_type === 'contacts' ? 'contacts' 
-            : task.entity_type === '2' || task.entity_type === 'leads' ? 'leads' 
-            : 'companies';
+          const entityType = task.entity_type === '1' || task.entity_type === 'contacts' ? 'contacts'
+            : task.entity_type === '2' || task.entity_type === 'leads' ? 'leads'
+              : 'companies';
           const mappedType = this.mapTaskType(task.task_type);
 
           const taskData: any = {
@@ -1070,9 +1102,10 @@ export class AmoCrmService {
   async createLead(leadData: Partial<AmoLead>): Promise<number> {
     try {
       const accessToken = await this.getAccessToken();
+      const apiUrl = this.domain;
 
       const response = await axios.post<{ _embedded: { leads: Array<{ id: number }> } }>(
-        `https://${this.apiDomain}/api/v4/leads`,
+        `https://${apiUrl}/api/v4/leads`,
         [leadData],
         {
           headers: {
@@ -1092,6 +1125,85 @@ export class AmoCrmService {
       console.error('Error creating lead in AMO CRM:', error.response?.data || error.message);
       throw new Error('Failed to create lead in AMO CRM');
     }
+  }
+
+  /**
+   * Синхронізація однієї сторінки лідів
+   */
+  async syncLeadsPaginated(page: number = 1, limit: number = 50): Promise<{ leads: AmoLead[]; total: number }> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.domain;
+
+      const response = await axios.get<{ _embedded: { leads: AmoLead[] } }>(
+        `https://${apiUrl}/api/v4/leads`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          params: {
+            page,
+            limit,
+            with: 'contacts',
+          },
+          validateStatus: (status) => status < 500,
+        },
+      );
+
+      if (response.status !== 200) {
+        return { leads: [], total: 0 };
+      }
+
+      const leads = response.data._embedded?.leads || [];
+      return { leads, total: leads.length };
+    } catch (error: any) {
+      console.error(`[AMO CRM] Error syncing leads page ${page}:`, error.message);
+      return { leads: [], total: 0 };
+    }
+  }
+
+  /**
+   * Повна синхронізація всіх лідів з AmoCRM (посторінково)
+   */
+  async syncAllLeads(limit: number = 50): Promise<{ total: number; errors: number }> {
+    let page = 1;
+    let totalSynced = 0;
+    let totalErrors = 0;
+    let hasMore = true;
+
+    console.log('[AMO CRM] Starting full leads synchronization...');
+
+    while (hasMore) {
+      console.log(`[AMO CRM] Syncing page ${page}...`);
+      const { leads, total } = await this.syncLeadsPaginated(page, limit);
+
+      if (leads.length === 0) {
+        hasMore = false;
+        break;
+      }
+
+      for (const lead of leads) {
+        try {
+          await this.saveLeadLocally(lead);
+          totalSynced++;
+        } catch (error) {
+          totalErrors++;
+        }
+      }
+
+      if (leads.length < limit) {
+        hasMore = false;
+      } else {
+        page++;
+      }
+
+      // Невелика затримка щоб не перевищити ліміти API (якщо потрібно)
+      // await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    console.log(`[AMO CRM] Full sync complete. Synced: ${totalSynced}, Errors: ${totalErrors}`);
+    return { total: totalSynced, errors: totalErrors };
   }
 
   /**
@@ -1125,9 +1237,10 @@ export class AmoCrmService {
   async getLead(leadId: number): Promise<AmoLead> {
     try {
       const accessToken = await this.getAccessToken();
+      const apiUrl = this.domain;
 
-      const response = await axios.get<{ _embedded: { leads: AmoLead[] } }>(
-        `https://${this.apiDomain}/api/v4/leads/${leadId}`,
+      const response = await axios.get<any>(
+        `https://${apiUrl}/api/v4/leads/${leadId}`,
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -1135,7 +1248,12 @@ export class AmoCrmService {
         },
       );
 
-      return response.data._embedded?.leads[0];
+      // AmoCRM single lead API returns the object directly
+      // but we handle both direct object and _embedded for robustness
+      if (response.data?.id) {
+        return response.data;
+      }
+      return response.data._embedded?.leads?.[0];
     } catch (error: any) {
       console.error('Error getting lead from AMO CRM:', error.response?.data || error.message);
       throw new Error('Failed to get lead from AMO CRM');
@@ -1149,29 +1267,18 @@ export class AmoCrmService {
     let processed = 0;
     let errors = 0;
 
-    console.log('Processing webhook from AMO CRM:', JSON.stringify(payload, null, 2));
+    console.log('[AMO CRM] Processing webhook:', JSON.stringify(payload, null, 2));
 
     // Обробка зміни статусу lead
     if (payload.leads?.status) {
       for (const statusUpdate of payload.leads.status) {
         try {
-          // Відправити в Main Backend для обробки
-          await axios.post(
-            `${this.mainBackendUrl}/integrations/amo-crm/webhook`,
-            {
-              leads: {
-                status: [statusUpdate],
-              },
-            },
-            {
-              headers: {
-                'X-API-Key': this.mainBackendApiKey,
-              },
-            },
-          );
+          // Отримуємо повні дані ліда для синхронізації (бо в статус-апдейті мало інфи)
+          const amoLead = await this.getLead(statusUpdate.id);
+          await this.saveLeadLocally(amoLead);
           processed++;
         } catch (error) {
-          console.error(`Error processing status update for lead ${statusUpdate.id}:`, error);
+          console.error(`[AMO CRM] Webhook error (status update) for lead ${statusUpdate.id}:`, error);
           errors++;
         }
       }
@@ -1182,18 +1289,24 @@ export class AmoCrmService {
       for (const newLead of payload.leads.add) {
         try {
           const amoLead = await this.getLead(newLead.id);
-          await axios.post(
-            `${this.mainBackendUrl}/integrations/amo-crm/sync-lead`,
-            { lead: amoLead },
-            {
-              headers: {
-                'X-API-Key': this.mainBackendApiKey,
-              },
-            },
-          );
+          await this.saveLeadLocally(amoLead);
           processed++;
         } catch (error) {
-          console.error(`Error processing new lead ${newLead.id}:`, error);
+          console.error(`[AMO CRM] Webhook error (add lead) for lead ${newLead.id}:`, error);
+          errors++;
+        }
+      }
+    }
+
+    // Обробка оновлених leads
+    if (payload.leads?.update) {
+      for (const updateLead of payload.leads.update) {
+        try {
+          const amoLead = await this.getLead(updateLead.id);
+          await this.saveLeadLocally(amoLead);
+          processed++;
+        } catch (error) {
+          console.error(`[AMO CRM] Webhook error (update lead) for lead ${updateLead.id}:`, error);
           errors++;
         }
       }
@@ -1201,5 +1314,106 @@ export class AmoCrmService {
 
     return { processed, errors };
   }
+
+  /**
+   * Додати примітку до сутності (Lead або Contact)
+   */
+  async addNote(entityId: number, entityType: 'leads' | 'contacts', text: string): Promise<void> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.apiDomain || this.domain;
+
+      await axios.post(
+        `https://${apiUrl}/api/v4/${entityType}/${entityId}/notes`,
+        [
+          {
+            note_type: 'common',
+            params: {
+              text,
+            },
+          },
+        ],
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      console.log(`Note added to ${entityType} ${entityId}`);
+    } catch (error: any) {
+      console.error(`Error adding note to ${entityType} ${entityId}:`, error.response?.data || error.message);
+      throw new Error(`Failed to add note to ${entityType}`);
+    }
+  }
+
+  /**
+   * Створити контакт в AMO CRM
+   */
+  async createContact(contactData: Partial<AmoCrmContact>): Promise<number> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.apiDomain || this.domain;
+
+      // Формуємо payload для AMO CRM
+      // Примітка: custom_fields_values потребує знання ID полів (Email, Phone)
+      // Для спрощення ми поки що просто створимо контакт з ім'ям
+
+      const payload: any = {
+        name: contactData.name || 'Unknown Contact',
+      };
+
+      // Якщо є кастомні поля, додаємо їх
+      if (contactData.customFields) {
+        payload.custom_fields_values = contactData.customFields;
+      }
+
+      const response = await axios.post(
+        `https://${apiUrl}/api/v4/contacts`,
+        [payload],
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+
+      const newContactId = response.data._embedded.contacts[0].id;
+      console.log(`Contact created in AMO CRM: ${newContactId}`);
+      return newContactId;
+    } catch (error: any) {
+      console.error('Error creating contact in AMO CRM:', error.response?.data || error.message);
+      throw new Error('Failed to create contact in AMO CRM');
+    }
+  }
+
+  /**
+   * Прив'язати контакт до ліда
+   */
+  async linkContactToLead(leadId: number, contactId: number): Promise<void> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const apiUrl = this.apiDomain || this.domain;
+
+      await axios.post(
+        `https://${apiUrl}/api/v4/leads/${leadId}/link`,
+        [
+          {
+            to_entity_id: contactId,
+            to_entity_type: 'contacts',
+          },
+        ],
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      console.log(`Contact ${contactId} linked to Lead ${leadId}`);
+    } catch (error: any) {
+      console.error(`Error linking contact ${contactId} to lead ${leadId}:`, error.response?.data || error.message);
+      // Не зупиняємо процес, якщо лінк не вдався (наприклад вже приєднаний)
+    }
+  }
+
 }
 

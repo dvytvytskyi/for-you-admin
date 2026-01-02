@@ -19,8 +19,10 @@ router.post('/login', async (req, res) => {
     }
 
     const { email, password } = req.body;
+    console.log(`[AUTH] Login attempt received for: ${email}`);
 
     if (!email || !password) {
+      console.warn(`[AUTH] Login failed (400): Missing email or password. Fields present: ${Object.keys(req.body)}`);
       return res.status(400).json({ success: false, message: 'Email and password are required' });
     }
 
@@ -30,35 +32,42 @@ router.post('/login', async (req, res) => {
       const adminUser = await AppDataSource.getRepository(User).findOne({
         where: { email },
       });
-      
+
       // Завжди створюємо токен з id (якщо користувач не знайдений в БД, створюємо ід з email)
-      const payload = adminUser 
+      const payload = adminUser
         ? { id: adminUser.id, email, role: adminUser.role }
         : { id: 'admin-env-user', email, role: 'ADMIN' };
-      
+
       if (!process.env.ADMIN_JWT_SECRET) {
         console.error('ADMIN_JWT_SECRET is not set');
         return res.status(500).json({ success: false, message: 'Server configuration error' });
       }
-      
+
       const token = jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: '7d' });
       const refreshToken = jwt.sign(payload, process.env.ADMIN_JWT_SECRET, { expiresIn: '30d' });
-      
+
       // Якщо користувач не знайдений в БД, повертаємо мінімальні дані
       if (!adminUser) {
-        return res.json(successResponse({ 
+        return res.json(successResponse({
           token,
           refreshToken,
-          user: { 
-            email, 
+          user: {
+            email,
             role: 'ADMIN',
             status: 'ACTIVE'
-          } 
+          }
         }, 'Login successful'));
       }
-      
+
       const { passwordHash: _, ...userWithoutPassword } = adminUser;
-      return res.json(successResponse({ token, refreshToken, user: userWithoutPassword }, 'Login successful'));
+      return res.json(successResponse({
+        token,
+        accessToken: token,
+        access_token: token,
+        refreshToken,
+        refresh_token: refreshToken,
+        user: userWithoutPassword
+      }, 'Login successful'));
     }
 
     // Перевіряємо в БД для реєстрованих користувачів
@@ -67,11 +76,13 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user) {
+      console.warn(`[AUTH] Login failed (401): User not found: ${email}`);
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
     if (!isValidPassword) {
+      console.warn(`[AUTH] Login failed (401): Invalid password for: ${email}`);
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
@@ -85,7 +96,7 @@ router.post('/login', async (req, res) => {
       process.env.ADMIN_JWT_SECRET,
       { expiresIn: '7d' }
     );
-    
+
     const refreshToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.ADMIN_JWT_SECRET,
@@ -93,11 +104,19 @@ router.post('/login', async (req, res) => {
     );
 
     const { passwordHash: _, ...userWithoutPassword } = user;
-    return res.json(successResponse({ token, refreshToken, user: userWithoutPassword }, 'Login successful'));
+    console.log(`[AUTH] Login success: ${email} (Role: ${user.role})`);
+    return res.json(successResponse({
+      token,
+      accessToken: token,
+      access_token: token,
+      refreshToken,
+      refresh_token: refreshToken,
+      user: userWithoutPassword
+    }, 'Login successful'));
   } catch (error: any) {
     console.error('Login error:', error);
-    return res.status(500).json({ 
-      success: false, 
+    return res.status(500).json({
+      success: false,
       message: 'Internal server error',
       error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
@@ -109,7 +128,7 @@ router.get('/me', authenticateJWT, async (req: any, res) => {
     const userId = req.user?.id;
     const userEmail = req.user?.email;
     const userRole = req.user?.role;
-    
+
     if (!userId && !userEmail) {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
@@ -133,7 +152,7 @@ router.get('/me', authenticateJWT, async (req: any, res) => {
     // Шукаємо користувача в БД
     const user = await AppDataSource.getRepository(User).findOne({
       where: userId ? { id: userId } : { email: userEmail },
-      select: ['id', 'email', 'phone', 'firstName', 'lastName', 'role', 'status', 'licenseNumber', 'avatar', 'createdAt', 'updatedAt'],
+      select: ['id', 'email', 'phone', 'firstName', 'lastName', 'role', 'status', 'licenseNumber', 'avatar', 'amoCrmUserId', 'createdAt', 'updatedAt'],
     });
 
     if (!user) {
@@ -209,7 +228,7 @@ router.post('/register', async (req, res) => {
       process.env.ADMIN_JWT_SECRET!,
       { expiresIn: '7d' }
     );
-    
+
     const refreshToken = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
       process.env.ADMIN_JWT_SECRET!,
@@ -219,7 +238,14 @@ router.post('/register', async (req, res) => {
     // Don't return password hash
     const { passwordHash: _, ...userWithoutPassword } = user;
 
-    return res.status(201).json(successResponse({ user: userWithoutPassword, accessToken: token, refreshToken }, 'User created successfully'));
+    return res.status(201).json(successResponse({
+      user: userWithoutPassword,
+      token,
+      accessToken: token,
+      access_token: token,
+      refreshToken,
+      refresh_token: refreshToken
+    }, 'User created successfully'));
   } catch (error: any) {
     console.error('Registration error:', error);
     return res.status(500).json({ success: false, message: 'Failed to create user' });
@@ -448,10 +474,55 @@ router.post('/refresh', async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    return res.json(successResponse({ token, refreshToken: newRefreshToken }, 'Token refreshed successfully'));
+    return res.json(successResponse({
+      token,
+      accessToken: token,
+      access_token: token,
+      refreshToken: newRefreshToken,
+      refresh_token: newRefreshToken
+    }, 'Token refreshed successfully'));
   } catch (error: any) {
     console.error('Refresh token error:', error);
     return res.status(500).json({ success: false, message: 'Failed to refresh token' });
+  }
+});
+
+router.post('/change-password', authenticateJWT, async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Current and new passwords are required' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters long' });
+    }
+
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Check old password
+    const isMatch = await bcrypt.compare(oldPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Invalid current password' });
+    }
+
+    // Hash and save new password
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await userRepository.save(user);
+
+    return res.json(successResponse(null, 'Password changed successfully'));
+  } catch (error: any) {
+    console.error('Error in change-password:', error);
+    return res.status(500).json({ success: false, message: 'Failed to change password' });
   }
 });
 

@@ -24,6 +24,10 @@ import documentsRoutes from './routes/documents.routes';
 import amoCrmRoutes from './routes/amo-crm.routes';
 import leadsRoutes from './routes/leads.routes';
 import analyticsRoutes from './routes/analytics.routes';
+import chatRoutes from './routes/chat.routes';
+import portfolioRoutes from './routes/portfolio.routes';
+import projectsRoutes from './routes/projects.routes';
+import { AmoCrmService } from './services/amo-crm.service';
 
 dotenv.config();
 
@@ -64,6 +68,10 @@ app.use('/api/documents', documentsRoutes);
 app.use('/api/amo-crm', amoCrmRoutes);
 app.use('/api/v1/leads', leadsRoutes);
 app.use('/api/v1/analytics', analyticsRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/v1/chat', chatRoutes);
+app.use('/api/portfolio', portfolioRoutes);
+app.use('/api/v1/portfolio', portfolioRoutes);
 
 // Routes з префіксом /v1 для мобільного додатку
 app.use('/api/v1/auth', authRoutes);
@@ -79,10 +87,12 @@ app.use('/api/v1/investments', investmentsRoutes);
 app.use('/api/v1/course-progress', courseProgressRoutes);
 app.use('/api/v1/notifications', notificationsRoutes);
 app.use('/api/v1/documents', documentsRoutes);
+app.use('/api/v1/amo-crm', amoCrmRoutes);
+app.use('/api/v1/projects', projectsRoutes);
 
 // Root route
 app.get('/', (req, res) => {
-  res.json({ 
+  res.json({
     message: 'Admin Panel Backend API',
     status: 'running',
     version: '1.0.0',
@@ -96,10 +106,10 @@ app.get('/', (req, res) => {
 // Health check
 app.get('/health', (req, res) => {
   const dbStatus = AppDataSource.isInitialized ? 'connected' : 'disconnected';
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     database: dbStatus,
-    timestamp: new Date().toISOString() 
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -110,6 +120,16 @@ AppDataSource.initialize()
     console.log('📊 Database entities loaded');
     app.listen(PORT, () => {
       console.log(`🚀 Admin Panel Backend running on http://localhost:${PORT}`);
+
+      // Start background CRM sync (every 60 seconds)
+      setInterval(async () => {
+        try {
+          const service = new AmoCrmService();
+          await service.syncRecentLeads(5); // Sync leads updated in last 5 minutes
+        } catch (error) {
+          console.error('[Background Sync] Error:', error);
+        }
+      }, 60000);
     });
   })
   .catch((error) => {
