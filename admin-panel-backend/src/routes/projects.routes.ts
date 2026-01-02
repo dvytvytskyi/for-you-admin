@@ -57,10 +57,10 @@ router.get('/:id', async (req: any, res) => {
             purchasedUnit: {
                 floorPlans: item.floorPlans || [],
                 projectPhotos: item.photos || [],
-                documents: (item.documents || []).map(doc => ({
-                    title: doc.name,
-                    description: doc.description,
-                    fileUrl: doc.url
+                documents: (Array.isArray(item.documents) ? item.documents : []).map(doc => ({
+                    title: doc?.name || 'Untitled Document',
+                    description: doc?.description || '',
+                    fileUrl: doc?.url || ''
                 }))
             },
 
