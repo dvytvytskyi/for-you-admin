@@ -85,6 +85,7 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
         size: "",
         amenities: "",
         operationalStatus: "Under construction",
+        purchaseDate: "",
         plannedSaleDate: "",
         photos: [] as string[],
         floorPlans: [] as string[],
@@ -140,12 +141,20 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
         }
     };
 
-    const handlePlannedSaleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleDateInputChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
         let val = e.target.value.replace(/\D/g, '');
         if (val.length > 2) {
             val = val.substring(0, 2) + '/' + val.substring(2, 6);
         }
-        setFormData({ ...formData, plannedSaleDate: val });
+        setFormData({ ...formData, [field]: val });
+    };
+
+    const handlePlannedSaleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        handleDateInputChange(e, 'plannedSaleDate');
+    };
+
+    const handlePurchaseDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        handleDateInputChange(e, 'purchaseDate');
     };
 
     const [uploading, setUploading] = useState(false);
@@ -253,6 +262,7 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
             size: item.size || "",
             amenities: item.amenities || "",
             operationalStatus: item.operationalStatus || "Under construction",
+            purchaseDate: item.purchaseDate || "",
             plannedSaleDate: item.plannedSaleDate || "",
             photos: item.photos || [],
             floorPlans: item.floorPlans || [],
@@ -272,6 +282,7 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
             size: "",
             amenities: "",
             operationalStatus: "Under construction",
+            purchaseDate: "",
             plannedSaleDate: "",
             photos: [],
             floorPlans: [],
@@ -387,8 +398,9 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
 
                             <div className="flex justify-between items-end">
                                 <div className="space-y-1">
-                                    <p className="text-[10px] uppercase font-bold text-gray-400">Exit Strategy</p>
-                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Sale: {item.plannedSaleDate || 'TBD'}</p>
+                                    <p className="text-[10px] uppercase font-bold text-gray-400">Timeline</p>
+                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Bought: {item.purchaseDate || 'TBD'}</p>
+                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300">Exit: {item.plannedSaleDate || 'TBD'}</p>
                                     {item.floorPlans && item.floorPlans.length > 0 && (
                                         <a href={item.floorPlans[0]} target="_blank" className="flex items-center gap-1 text-[10px] text-brand-500 hover:underline font-bold">
                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5S19.832 5.477 21 6.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
@@ -532,7 +544,17 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label>Planned Sale Date</Label>
+                                <Label>Purchase Date (MM/YYYY)</Label>
+                                <Input
+                                    value={formData.purchaseDate}
+                                    onChange={handlePurchaseDateChange}
+                                    placeholder="MM/YYYY"
+                                    maxLength={7}
+                                    className="h-11 rounded-xl dark:bg-black/40 dark:border-gray-800"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Planned Sale Date (MM/YYYY)</Label>
                                 <Input
                                     value={formData.plannedSaleDate}
                                     onChange={handlePlannedSaleDateChange}
