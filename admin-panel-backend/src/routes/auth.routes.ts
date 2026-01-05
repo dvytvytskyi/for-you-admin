@@ -19,7 +19,8 @@ router.post('/login', async (req, res) => {
     }
 
     const { email, password } = req.body;
-    console.log(`[AUTH] Login attempt received for: ${email}`);
+    console.log(`[AUTH] Login attempt received for: "${email}" (length: ${email?.length}), password length: ${password?.length}`);
+    console.log(`[AUTH] Comparing with ADMIN_EMAIL: "${process.env.ADMIN_EMAIL}" (length: ${process.env.ADMIN_EMAIL?.length})`);
 
     if (!email || !password) {
       console.warn(`[AUTH] Login failed (400): Missing email or password. Fields present: ${Object.keys(req.body)}`);
@@ -59,6 +60,7 @@ router.post('/login', async (req, res) => {
         }, 'Login successful'));
       }
 
+      console.log(`[AUTH] Login success (via env): ${email}`);
       const { passwordHash: _, ...userWithoutPassword } = adminUser;
       return res.json(successResponse({
         token,
@@ -128,6 +130,7 @@ router.get('/me', authenticateJWT, async (req: any, res) => {
     const userId = req.user?.id;
     const userEmail = req.user?.email;
     const userRole = req.user?.role;
+    console.log(`[AUTH] /me request for: id=${userId}, email=${userEmail}, role=${userRole}`);
 
     if (!userId && !userEmail) {
       return res.status(401).json({ success: false, message: 'User not found' });

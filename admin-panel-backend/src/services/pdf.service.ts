@@ -87,4 +87,68 @@ export class PdfService {
             throw error;
         }
     }
+
+    /**
+     * Generates a PDF analytics report for a portfolio item.
+     * @param item The portfolio item data (including property relation)
+     * @returns Buffer containing the PDF data
+     */
+    async generatePortfolioAnalytics(item: any): Promise<Buffer> {
+        try {
+            const templatePath = path.join(__dirname, '../templates/portfolio-analytics.ejs');
+
+            if (!fs.existsSync(templatePath)) {
+                throw new Error(`Template not found at ${templatePath}`);
+            }
+
+            const template = fs.readFileSync(templatePath, 'utf-8');
+
+            // Ensure property object exists
+            const property = item.property || {};
+
+            // Render HTML
+            const html = ejs.render(template, {
+                item,
+                property,
+                // Helper to format currency if needed in template, though we used toLocaleString
+            });
+
+            const browser = await puppeteer.launch({
+                headless: true,
+                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--font-render-hinting=none'
+                ]
+            });
+
+            try {
+                const page = await browser.newPage();
+                await page.emulateMediaType('print');
+
+                await page.setContent(html, {
+                    waitUntil: ['domcontentloaded', 'networkidle0'],
+                    timeout: 30000
+                });
+
+                const pdf = await page.pdf({
+                    format: 'A4',
+                    landscape: true,
+                    printBackground: true,
+                    margin: { top: '0', right: '0', bottom: '0', left: '0' },
+                    preferCSSPageSize: true
+                });
+
+                return Buffer.from(pdf);
+
+            } finally {
+                await browser.close();
+            }
+        } catch (error) {
+            console.error('Portfolio PDF Generation Error:', error);
+            throw error;
+        }
+    }
 }

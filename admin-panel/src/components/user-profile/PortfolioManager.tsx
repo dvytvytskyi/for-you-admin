@@ -168,7 +168,9 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
             const uploadFormData = new FormData();
             if (field === 'photos') {
                 Array.from(files).forEach(file => uploadFormData.append('files', file));
-                const { data } = await api.post('/upload/images', uploadFormData);
+                const { data } = await api.post('/upload/images', uploadFormData, {
+                    headers: { 'Content-Type': undefined }
+                });
                 if (data.success) {
                     setFormData(prev => ({
                         ...prev,
@@ -177,7 +179,9 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
                 }
             } else {
                 uploadFormData.append('file', files[0]);
-                const { data } = await api.post('/upload/image', uploadFormData);
+                const { data } = await api.post('/upload/image', uploadFormData, {
+                    headers: { 'Content-Type': undefined }
+                });
                 if (data.success) {
                     setFormData(prev => ({
                         ...prev,
@@ -202,7 +206,13 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
         try {
             const uploadFormData = new FormData();
             uploadFormData.append('file', file);
-            const { data } = await api.post('/upload/document', uploadFormData);
+
+            // Explicitly unset Content-Type so browser sets it with boundary
+            const { data } = await api.post('/upload/document', uploadFormData, {
+                headers: {
+                    'Content-Type': undefined
+                }
+            });
 
             if (data.success) {
                 const newDoc = {
@@ -376,6 +386,16 @@ export default function PortfolioManager({ userId }: PortfolioManagerProps) {
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
+                                    <a
+                                        href={`${api.defaults.baseURL}/portfolio/${item.id}/pdf?token=${localStorage.getItem('token')}`}
+                                        target="_blank"
+                                        className="p-2 text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-xl transition-colors"
+                                        title="Download Presentation"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                        </svg>
+                                    </a>
                                     <button onClick={() => openEdit(item)} className="p-2 text-gray-400 hover:text-brand-500 hover:bg-brand-50 dark:hover:bg-brand-500/10 rounded-xl transition-colors">
                                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                     </button>

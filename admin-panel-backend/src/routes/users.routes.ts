@@ -139,6 +139,7 @@ router.get('/:id', async (req, res) => {
   try {
     const user = await AppDataSource.getRepository(User).findOne({
       where: { id: req.params.id },
+      relations: ['amoCrmUser'],
     });
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -210,7 +211,23 @@ router.patch('/:id', async (req, res) => {
     if (licenseNumber !== undefined) user.licenseNumber = licenseNumber;
 
     if (amoCrmUserId !== undefined) {
-      user.amoCrmUserId = amoCrmUserId === '' ? null : amoCrmUserId;
+      if (amoCrmUserId === '' || amoCrmUserId === null) {
+        user.amoCrmUserId = null;
+      } else {
+        // Check if this CRM user is already linked to another system user
+        const existingUserWithCrmId = await userRepository.findOne({
+          where: { amoCrmUserId: amoCrmUserId },
+        });
+
+        // If found and it's NOT the current user, unlink it first (to avoid unique constraint error)
+        if (existingUserWithCrmId && existingUserWithCrmId.id !== user.id) {
+          console.log(`Unlinking CRM User ${amoCrmUserId} from User ${existingUserWithCrmId.id} to link to ${user.id}`);
+          existingUserWithCrmId.amoCrmUserId = null; // or undefined, but null is safer for DB
+          await userRepository.save(existingUserWithCrmId);
+        }
+
+        user.amoCrmUserId = amoCrmUserId;
+      }
     }
 
     await userRepository.save(user);
@@ -222,6 +239,20 @@ router.patch('/:id', async (req, res) => {
     res.status(500).json({ success: false, message: error.message || 'Failed to update user' });
   }
 });
+
+// Add missing imports
+import { PortfolioItem } from '../entities/PortfolioItem';
+import { Favorite } from '../entities/Favorite';
+import { Investment } from '../entities/Investment';
+import { NotificationHistory } from '../entities/NotificationHistory';
+import { NotificationSettings } from '../entities/NotificationSettings';
+import { UserDevice } from '../entities/UserDevice';
+import { PasswordResetToken } from '../entities/PasswordResetToken';
+import { InvestorChatMessage } from '../entities/InvestorChatMessage';
+import { AmoCrmToken } from '../entities/AmoCrmToken';
+import { Collection } from '../entities/Collection';
+import { CourseProgress } from '../entities/CourseProgress'; // Assuming has cascade but let's be safe or just imports
+// CourseProgress has cascade onDelete, so we might skip it or include it to be sure.
 
 router.delete('/:id', async (req, res) => {
   try {
@@ -240,7 +271,37 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ success: false, message: 'Cannot delete ADMIN user' });
     }
 
-    await userRepository.remove(user);
+    // Perform deletion in a transaction
+    await AppDataSource.transaction(async (transactionalEntityManager) => {
+      // Delete related records manually where Cascade is not guaranteed or to be safe
+
+      // 1. Entities with userId
+      await transactionalEntityManager.delete(PortfolioItem, { userId: user.id });
+      await transactionalEntityManager.delete(Favorite, { userId: user.id });
+      await transactionalEntityManager.delete(Investment, { userId: user.id });
+      await transactionalEntityManager.delete(NotificationHistory, { userId: user.id });
+
+      // NotificationSettings often has userId
+      await transactionalEntityManager.delete(NotificationSettings, { userId: user.id });
+
+      // UserDevice
+      await transactionalEntityManager.delete(UserDevice, { userId: user.id });
+
+      // PasswordResetToken
+      await transactionalEntityManager.delete(PasswordResetToken, { userId: user.id });
+
+      // AmoCrmToken
+      await transactionalEntityManager.delete(AmoCrmToken, { userId: user.id });
+
+      // Collection
+      await transactionalEntityManager.delete(Collection, { userId: user.id });
+
+      // Chat messages (sender)
+      await transactionalEntityManager.delete(InvestorChatMessage, { senderId: user.id });
+
+      // Finally delete the user
+      await transactionalEntityManager.remove(user);
+    });
 
     res.json(successResponse(null, 'User deleted successfully'));
   } catch (error: any) {

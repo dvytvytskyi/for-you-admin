@@ -7,10 +7,12 @@ import { Area } from '../entities/Area';
 import { Developer } from '../entities/Developer';
 import { Facility } from '../entities/Facility';
 import { Course } from '../entities/Course';
+import { CourseProgress } from '../entities/CourseProgress';
 import { News } from '../entities/News';
 import { successResponse, errorResponse } from '../utils/response';
 import { Conversions } from '../utils/conversions';
 import { authenticateApiKeyWithSecret, AuthRequest } from '../middleware/auth';
+import jwt from 'jsonwebtoken';
 
 const router = express.Router();
 
@@ -22,8 +24,23 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
       apiKeyName: req.apiKey?.name,
     });
 
+    // Extract userId from JWT if present
+    let userId: string | undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        if (process.env.ADMIN_JWT_SECRET) {
+          const decoded: any = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+          userId = decoded.id || decoded.userId;
+        }
+      } catch (e) {
+        // Ignore invalid token
+      }
+    }
+
     // Fetch ALL properties without any areaId filtering - this is intentional for client-side filtering
-    const [properties, countries, cities, areasRaw, developers, facilities, courses] = await Promise.all([
+    const [properties, countries, cities, areasRaw, developers, facilities, courses, progressList] = await Promise.all([
       AppDataSource.getRepository(Property).find({
         relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
         order: { isForYouChoice: 'DESC', createdAt: 'DESC' },
@@ -51,7 +68,10 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
         relations: ['contents', 'links'],
         order: { order: 'ASC' },
       }),
+      userId ? AppDataSource.getRepository(CourseProgress).find({ where: { userId } }) : Promise.resolve([]),
     ]);
+
+    const progressMap = new Map(progressList.map(p => [p.courseId, p]));
 
     // Parse area images from simple-array format
     // TypeORM simple-array automatically converts comma-separated string to array
@@ -59,7 +79,7 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
     const areas = areasRaw.map(area => {
       if (area.images) {
         let images: any = area.images;
-        
+
         // TypeORM simple-array should return array, but handle both cases
         if (typeof images === 'string') {
           // Remove outer curly braces if present (PostgreSQL array format)
@@ -93,7 +113,7 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
             })
             .filter((url: string) => url.length > 0 && (url.startsWith('http://') || url.startsWith('https://')));
         }
-        
+
         area.images = Array.isArray(images) && images.length > 0 ? images : undefined;
       } else {
         area.images = undefined;
@@ -193,7 +213,7 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
 
     const secondaryCount = transformedProperties.filter(p => p.propertyType === 'secondary').length;
     const offPlanCount = transformedProperties.filter(p => p.propertyType === 'off-plan').length;
-    
+
     console.log('[Public API] ✅ Response sent:', {
       totalProperties: transformedProperties.length,
       secondaryProperties: secondaryCount,
@@ -284,6 +304,13 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
         })) || [],
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
+        userProgress: progressMap.has(c.id) ? {
+          status: progressMap.get(c.id)!.status,
+          completionPercentage: progressMap.get(c.id)!.progressPercentage
+        } : {
+          status: 'NOT_STARTED',
+          completionPercentage: 0
+        }
       })),
       meta: {
         totalProperties: transformedProperties.length,
@@ -307,10 +334,30 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
 // GET /api/public/courses - Get all courses (public access with API key)
 router.get('/courses', authenticateApiKeyWithSecret, async (req, res) => {
   try {
-    const courses = await AppDataSource.getRepository(Course).find({
-      relations: ['contents', 'links'],
-      order: { order: 'ASC' },
-    });
+    // Extract userId from JWT if present
+    let userId: string | undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        if (process.env.ADMIN_JWT_SECRET) {
+          const decoded: any = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+          userId = decoded.id || decoded.userId;
+        }
+      } catch (e) {
+        // Ignore invalid token
+      }
+    }
+
+    const [courses, progressList] = await Promise.all([
+      AppDataSource.getRepository(Course).find({
+        relations: ['contents', 'links'],
+        order: { order: 'ASC' },
+      }),
+      userId ? AppDataSource.getRepository(CourseProgress).find({ where: { userId } }) : Promise.resolve([]),
+    ]);
+
+    const progressMap = new Map(progressList.map(p => [p.courseId, p]));
 
     const transformedCourses = courses.map(c => ({
       id: c.id,
@@ -334,6 +381,13 @@ router.get('/courses', authenticateApiKeyWithSecret, async (req, res) => {
       })) || [],
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
+      userProgress: progressMap.has(c.id) ? {
+        status: progressMap.get(c.id)!.status,
+        completionPercentage: progressMap.get(c.id)!.progressPercentage
+      } : {
+        status: 'NOT_STARTED',
+        completionPercentage: 0
+      }
     }));
 
     res.json(successResponse(transformedCourses));
@@ -354,6 +408,24 @@ router.get('/courses/:id', authenticateApiKeyWithSecret, async (req, res) => {
     if (!course) {
       return res.status(404).json(errorResponse('Course not found'));
     }
+
+    // Extract userId from JWT if present
+    let userId: string | undefined;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      try {
+        if (process.env.ADMIN_JWT_SECRET) {
+          const decoded: any = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+          userId = decoded.id || decoded.userId;
+        }
+      } catch (e) {
+        // Ignore invalid token
+      }
+    }
+
+    let progress = userId ? await AppDataSource.getRepository(CourseProgress)
+      .findOne({ where: { userId, courseId: course.id } }) : null;
 
     const transformedCourse = {
       id: course.id,
@@ -377,6 +449,13 @@ router.get('/courses/:id', authenticateApiKeyWithSecret, async (req, res) => {
       })) || [],
       createdAt: course.createdAt,
       updatedAt: course.updatedAt,
+      userProgress: progress ? {
+        status: progress.status,
+        completionPercentage: progress.progressPercentage
+      } : {
+        status: 'NOT_STARTED',
+        completionPercentage: 0
+      }
     };
 
     res.json(successResponse(transformedCourse));
@@ -402,11 +481,11 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
     if (cityId) {
       where.cityId = cityId;
     }
-    
+
     // Використовуємо raw query для безпечного вибору (обходимо TypeORM entity mapping)
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
-    
+
     let areas: any[] = [];
     try {
       let whereClause = '';
@@ -415,9 +494,9 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
         whereClause = 'WHERE area."cityId" = $1';
         whereParams.push(cityId);
       }
-      
-          // Вибираємо всі поля areas, включаючи description, infrastructure, images
-          const areasRaw = await queryRunner.query(`
+
+      // Вибираємо всі поля areas, включаючи description, infrastructure, images
+      const areasRaw = await queryRunner.query(`
             SELECT 
               area.id,
               area."cityId",
@@ -431,7 +510,7 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
             ${whereClause}
             ORDER BY area."nameEn" ASC
           `, whereParams);
-      
+
       // Отримуємо повну інформацію про city та country через TypeORM
       const areaIds = areasRaw.map((a: any) => a.id);
       let areasWithRelations: any[] = [];
@@ -449,7 +528,7 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
             SELECT DISTINCT "cityId" FROM areas WHERE id = ANY($1::uuid[])
           )
         `, [areaIds]);
-        
+
         const countryIds = [...new Set(citiesData.map((c: any) => c.countryId))];
         const countriesData = countryIds.length > 0 ? await queryRunner.query(`
           SELECT 
@@ -461,15 +540,15 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
           FROM countries country
           WHERE country.id = ANY($1::uuid[])
         `, [countryIds]) : [];
-        
+
         // Формуємо структуру areas з relations
         const citiesMap = new Map(citiesData.map((c: any) => [c.id, c]));
         const countriesMap = new Map(countriesData.map((c: any) => [c.id, c]));
-        
+
         areas = areasRaw.map((areaRaw: any) => {
           const city: any = citiesMap.get(areaRaw.cityId);
           const country: any = city ? countriesMap.get(city.countryId) : null;
-          
+
           return {
             id: areaRaw.id,
             cityId: areaRaw.cityId,
@@ -504,7 +583,7 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
 
     // Отримуємо підрахунок properties по areas через SQL агрегацію (більш ефективно)
     const areaIds = areas.map(a => a.id);
-    
+
     // Підрахунок через SQL запит для кращої продуктивності
     let countsQuery: any[] = [];
     if (areaIds.length > 0) {
@@ -620,7 +699,7 @@ router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest,
 
     // Отримуємо підрахунок properties по developers через SQL агрегацію
     const developerIds = developers.map(d => d.id);
-    
+
     // Підрахунок через SQL запит для кращої продуктивності
     let countsQuery: any[] = [];
     if (developerIds.length > 0) {
@@ -723,7 +802,7 @@ router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest,
 router.get('/developers/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
     const { id } = req.params;
-    
+
     console.log('[Public API] GET /api/public/developers/:id request:', {
       developerId: id,
       hasApiKey: !!req.apiKey,

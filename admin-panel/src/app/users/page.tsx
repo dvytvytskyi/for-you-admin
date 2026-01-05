@@ -23,7 +23,7 @@ export default function UsersPage() {
     try {
       const { data } = await api.get('/users')
       const allUsers = data.data || []
-      
+
       // Map backend data to frontend format
       const mappedUsers = allUsers.map((user: any) => ({
         id: user.id,
@@ -37,7 +37,7 @@ export default function UsersPage() {
         properties: user.role === 'BROKER' ? 0 : undefined, // TODO: Get actual count from backend
         budget: user.role === 'INVESTOR' ? '-' : undefined, // TODO: Get actual budget from backend
       }))
-      
+
       // Filter by user type (exclude CLIENT and null types)
       const filtered = mappedUsers.filter((user: any) => {
         if (!user.type) return false // Exclude CLIENT and other roles
@@ -45,7 +45,7 @@ export default function UsersPage() {
         if (userType === 'investor') return user.type === 'investor'
         return false
       })
-      
+
       setUsers(filtered)
     } catch (error) {
       console.error('Error loading users:', error)
@@ -53,6 +53,30 @@ export default function UsersPage() {
       setUsers([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDelete = async (id: string) => {
+    setDeleteId(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteId) return
+
+    setIsDeleting(true)
+    try {
+      await api.delete(`/users/${deleteId}`)
+      // Remove from local state
+      setUsers(users.filter(u => u.id !== deleteId))
+      setDeleteId(null)
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('Failed to delete user')
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -73,21 +97,19 @@ export default function UsersPage() {
       <div className="inline-flex rounded-lg border border-gray-200 p-1 dark:border-gray-800 dark:bg-gray-900">
         <button
           onClick={() => setUserType('agent')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            userType === 'agent'
-              ? 'bg-brand-500 text-white'
-              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-          }`}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${userType === 'agent'
+            ? 'bg-brand-500 text-white'
+            : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+            }`}
         >
           Agent
         </button>
         <button
           onClick={() => setUserType('investor')}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-            userType === 'investor'
-              ? 'bg-brand-500 text-white'
-              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-          }`}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${userType === 'investor'
+            ? 'bg-brand-500 text-white'
+            : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+            }`}
         >
           Investor
         </button>
@@ -141,8 +163,8 @@ export default function UsersPage() {
                 </TableRow>
               ) : (
                 users.map((user) => (
-                  <TableRow 
-                    key={user.id} 
+                  <TableRow
+                    key={user.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                     onClick={() => router.push(`/users/${user.id}`)}
                   >
@@ -186,31 +208,32 @@ export default function UsersPage() {
                       </TableCell>
                     ) : null}
                     <TableCell className="px-5 py-4">
-                      <Badge 
-                        size="sm" 
+                      <Badge
+                        size="sm"
                         color={
-                          user.status === 'active' ? 'success' : 
-                          user.status === 'pending' ? 'warning' : 
-                          'error'
+                          user.status === 'active' ? 'success' :
+                            user.status === 'pending' ? 'warning' :
+                              'error'
                         }
                       >
-                        {user.status === 'active' ? 'Active' : 
-                         user.status === 'pending' ? 'Pending' : 
-                         user.status === 'blocked' ? 'Blocked' : 
-                         user.status === 'rejected' ? 'Rejected' : 
-                         'Inactive'}
+                        {user.status === 'active' ? 'Active' :
+                          user.status === 'pending' ? 'Pending' :
+                            user.status === 'blocked' ? 'Blocked' :
+                              user.status === 'rejected' ? 'Rejected' :
+                                'Inactive'}
                       </Badge>
                     </TableCell>
                     <TableCell className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => router.push(`/users/${user.id}`)}
                           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                           title="View/Edit"
                         >
                           <PencilIcon className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDelete(user.id); }}
                           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-red-600 dark:hover:text-red-400"
                           title="Delete"
                         >
@@ -225,6 +248,38 @@ export default function UsersPage() {
           </Table>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/50 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white rounded-xl shadow-lg dark:bg-gray-800 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              Confirm Delete
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6">
+              Are you sure you want to delete this user? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteId(null)}
+                disabled={isDeleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

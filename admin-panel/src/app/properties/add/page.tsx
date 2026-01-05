@@ -532,7 +532,7 @@ export default function AddPropertyPage() {
                     <Checkbox
                       id="isForYouChoice"
                       checked={field.value || false}
-                      onChange={(e) => field.onChange(e.target.checked)}
+                      onChange={(checked) => field.onChange(checked)}
                       label="Special from ForYou"
                     />
                   )}

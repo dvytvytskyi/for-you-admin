@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import cloudinary from '../config/cloudinary';
 import { AppDataSource } from '../config/database';
 import { Document, DocumentType, DocumentCategory } from '../entities/Document';
+import { PortfolioItem } from '../entities/PortfolioItem';
 import { User, UserRole } from '../entities/User';
 import { authenticateJWT, requireAdmin, requireBrokerOrAdmin, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
@@ -130,7 +131,7 @@ router.get('/entity/:entityType/:entityId', async (req, res) => {
     // Якщо є авторизація, показуємо всі документи
     // Якщо немає, показуємо тільки публічні
     const userId = (req as AuthRequest).user?.id || (req as AuthRequest).user?.userId;
-    
+
     const where: any = {
       entityType: entityType as DocumentCategory,
       entityId,
@@ -151,6 +152,105 @@ router.get('/entity/:entityType/:entityId', async (req, res) => {
   } catch (error: any) {
     console.error('Error fetching documents:', error);
     res.status(500).json(errorResponse('Failed to fetch documents', error.message));
+  }
+});
+
+/**
+ * GET /api/v1/documents/:id/download-url
+ * Get a temporary/direct download URL for a document (Fix for mobile 401)
+ */
+router.get('/:id/download-url', authenticateJWT, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id || req.user?.userId;
+    const userRole = req.user?.role; // Assuming role is available in user object from token
+
+    if (!userId) {
+      return res.status(401).json(errorResponse('Unauthorized'));
+    }
+
+    const document = await AppDataSource.getRepository(Document).findOne({
+      where: { id },
+    });
+
+    if (!document) {
+      return res.status(404).json(errorResponse('Document not found'));
+    }
+
+    // Access Control Logic
+    let hasAccess = false;
+
+    // 1. Admin always has access. We need to fetch user to be sure about role if not in token.
+    if (userRole === UserRole.ADMIN) {
+      hasAccess = true;
+    } else {
+      // Fallback: check DB if role not in token or verify
+      const user = await AppDataSource.getRepository(User).findOne({ where: { id: userId } });
+      if (user?.role === UserRole.ADMIN) {
+        hasAccess = true;
+      }
+    }
+
+    // 2. Public documents
+    if (!hasAccess && document.isPublic) {
+      hasAccess = true;
+    }
+
+    // 3. Uploader (Owner)
+    if (!hasAccess && document.uploadedBy === userId) {
+      hasAccess = true;
+    }
+
+    // 4. Entity Ownership Check
+    if (!hasAccess) {
+      if (document.entityType === DocumentCategory.USER && document.entityId === userId) {
+        // Document attached to the User (e.g. ID, Passport)
+        hasAccess = true;
+      } else if (document.entityType === DocumentCategory.PROPERTY) {
+        // Check if user has this property in their portfolio
+        const portfolioItem = await AppDataSource.getRepository(PortfolioItem).findOne({
+          where: {
+            userId: userId,
+            propertyId: document.entityId
+          }
+        });
+        if (portfolioItem) {
+          hasAccess = true;
+        }
+      }
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json(errorResponse('Access denied'));
+    }
+
+    // Generate a signed, time-limited download URL
+    // This ensures the link expires and is secure for private documents
+    if (!document.s3Key) {
+      return res.status(400).json(errorResponse('Document file key missing'));
+    }
+
+    // Cloudinary treats PDFs as 'image' type for multi-page/preview support by default
+    const isPdf = document.mimeType?.includes('pdf');
+    const isImage = document.mimeType?.startsWith('image/');
+    const resourceType = (isPdf || isImage) ? 'image' : 'raw';
+
+    // For 'raw' resources, we don't pass an extension in the second parameter
+    const extension = isImage ? (document.originalName?.split('.').pop() || 'png') : (isPdf ? 'pdf' : '');
+
+    const downloadUrl = cloudinary.utils.private_download_url(document.s3Key, extension, {
+      resource_type: resourceType,
+      expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour expiration
+      attachment: true
+    });
+
+    res.json(successResponse({
+      url: downloadUrl
+    }));
+
+  } catch (error: any) {
+    console.error('Error generating download URL:', error);
+    res.status(500).json(errorResponse('Failed to generate download URL', error.message));
   }
 });
 

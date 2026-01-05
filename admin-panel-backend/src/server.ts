@@ -27,6 +27,7 @@ import analyticsRoutes from './routes/analytics.routes';
 import chatRoutes from './routes/chat.routes';
 import portfolioRoutes from './routes/portfolio.routes';
 import projectsRoutes from './routes/projects.routes';
+import locationsRoutes from './routes/locations.routes';
 import { AmoCrmService } from './services/amo-crm.service';
 
 dotenv.config();
@@ -72,6 +73,7 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/v1/portfolio', portfolioRoutes);
+app.use('/api/locations', locationsRoutes);
 
 // Routes з префіксом /v1 для мобільного додатку
 app.use('/api/v1/auth', authRoutes);
@@ -88,7 +90,9 @@ app.use('/api/v1/course-progress', courseProgressRoutes);
 app.use('/api/v1/notifications', notificationsRoutes);
 app.use('/api/v1/documents', documentsRoutes);
 app.use('/api/v1/amo-crm', amoCrmRoutes);
+app.use('/api/v1/amo-crm', amoCrmRoutes);
 app.use('/api/v1/projects', projectsRoutes);
+app.use('/api/v1/locations', locationsRoutes);
 
 // Root route
 app.get('/', (req, res) => {

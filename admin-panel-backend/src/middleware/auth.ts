@@ -11,13 +11,16 @@ export interface AuthRequest extends Request {
 
 export const authenticateJWT = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).json({ message: 'Unauthorized: No authorization header' });
+  let token = '';
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.query && req.query.token) {
+    token = req.query.token as string;
   }
 
-  const token = authHeader.split(' ')[1];
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized: No token provided' });
+    return res.status(401).json({ message: 'Unauthorized: No authorization header or token' });
   }
 
   if (!process.env.ADMIN_JWT_SECRET) {
@@ -119,7 +122,7 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
     if (!keyByApiKey) {
       console.log('[API Auth] ❌ API key not found in database');
       console.log('[API Auth] Searched for:', trimmedApiKey);
-      
+
       // List all available keys (first 3) for debugging
       const allKeys = await AppDataSource.getRepository(ApiKey).find({
         take: 3,
@@ -131,7 +134,7 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
         isActive: k.isActive,
         name: k.name,
       })));
-      
+
       console.log('[API Auth] ========================================');
       return res.status(403).json({ message: 'Invalid API key or secret' });
     }
@@ -159,7 +162,7 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
     // Check secret match
     // Support multiple formats: exact match, with/without prefixes
     let secretMatch = keyByApiKey.apiSecret === trimmedApiSecret;
-    
+
     // Try without as_ prefix if secret has it
     if (!secretMatch && trimmedApiSecret.startsWith('as_')) {
       const secretWithoutPrefix = trimmedApiSecret.substring(3);
@@ -168,7 +171,7 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
         console.log('[API Auth] ⚠️ Secret matched after removing as_ prefix');
       }
     }
-    
+
     // Try with fyr_ prefix if secret doesn't have it (for fyr_ format keys)
     if (!secretMatch && keyByApiKey.apiKey.startsWith('fyr_') && !trimmedApiSecret.startsWith('fyr_') && !trimmedApiSecret.startsWith('as_')) {
       const secretWithFyrPrefix = `fyr_${trimmedApiSecret}`;
@@ -177,7 +180,7 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
         console.log('[API Auth] ⚠️ Secret matched after adding fyr_ prefix');
       }
     }
-    
+
     // Try without fyr_ prefix if secret has it but DB doesn't
     if (!secretMatch && trimmedApiSecret.startsWith('fyr_') && !keyByApiKey.apiSecret.startsWith('fyr_')) {
       const secretWithoutFyrPrefix = trimmedApiSecret.substring(4);

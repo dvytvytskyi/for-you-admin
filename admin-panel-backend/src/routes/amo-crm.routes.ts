@@ -2,12 +2,35 @@ import express from 'express';
 import { Not, IsNull } from 'typeorm';
 import { AppDataSource } from '../config/database';
 import { AmoCrmToken } from '../entities/AmoCrmToken';
+import { AmoCrmUser } from '../entities/AmoCrmUser';
 import { AmoCrmService } from '../services/amo-crm.service';
 import { authenticateJWT, requireAdmin, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
 
 const router = express.Router();
 const amoCrmService = new AmoCrmService();
+
+/**
+ * GET /api/amo-crm/users
+ * Отримати список користувачів AMO CRM (співробітників)
+ */
+router.get(
+  '/users',
+  authenticateJWT,
+  async (req: AuthRequest, res) => {
+    try {
+      const amoCrmUserRepo = AppDataSource.getRepository(AmoCrmUser);
+      const users = await amoCrmUserRepo.find({
+        order: { name: 'ASC' },
+      });
+
+      return res.json(successResponse(users));
+    } catch (error: any) {
+      console.error('Error fetching AMO CRM users:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch AMO CRM users'));
+    }
+  },
+);
 
 /**
  * POST /api/amo-crm/exchange-api-key
@@ -613,7 +636,8 @@ router.get(
 
 /**
  * GET /api/amo-crm/leads/:id
- * Отримати конкретний lead по ID
+ * Отримати повну інформацію про лід (Live Data from AmoCRM)
+ * Returns: { lead, notes, events }
  */
 router.get(
   '/leads/:id',
@@ -621,24 +645,37 @@ router.get(
   requireAdmin,
   async (req: AuthRequest, res) => {
     try {
-      const { AppDataSource } = await import('../config/database');
-      const { AmoCrmLead } = await import('../entities/AmoCrmLead');
-
       const { id } = req.params;
-      const leadRepo = AppDataSource.getRepository(AmoCrmLead);
+      const amoLeadId = parseInt(id);
 
-      const lead = await leadRepo.findOne({
-        where: { amoLeadId: parseInt(id) },
-      });
-
-      if (!lead) {
-        return res.status(404).json(errorResponse('Lead not found'));
+      if (isNaN(amoLeadId)) {
+        return res.status(400).json(errorResponse('Invalid Lead ID'));
       }
 
-      return res.json(successResponse(lead));
+      // Fetch live data from AmoCRM
+      // We fetch basic lead data, notes (comments), and events (history) in parallel
+      const [lead, notes, events] = await Promise.all([
+        amoCrmService.getLead(amoLeadId).catch(() => null),
+        amoCrmService.getLeadNotes(amoLeadId),
+        amoCrmService.getLeadEvents(amoLeadId)
+      ]);
+
+      if (!lead) {
+        // Fallback: Check local DB if live fetch fails or not found? 
+        // User requested "real data", so mostly implies live.
+        // If not in Amo, maybe 404 is correct.
+        return res.status(404).json(errorResponse('Lead not found in AmoCRM'));
+      }
+
+      return res.json(successResponse({
+        lead,   // AmoCRM Lead Object (with custom_fields_values, etc.)
+        notes,  // Comments/Notes array
+        events  // Activity/History array
+      }));
+
     } catch (error: any) {
-      console.error('Error fetching lead:', error);
-      return res.status(500).json(errorResponse(error.message || 'Failed to fetch lead'));
+      console.error('Error fetching lead details:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to fetch lead details'));
     }
   },
 );
