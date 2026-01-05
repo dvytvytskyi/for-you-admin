@@ -51,9 +51,12 @@ const docUpload = multer({
 // Upload single image to Cloudinary
 router.post('/image', upload.single('file'), async (req, res) => {
   try {
+    console.log('[Upload] POST /image - Headers:', req.headers['content-type']);
     if (!req.file) {
+      console.error('[Upload] No file received in /image');
       return res.status(400).json({ error: 'No file uploaded' });
     }
+    console.log('[Upload] File received:', req.file.originalname, req.file.mimetype, req.file.size);
 
     // Upload to Cloudinary
     const uploadResult = await new Promise((resolve, reject) => {
@@ -114,11 +117,19 @@ router.post('/images', upload.array('files', 10), async (req, res) => {
   }
 });
 
-// Upload document (PDF, Excel, etc.) to Cloudinary
-router.post('/document', docUpload.single('file'), async (req, res) => {
+// Upload document (PDF, Excel, etc.) to Cloudinary AND create Document entity
+router.post('/document', docUpload.single('file'), async (req: any, res) => {
   try {
+    console.log('[Upload] POST /document - Headers:', req.headers['content-type']);
     if (!req.file) {
+      console.error('[Upload] No file received in /document');
       return res.status(400).json({ error: 'No file uploaded' });
+    }
+    console.log('[Upload] Document received:', req.file.originalname, req.file.mimetype, req.file.size);
+
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
     }
 
     // Upload to Cloudinary
@@ -138,11 +149,91 @@ router.post('/document', docUpload.single('file'), async (req, res) => {
       uploadStream.end(req.file!.buffer);
     });
 
-    const url = (uploadResult as any).secure_url;
-    res.json(successResponse({ url, originalName: req.file.originalname }));
+    const fileUrl = (uploadResult as any).secure_url;
+    const s3Key = (uploadResult as any).public_id;
+
+    // Create Document Entity
+    const { AppDataSource } = require('../config/database');
+    const { Document, DocumentType, DocumentCategory } = require('../entities/Document');
+
+    const docRepo = AppDataSource.getRepository(Document);
+    const newDoc = docRepo.create({
+      type: DocumentType.OTHER,
+      entityType: DocumentCategory.USER, // Fixed: USER (all caps)
+      entityId: String(userId),
+      fileName: req.file.originalname,
+      originalName: req.file.originalname,
+      fileUrl: fileUrl,
+      s3Key: s3Key,
+      mimeType: req.file.mimetype,
+      fileSize: Number(req.file.size),
+      uploadedBy: String(userId),
+      isPublic: false
+    });
+
+    const savedDoc = await docRepo.save(newDoc);
+
+    // Return ID included
+    res.json(successResponse({
+      id: savedDoc.id,
+      url: fileUrl,
+      originalName: req.file.originalname
+    }));
+
   } catch (error: any) {
     console.error('Cloudinary upload error:', error);
     res.status(500).json({ error: error.message || 'Failed to upload document' });
+  }
+});
+
+// Upload avatar and update user profile
+router.post('/avatar', upload.single('file'), async (req: any, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const userId = req.user?.id || req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'avatars',
+          resource_type: 'image',
+          transformation: [
+            { width: 500, height: 500, crop: 'fill', gravity: 'face' } // Auto-crop to face for avatars
+          ]
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+
+      uploadStream.end(req.file.buffer);
+    });
+
+    const fileUrl = (uploadResult as any).secure_url;
+
+    // Update User Entity
+    const { AppDataSource } = require('../config/database');
+    const { User } = require('../entities/User');
+
+    const userRepo = AppDataSource.getRepository(User);
+    await userRepo.update(userId, { avatar: fileUrl });
+
+    res.json(successResponse({
+      url: fileUrl,
+      message: 'Avatar updated successfully'
+    }));
+
+  } catch (error: any) {
+    console.error('Avatar upload error:', error);
+    res.status(500).json({ error: error.message || 'Failed to upload avatar' });
   }
 });
 

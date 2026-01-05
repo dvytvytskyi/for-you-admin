@@ -4,12 +4,207 @@ import { PortfolioItem, OperationalStatus } from '../entities/PortfolioItem';
 import { User, UserRole } from '../entities/User';
 import { Property } from '../entities/Property';
 import { authenticateJWT } from '../middleware/auth';
+import { Document, DocumentCategory } from '../entities/Document';
 import { successResponse, errorResponse } from '../utils/response';
 
 const router = express.Router();
 
 // Middleware for authentication
 router.use(authenticateJWT);
+
+router.use((req, res, next) => {
+    console.log(`[Portfolio] ${req.method} ${req.originalUrl}`);
+    next();
+});
+
+/**
+ * Helper to link uploaded documents to a property entity in the documents table
+ */
+async function linkDocumentsToProperty(documents: any[], propertyId: string) {
+    if (!documents || !Array.isArray(documents) || !propertyId) return;
+
+    try {
+        const docRepo = AppDataSource.getRepository(Document);
+        for (const doc of documents) {
+            if (doc.id) {
+                await docRepo.update(doc.id, {
+                    entityType: DocumentCategory.PROPERTY,
+                    entityId: propertyId
+                });
+            }
+        }
+    } catch (error) {
+        console.error('[Portfolio] Error linking documents:', error);
+    }
+}
+
+/**
+ * GET /api/portfolio/:id/pdf
+ * Generate PDF analytics report for portfolio item
+ */
+router.get('/:id/pdf', async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user?.id;
+        const currentUserRole = req.user?.role;
+
+        const portfolioRepo = AppDataSource.getRepository(PortfolioItem);
+        let item = await portfolioRepo.findOne({
+            where: { id },
+            relations: ['property', 'property.city', 'property.area']
+        });
+
+        // Fallback: if not found by PortfolioItem ID, try as Property ID for current user
+        if (!item && currentUserId) {
+            item = await portfolioRepo.findOne({
+                where: { propertyId: id, userId: currentUserId },
+                relations: ['property', 'property.city', 'property.area']
+            });
+        }
+
+        if (!item) {
+            return res.status(404).json(errorResponse('Portfolio item not found. Ensure this property is in your portfolio.'));
+        }
+
+        // Security check
+        if (currentUserRole !== UserRole.ADMIN && item.userId !== currentUserId) {
+            return res.status(403).json(errorResponse('Forbidden'));
+        }
+
+        // Calculate analytics (if strictly needed, though template calls item.roi/appreciation if they are getters, 
+        // passing the entity instance usually preserves them. But let's be explicit like the main GET)
+        const purchasePrice = Number(item.purchasePrice) || 0;
+        const annualCashFlow = Number(item.annualCashFlow) || 0;
+        const estimatedValue = Number(item.estimatedSellingValue) || 0;
+
+        const roi = purchasePrice > 0 ? (annualCashFlow / purchasePrice) * 100 : 0;
+        const appreciation = purchasePrice > 0 ? ((estimatedValue - purchasePrice) / purchasePrice) * 100 : 0;
+
+        const itemData = {
+            ...item,
+            purchasePrice, // ensure number
+            annualCashFlow,
+            estimatedSellingValue: estimatedValue,
+            roi: Number(roi.toFixed(2)),
+            appreciation: Number(appreciation.toFixed(2))
+        };
+
+        const { PdfService } = require('../services/pdf.service');
+        const pdfService = new PdfService();
+        const pdfBuffer = await pdfService.generatePortfolioAnalytics(itemData);
+
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="portfolio-analytics-${item.unitName || 'unit'}.pdf"`,
+            'Content-Length': pdfBuffer.length
+        });
+
+        res.send(pdfBuffer);
+
+    } catch (error: any) {
+        console.error('Error generating PDF:', error);
+        res.status(500).json(errorResponse('Failed to generate PDF'));
+    }
+});
+
+/**
+ * GET /api/portfolio/:id/presentation
+ * Generate PDF property presentation for portfolio item
+ */
+router.get('/:id/presentation', async (req: any, res) => {
+    try {
+        const { id } = req.params;
+        const currentUserId = req.user?.id;
+        const currentUserRole = req.user?.role;
+
+        const portfolioRepo = AppDataSource.getRepository(PortfolioItem);
+        let item = await portfolioRepo.findOne({
+            where: { id },
+            relations: ['property', 'property.city', 'property.area', 'property.developer', 'property.facilities']
+        });
+
+        // Fallback: if not found by PortfolioItem ID, try as Property ID for current user
+        if (!item && currentUserId) {
+            item = await portfolioRepo.findOne({
+                where: { propertyId: id, userId: currentUserId },
+                relations: ['property', 'property.city', 'property.area', 'property.developer', 'property.facilities']
+            });
+        }
+
+        if (!item) {
+            return res.status(404).json(errorResponse('Portfolio item not found. Ensure this property is in your portfolio.'));
+        }
+
+        // Security check
+        if (currentUserRole !== UserRole.ADMIN && item.userId !== currentUserId) {
+            return res.status(403).json(errorResponse('Forbidden'));
+        }
+
+        const property = item.property;
+        if (!property) {
+            return res.status(404).json(errorResponse('Property data not found for this item'));
+        }
+
+        // Prepare data for presentation template
+        let areaName = property.area?.nameEn || '';
+        if (property.area && property.city) {
+            areaName = `${property.area.nameEn}, ${property.city.nameEn}`;
+        }
+
+        // Ensure we have enough photos (duplicate if needed for layout, though template should handle it ideally)
+        let presentationPhotos = [...(item.photos || []), ...(property.photos || [])];
+        if (presentationPhotos.length > 0 && presentationPhotos.length < 5) {
+            // Fill up to at least 5 for better layout if possible
+            while (presentationPhotos.length < 5) {
+                presentationPhotos = [...presentationPhotos, ...presentationPhotos];
+            }
+        }
+        presentationPhotos = presentationPhotos.slice(0, 25); // Cap to avoid huge PDFs
+
+        const presentationData = {
+            ...property,
+            name: item.unitName ? `${property.name} - ${item.unitName}` : property.name, // Customize title
+            area: areaName,
+            city: property.city?.nameEn || '',
+            developer: property.developer?.name || '',
+            type: item.unitType || property.propertyType,
+            completion: item.operationalStatus || 'Ready',
+            price: item.purchasePrice ? `$${Number(item.purchasePrice).toLocaleString()}` : null,
+            size: item.size ? Number(item.size).toLocaleString() : null,
+            facilities: property.facilities || [],
+            photos: presentationPhotos,
+            description: property.description
+        };
+
+        // Static Agent Data (could be dynamic based on logged in admin or assigned agent)
+        const agent = {
+            name: 'For You Real Estate',
+            phone: item.advisorWhatsapp || '+971 50 123 4567',
+            email: 'info@foryou.ae',
+            photo: 'https://ui-avatars.com/api/?name=For+You&background=D4AF37&color=fff&size=200'
+        };
+
+        const { PdfService } = require('../services/pdf.service');
+        const pdfService = new PdfService();
+        const pdfBuffer = await pdfService.generatePropertyPresentation(presentationData, agent);
+
+        res.set({
+            'Content-Type': 'application/pdf',
+            'Content-Disposition': `attachment; filename="presentation-${item.unitName || 'unit'}.pdf"`,
+            'Content-Length': pdfBuffer.length
+        });
+
+        res.send(pdfBuffer);
+
+    } catch (error: any) {
+        console.error('Error generating Presentation PDF:', error);
+        res.status(500).json(errorResponse('Failed to generate Presentation PDF'));
+    }
+});
+
+
+
+
 
 /**
  * GET /api/portfolio/:userId
@@ -135,6 +330,12 @@ router.post('/:userId', async (req: any, res) => {
         });
 
         await portfolioRepo.save(newItem);
+
+        // Step 3: Link documents in the documents table to this property
+        if (documents && propertyId) {
+            await linkDocumentsToProperty(documents, propertyId);
+        }
+
         res.status(201).json(successResponse(newItem, 'Portfolio item added'));
 
     } catch (error: any) {
@@ -168,6 +369,12 @@ router.patch('/:id', async (req: any, res) => {
         portfolioRepo.merge(item, updateData);
 
         await portfolioRepo.save(item);
+
+        // Step 3: Link documents in the documents table to this property
+        if (updateData.documents && item.propertyId) {
+            await linkDocumentsToProperty(updateData.documents, item.propertyId);
+        }
+
         res.json(successResponse(item, 'Portfolio item updated'));
 
     } catch (error: any) {
@@ -203,5 +410,7 @@ router.delete('/:id', async (req: any, res) => {
         res.status(500).json(errorResponse('Failed to delete portfolio item'));
     }
 });
+
+
 
 export default router;

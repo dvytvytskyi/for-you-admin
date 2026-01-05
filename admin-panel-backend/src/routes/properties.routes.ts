@@ -1,4 +1,5 @@
 import express from 'express';
+import { Brackets } from 'typeorm';
 import { AppDataSource } from '../config/database';
 import { Property, PropertyType } from '../entities/Property';
 import { authenticateJWT, authenticateApiKeyWithSecret, AuthRequest } from '../middleware/auth';
@@ -40,6 +41,7 @@ router.get('/', async (req: AuthRequest, res) => {
 
     const {
       propertyType,
+      type,
       developerId,
       cityId,
       areaId,
@@ -48,20 +50,16 @@ router.get('/', async (req: AuthRequest, res) => {
       sizeTo,
       priceFrom,
       priceTo,
+      minPrice,
+      maxPrice,
+      location,
+      town,
       search,
       sortBy,
       sortOrder,
       page,
       limit
     } = req.query;
-
-    const where: any = {};
-
-    // Базові фільтри
-    if (propertyType) where.propertyType = propertyType;
-    if (developerId) where.developerId = developerId;
-    if (cityId) where.cityId = cityId;
-    if (areaId) where.areaId = areaId;
 
     // Перевірка чи підключено до БД
     if (!AppDataSource.isInitialized) {
@@ -72,7 +70,7 @@ router.get('/', async (req: AuthRequest, res) => {
       });
     }
 
-    // Базовий query builder для гнучкої фільтрації
+    // Базовий query builder
     const queryBuilder = AppDataSource.getRepository(Property)
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.country', 'country')
@@ -82,83 +80,120 @@ router.get('/', async (req: AuthRequest, res) => {
       .leftJoinAndSelect('property.facilities', 'facilities')
       .leftJoinAndSelect('property.units', 'units');
 
-    // Застосовуємо базові фільтри
-    Object.keys(where).forEach(key => {
-      queryBuilder.andWhere(`property.${key} = :${key}`, { [key]: where[key] });
-    });
+    // --- Фільтрація ---
 
-    // Фільтр по кількості спалень (multiselect - можна передати кілька значень через кому)
+    // 1. Market Type (Off-plan / Secondary)
+    if (propertyType) {
+      const marketTypes = (Array.isArray(propertyType)
+        ? propertyType.map(String)
+        : String(propertyType).split(',').map(s => s.trim()))
+        .map(t => t.toLowerCase() === 'offplan' ? 'off-plan' : t.toLowerCase()); // Normalize
+
+      if (marketTypes.length > 0) {
+        queryBuilder.andWhere('property.propertyType IN (:...marketTypes)', { marketTypes });
+      }
+    }
+
+    // 2. Unit Type (Apartment, Villa, etc.)
+    if (type) {
+      const unitTypes = (Array.isArray(type)
+        ? type.map(String)
+        : String(type).split(',').map(s => s.trim()))
+        .map(t => t.toLowerCase()); // Normalize to match enum 'apartment', 'villa', etc.
+
+      if (unitTypes.length > 0) {
+        queryBuilder.andWhere('units.type IN (:...unitTypes)', { unitTypes });
+      }
+    }
+
+    // 3. Location (City or Area name) - "OR" logic
+    const effectiveLocation = location || town;
+    if (effectiveLocation) {
+      const locations = Array.isArray(effectiveLocation)
+        ? effectiveLocation.map(String)
+        : String(effectiveLocation).split(',').map(s => s.trim());
+
+      const searchLocs = locations.filter(Boolean).map(l => `%${l.toLowerCase()}%`);
+
+      if (searchLocs.length > 0) {
+        queryBuilder.andWhere(
+          new Brackets((qb: any) => {
+            searchLocs.forEach((loc, index) => {
+              if (index === 0) {
+                qb.where(`LOWER(city.nameEn) LIKE :loc${index}`, { [`loc${index}`]: loc })
+                  .orWhere(`LOWER(area.nameEn) LIKE :loc${index}`, { [`loc${index}`]: loc });
+              } else {
+                qb.orWhere(`LOWER(city.nameEn) LIKE :loc${index}`, { [`loc${index}`]: loc })
+                  .orWhere(`LOWER(area.nameEn) LIKE :loc${index}`, { [`loc${index}`]: loc });
+              }
+            });
+          })
+        );
+      }
+    }
+
+    // Existing exact ID filters
+    if (developerId) queryBuilder.andWhere('property.developerId = :developerId', { developerId });
+    if (cityId) queryBuilder.andWhere('property.cityId = :cityId', { cityId });
+    if (areaId) queryBuilder.andWhere('property.areaId = :areaId', { areaId });
+
+    // 3. Bedrooms (Smart Filter)
     if (bedrooms) {
-      // Нормалізуємо bedrooms до масиву рядків
-      const bedroomsArray: string[] = Array.isArray(bedrooms)
-        ? bedrooms.map(b => String(b))
-        : String(bedrooms).split(',');
+      const beds = Array.isArray(bedrooms) ? bedrooms.map(String) : String(bedrooms).split(',');
 
-      const bedroomsConditions = bedroomsArray.map((bed: string, index: number) => {
-        const bedNum = parseInt(bed.trim(), 10);
-        if (isNaN(bedNum)) return null;
+      queryBuilder.andWhere(new Brackets((qb: any) => {
+        beds.forEach((bedStr) => {
+          const bed = bedStr.trim().toLowerCase();
 
-        // Для off-plan: перевіряємо bedroomsFrom та bedroomsTo
-        // Для secondary: перевіряємо bedrooms
-        return `(
-          (property.propertyType = 'off-plan' AND property.bedroomsFrom <= :bed${index} AND property.bedroomsTo >= :bed${index})
-          OR
-          (property.propertyType = 'secondary' AND property.bedrooms = :bed${index})
-        )`;
-      }).filter((item): item is string => item !== null);
-
-      if (bedroomsConditions.length > 0) {
-        queryBuilder.andWhere(`(${bedroomsConditions.join(' OR ')})`);
-        bedroomsArray.forEach((bed: string, index: number) => {
-          const bedNum = parseInt(bed.trim(), 10);
-          if (!isNaN(bedNum)) {
-            queryBuilder.setParameter(`bed${index}`, bedNum);
+          if (bed === 'studio') {
+            qb.orWhere('(property.propertyType = \'off-plan\' AND property.bedroomsFrom = 0)')
+              .orWhere('(property.propertyType = \'secondary\' AND property.bedrooms = 0)');
+          } else if (bed.includes('+') || bed.includes('>')) {
+            const num = parseInt(bed.replace(/[^0-9]/g, ''), 10);
+            if (!isNaN(num)) {
+              qb.orWhere(`(property.propertyType = 'off-plan' AND property.bedroomsTo >= :bedPlus${num})`, { [`bedPlus${num}`]: num })
+                .orWhere(`(property.propertyType = 'secondary' AND property.bedrooms >= :bedPlus${num})`, { [`bedPlus${num}`]: num });
+            }
+          } else {
+            const num = parseInt(bed, 10);
+            if (!isNaN(num)) {
+              qb.orWhere(`(property.propertyType = 'off-plan' AND (property.bedroomsFrom <= :bedNum${num} AND property.bedroomsTo >= :bedNum${num}))`, { [`bedNum${num}`]: num })
+                .orWhere(`(property.propertyType = 'secondary' AND property.bedrooms = :bedNum${num})`, { [`bedNum${num}`]: num });
+            }
           }
         });
+      }));
+    }
+
+    // 4. Price (Min/Max aliases)
+    const effectiveMin = minPrice || priceFrom;
+    const effectiveMax = maxPrice || priceTo;
+
+    if (effectiveMin) {
+      const val = parseFloat(effectiveMin.toString());
+      if (!isNaN(val)) {
+        queryBuilder.andWhere('(property.priceFrom >= :minPrice OR property.price >= :minPrice)', { minPrice: val });
       }
     }
 
-    // Фільтр по розміру (sizeFrom/sizeTo)
-    if (sizeFrom) {
-      const sizeFromNum = parseFloat(sizeFrom.toString());
-      if (!isNaN(sizeFromNum)) {
-        queryBuilder.andWhere(
-          `(property.sizeFrom >= :sizeFrom OR property.size >= :sizeFrom)`,
-          { sizeFrom: sizeFromNum }
-        );
+    if (effectiveMax) {
+      const val = parseFloat(effectiveMax.toString());
+      if (!isNaN(val)) {
+        queryBuilder.andWhere('(property.priceFrom <= :maxPrice OR property.price <= :maxPrice)', { maxPrice: val });
       }
+    }
+
+    // 5. Size
+    if (sizeFrom) {
+      const val = parseFloat(sizeFrom.toString());
+      if (!isNaN(val)) queryBuilder.andWhere('(property.sizeFrom >= :sizeFrom OR property.size >= :sizeFrom)', { sizeFrom: val });
     }
     if (sizeTo) {
-      const sizeToNum = parseFloat(sizeTo.toString());
-      if (!isNaN(sizeToNum)) {
-        queryBuilder.andWhere(
-          `(property.sizeFrom <= :sizeTo OR property.size <= :sizeTo)`,
-          { sizeTo: sizeToNum }
-        );
-      }
+      const val = parseFloat(sizeTo.toString());
+      if (!isNaN(val)) queryBuilder.andWhere('(property.sizeFrom <= :sizeTo OR property.size <= :sizeTo)', { sizeTo: val });
     }
 
-    // Фільтр по ціні (priceFrom/priceTo)
-    if (priceFrom) {
-      const priceFromNum = parseFloat(priceFrom.toString());
-      if (!isNaN(priceFromNum)) {
-        queryBuilder.andWhere(
-          `(property.priceFrom >= :priceFrom OR property.price >= :priceFrom)`,
-          { priceFrom: priceFromNum }
-        );
-      }
-    }
-    if (priceTo) {
-      const priceToNum = parseFloat(priceTo.toString());
-      if (!isNaN(priceToNum)) {
-        queryBuilder.andWhere(
-          `(property.priceFrom <= :priceTo OR property.price <= :priceTo)`,
-          { priceTo: priceToNum }
-        );
-      }
-    }
-
-    // Текстовий пошук (search) - пошук по name та description
+    // 6. Search (Name/Description)
     if (search) {
       const searchTerm = `%${search.toString().toLowerCase()}%`;
       queryBuilder.andWhere(
@@ -185,13 +220,13 @@ router.get('/', async (req: AuthRequest, res) => {
 
     // Пагінація - фронтенд завжди передає page та limit через infinite scroll
     // Якщо параметри не передані, використовуємо мінімальні значення для безпеки
-    const pageNum = page ? parseInt(page.toString(), 10) : 1;
-    const limitNum = limit ? parseInt(limit.toString(), 10) : 20; // Мінімальний limit якщо не передано
+    const pageNum = parseInt(page?.toString() || '1', 10) || 1;
+    const limitNum = parseInt(limit?.toString() || '20', 10) || 20;
 
     // Максимальний limit для безпеки (на випадок якщо хтось передасть дуже велике значення)
     const MAX_LIMIT = 100;
-    const finalLimit = Math.min(limitNum, MAX_LIMIT);
-    const skip = (pageNum - 1) * finalLimit;
+    const finalLimit = Math.min(limitNum, MAX_LIMIT) || 20;
+    const skip = ((pageNum - 1) * finalLimit) || 0;
 
     // Отримуємо загальну кількість записів перед пагінацією
     const totalCount = await queryBuilder.getCount();

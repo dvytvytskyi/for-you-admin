@@ -80,7 +80,7 @@ export class PortfolioItem {
     advisorWhatsapp?: string;
 
     @Column('jsonb', { nullable: true, default: [] })
-    documents?: { name: string; description: string; url: string }[];
+    documents?: { id?: string; name: string; description: string; url: string }[];
 
     @CreateDateColumn()
     createdAt!: Date;

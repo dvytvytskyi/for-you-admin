@@ -374,6 +374,19 @@ export default function UserProfilePage() {
                     <Badge size="sm" color={user.status === 'ACTIVE' ? 'success' : 'error'}>
                       {user.status === 'ACTIVE' ? 'Active' : 'Inactive'}
                     </Badge>
+                    {user.amoCrmUser && (
+                      <>
+                        <div className="hidden h-3.5 w-px bg-gray-300 dark:bg-gray-700 xl:block"></div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                            CRM:
+                          </span>
+                          <Badge size="sm" color="info">
+                            {user.amoCrmUser.name || 'Unknown'}
+                          </Badge>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

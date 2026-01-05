@@ -28,6 +28,13 @@ export class CourseProgress {
   @Column('simple-array', { nullable: true })
   completedLinkIds?: string[]; // Array of CourseLink IDs that user has clicked/viewed
 
+  @Column({
+    type: 'varchar',
+    length: 20,
+    default: 'NOT_STARTED'
+  })
+  status!: 'NOT_STARTED' | 'IN_PROGRESS' | 'COMPLETED';
+
   @Column({ default: false })
   isCompleted!: boolean; // Whether the entire course is completed
 

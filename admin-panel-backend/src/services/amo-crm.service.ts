@@ -1415,5 +1415,50 @@ export class AmoCrmService {
     }
   }
 
+  /**
+   * Отримати нотатки (коментарі) по ліду
+   */
+  async getLeadNotes(leadId: number): Promise<any[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const response = await axios.get<{ _embedded: { notes: any[] } }>(
+        `https://${this.domain}/api/v4/leads/${leadId}/notes`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      return response.data._embedded?.notes || [];
+    } catch (error: any) {
+      console.error(`[AMO CRM] Error getting notes for lead ${leadId}:`, error.response?.data || error.message);
+      return []; // Return empty array instead of failing
+    }
+  }
+
+  /**
+   * Отримати події (активність) по ліду
+   */
+  async getLeadEvents(leadId: number): Promise<any[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const response = await axios.get<{ _embedded: { events: any[] } }>(
+        `https://${this.domain}/api/v4/events`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            'filter[entity]': 'lead',
+            'filter[entity_id]': leadId,
+          }
+        },
+      );
+      return response.data._embedded?.events || [];
+    } catch (error: any) {
+      console.error(`[AMO CRM] Error getting events for lead ${leadId}:`, error.response?.data || error.message);
+      return [];
+    }
+  }
 }
 

@@ -49,23 +49,23 @@ export class User {
   })
   status!: UserStatus;
 
-  @Column({ name: 'license_number', nullable: true })
-  licenseNumber?: string;
+  @Column({ type: 'varchar', name: 'license_number', nullable: true })
+  licenseNumber?: string | null;
 
-  @Column({ name: 'google_id', nullable: true })
-  googleId?: string;
+  @Column({ type: 'varchar', name: 'google_id', nullable: true })
+  googleId?: string | null;
 
-  @Column({ name: 'apple_id', nullable: true })
-  appleId?: string;
+  @Column({ type: 'varchar', name: 'apple_id', nullable: true })
+  appleId?: string | null;
 
-  @Column({ nullable: true })
-  avatar?: string;
+  @Column({ type: 'varchar', nullable: true })
+  avatar?: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;
 
-  @Column({ name: 'amo_crm_user_id', nullable: true })
-  amoCrmUserId?: string;
+  @Column({ type: 'varchar', name: 'amo_crm_user_id', nullable: true })
+  amoCrmUserId?: string | null;
 
   @OneToOne(() => AmoCrmUser, (amoUser) => amoUser.user)
   @JoinColumn({ name: 'amo_crm_user_id' })
