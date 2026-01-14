@@ -58,8 +58,11 @@ router.get('/', async (req: AuthRequest, res) => {
       sortBy,
       sortOrder,
       page,
-      limit
+      limit,
+      summary
     } = req.query;
+
+    const isSummary = summary === 'true' || summary === '1';
 
     // Перевірка чи підключено до БД
     if (!AppDataSource.isInitialized) {
@@ -71,14 +74,42 @@ router.get('/', async (req: AuthRequest, res) => {
     }
 
     // Базовий query builder
-    const queryBuilder = AppDataSource.getRepository(Property)
-      .createQueryBuilder('property')
-      .leftJoinAndSelect('property.country', 'country')
-      .leftJoinAndSelect('property.city', 'city')
-      .leftJoinAndSelect('property.area', 'area')
-      .leftJoinAndSelect('property.developer', 'developer')
-      .leftJoinAndSelect('property.facilities', 'facilities')
-      .leftJoinAndSelect('property.units', 'units');
+    const repo = AppDataSource.getRepository(Property);
+    const queryBuilder = repo.createQueryBuilder('property');
+
+    if (isSummary) {
+      // Optimized selection for summary view
+      queryBuilder
+        .select([
+          'property.id',
+          'property.name',
+          'property.price',
+          'property.priceFrom',
+          'property.photos',
+          'property.propertyType',
+          'property.bedrooms',
+          'property.bedroomsFrom',
+          'property.bedroomsTo',
+          'property.bathrooms',
+          'property.bathroomsFrom',
+          'property.bathroomsTo',
+          'property.size',
+          'property.sizeFrom',
+          'property.isForYouChoice',
+          'property.createdAt'
+        ])
+        .leftJoinAndSelect('property.area', 'area')
+        .leftJoinAndSelect('property.city', 'city');
+    } else {
+      // Full selection
+      queryBuilder
+        .leftJoinAndSelect('property.country', 'country')
+        .leftJoinAndSelect('property.city', 'city')
+        .leftJoinAndSelect('property.area', 'area')
+        .leftJoinAndSelect('property.developer', 'developer')
+        .leftJoinAndSelect('property.facilities', 'facilities')
+        .leftJoinAndSelect('property.units', 'units');
+    }
 
     // --- Фільтрація ---
 
@@ -96,6 +127,7 @@ router.get('/', async (req: AuthRequest, res) => {
 
     // 2. Unit Type (Apartment, Villa, etc.)
     if (type) {
+      if (isSummary) queryBuilder.leftJoin('property.units', 'units'); // Join but don't select
       const unitTypes = (Array.isArray(type)
         ? type.map(String)
         : String(type).split(',').map(s => s.trim()))
@@ -265,21 +297,43 @@ router.get('/', async (req: AuthRequest, res) => {
       // Для secondary properties: area залишається об'єктом
       let areaField: any = p.area;
       if (p.area && p.propertyType === 'off-plan') {
-        // Для off-plan: формат "areaName, cityName" (наприклад "JVC, Dubai")
         const areaName = p.area.nameEn || '';
         const cityName = p.city?.nameEn || '';
         areaField = cityName ? `${areaName}, ${cityName}` : areaName;
       }
 
-      return {
-        ...p,
+      const baseData = {
+        id: p.id,
+        name: p.name,
+        price: p.price,
+        priceFrom: p.priceFrom,
+        priceAED: p.price ? Conversions.usdToAed(p.price) : null,
+        priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
+        propertyType: p.propertyType,
+        bedrooms: p.propertyType === 'off-plan' ? p.bedroomsFrom : p.bedrooms,
+        bedroomsFrom: p.bedroomsFrom,
+        bedroomsTo: p.bedroomsTo,
+        bathrooms: p.propertyType === 'off-plan' ? p.bathroomsFrom : p.bathrooms,
+        size: p.propertyType === 'off-plan' ? p.sizeFrom : p.size,
+        sizeFrom: p.sizeFrom,
+        sizeSqft: p.propertyType === 'off-plan'
+          ? (p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null)
+          : (p.size ? Conversions.sqmToSqft(p.size) : null),
         area: areaField,
         images: transformPhotos(p.photos),
-        priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
-        priceAED: p.price ? Conversions.usdToAed(p.price) : null,
-        sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
+        isForYouChoice: p.isForYouChoice,
+        createdAt: p.createdAt,
+      };
+
+      if (isSummary) {
+        return baseData;
+      }
+
+      return {
+        ...p,
+        ...baseData,
         sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
-        sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
+        sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
       };
     });
 
