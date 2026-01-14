@@ -20,9 +20,9 @@ router.use((req, res, next) => {
 // TypeORM simple-array stores as comma-separated string, PostgreSQL returns as {url1,url2} format
 const parseAreaImages = (images: any): string[] | null => {
   if (!images) return null;
-  
+
   let stringValue = '';
-  
+
   if (Array.isArray(images)) {
     // If already an array, join and process
     stringValue = images.join(',');
@@ -31,13 +31,13 @@ const parseAreaImages = (images: any): string[] | null => {
   } else {
     return null;
   }
-  
+
   // Remove outer curly braces if present (PostgreSQL array format)
   let cleaned = stringValue.trim();
   if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
     cleaned = cleaned.slice(1, -1).trim();
   }
-  
+
   // Split by comma and clean each URL
   const urls = cleaned
     .split(',')
@@ -50,7 +50,7 @@ const parseAreaImages = (images: any): string[] | null => {
       return urlCleaned;
     })
     .filter((url: string) => url.length > 0);
-  
+
   // Log for debugging
   if (urls.length > 0) {
     console.log('[parseAreaImages] Parsed images:', {
@@ -59,7 +59,7 @@ const parseAreaImages = (images: any): string[] | null => {
       firstUrl: urls[0]?.substring(0, 50)
     });
   }
-  
+
   return urls.length > 0 ? urls : null;
 };
 
@@ -78,11 +78,11 @@ router.get('/cities', async (req, res) => {
 router.get('/areas', async (req, res) => {
   try {
     const { cityId } = req.query;
-    
+
     // Use raw query to get areas with description, infrastructure, images
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
-    
+
     try {
       let whereClause = '';
       const whereParams: any[] = [];
@@ -90,7 +90,7 @@ router.get('/areas', async (req, res) => {
         whereClause = 'WHERE area."cityId" = $1';
         whereParams.push(cityId);
       }
-      
+
       const areasRaw = await queryRunner.query(`
         SELECT 
           area.id,
@@ -99,13 +99,14 @@ router.get('/areas', async (req, res) => {
           area."nameRu",
           area."nameAr",
           area.description,
+          area."descriptionRu",
           area.infrastructure,
           area.images
         FROM areas area
         ${whereClause}
         ORDER BY area."nameEn" ASC
       `, whereParams);
-      
+
       // Convert raw results to Area-like objects
       const areas = areasRaw.map((row: any) => ({
         id: row.id,
@@ -114,10 +115,11 @@ router.get('/areas', async (req, res) => {
         nameRu: row.nameRu,
         nameAr: row.nameAr,
         description: row.description || null,
+        descriptionRu: row.descriptionRu || null,
         infrastructure: row.infrastructure || null,
         images: parseAreaImages(row.images),
       }));
-      
+
       res.json(successResponse(areas));
     } finally {
       await queryRunner.release();
@@ -133,12 +135,12 @@ router.get('/locations', async (req, res) => {
   try {
     const countries = await AppDataSource.getRepository(Country).find({ relations: ['cities'] });
     const cities = await AppDataSource.getRepository(City).find({ relations: ['areas'] });
-    
+
     // Use raw query to get areas with description, infrastructure, images
     // (handles case when columns might not exist in some environments)
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
-    
+
     try {
       const areasRaw = await queryRunner.query(`
         SELECT 
@@ -148,12 +150,13 @@ router.get('/locations', async (req, res) => {
           area."nameRu",
           area."nameAr",
           area.description,
+          area."descriptionRu",
           area.infrastructure,
           area.images
         FROM areas area
         ORDER BY area."nameEn" ASC
       `);
-      
+
       // Convert raw results to Area-like objects
       const areas = areasRaw.map((row: any) => ({
         id: row.id,
@@ -162,10 +165,11 @@ router.get('/locations', async (req, res) => {
         nameRu: row.nameRu,
         nameAr: row.nameAr,
         description: row.description || null,
+        descriptionRu: row.descriptionRu || null,
         infrastructure: row.infrastructure || null,
         images: parseAreaImages(row.images),
       }));
-      
+
       res.json(successResponse({
         countries,
         cities,
@@ -183,18 +187,18 @@ router.get('/locations', async (req, res) => {
 router.post('/countries', async (req, res) => {
   try {
     const { nameEn, nameRu, nameAr, code } = req.body;
-    
+
     if (!nameEn || !code) {
       return res.status(400).json({ success: false, message: 'Country name (nameEn) and code are required' });
     }
-    
+
     const country = await AppDataSource.getRepository(Country).save({
       nameEn: nameEn.trim(),
       nameRu: nameRu || nameEn.trim(),
       nameAr: nameAr || nameEn.trim(),
       code: code.trim().toUpperCase(),
     });
-    
+
     res.json(successResponse(country));
   } catch (error: any) {
     console.error('Error creating country:', error);
@@ -205,18 +209,18 @@ router.post('/countries', async (req, res) => {
 router.post('/cities', async (req, res) => {
   try {
     const { nameEn, nameRu, nameAr, countryId } = req.body;
-    
+
     if (!nameEn || !countryId) {
       return res.status(400).json({ success: false, message: 'City name (nameEn) and countryId are required' });
     }
-    
+
     const city = await AppDataSource.getRepository(City).save({
       nameEn: nameEn.trim(),
       nameRu: nameRu || nameEn.trim(),
       nameAr: nameAr || nameEn.trim(),
       countryId: countryId,
     });
-    
+
     res.json(successResponse(city));
   } catch (error: any) {
     console.error('Error creating city:', error);
@@ -227,18 +231,18 @@ router.post('/cities', async (req, res) => {
 router.post('/areas', async (req, res) => {
   try {
     const { nameEn, nameRu, nameAr, cityId } = req.body;
-    
+
     if (!nameEn || !cityId) {
       return res.status(400).json({ success: false, message: 'Area name (nameEn) and cityId are required' });
     }
-    
+
     const area = await AppDataSource.getRepository(Area).save({
       nameEn: nameEn.trim(),
       nameRu: nameRu || nameEn.trim(),
       nameAr: nameAr || nameEn.trim(),
       cityId: cityId,
     });
-    
+
     res.json(successResponse(area));
   } catch (error: any) {
     console.error('Error creating area:', error);
@@ -251,11 +255,11 @@ router.delete('/countries/:id', async (req, res) => {
     const country = await AppDataSource.getRepository(Country).findOne({
       where: { id: req.params.id },
     });
-    
+
     if (!country) {
       return res.status(404).json({ success: false, message: 'Country not found' });
     }
-    
+
     await AppDataSource.getRepository(Country).remove(country);
     res.json(successResponse(null, 'Country deleted successfully'));
   } catch (error: any) {
@@ -269,11 +273,11 @@ router.delete('/cities/:id', async (req, res) => {
     const city = await AppDataSource.getRepository(City).findOne({
       where: { id: req.params.id },
     });
-    
+
     if (!city) {
       return res.status(404).json({ success: false, message: 'City not found' });
     }
-    
+
     await AppDataSource.getRepository(City).remove(city);
     res.json(successResponse(null, 'City deleted successfully'));
   } catch (error: any) {
@@ -286,11 +290,11 @@ router.delete('/cities/:id', async (req, res) => {
 router.get('/areas/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     // Use raw query to get area with description, infrastructure, images
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
-    
+
     try {
       const areaRaw = await queryRunner.query(`
         SELECT 
@@ -300,16 +304,17 @@ router.get('/areas/:id', async (req, res) => {
           area."nameRu",
           area."nameAr",
           area.description,
+          area."descriptionRu",
           area.infrastructure,
           area.images
         FROM areas area
         WHERE area.id = $1
       `, [id]);
-      
+
       if (areaRaw.length === 0) {
         return res.status(404).json({ success: false, message: 'Area not found' });
       }
-      
+
       const row = areaRaw[0];
       const area = {
         id: row.id,
@@ -318,10 +323,11 @@ router.get('/areas/:id', async (req, res) => {
         nameRu: row.nameRu,
         nameAr: row.nameAr,
         description: row.description || null,
+        descriptionRu: row.descriptionRu || null,
         infrastructure: row.infrastructure || null,
         images: parseAreaImages(row.images),
       };
-      
+
       res.json(successResponse(area));
     } finally {
       await queryRunner.release();
@@ -334,22 +340,23 @@ router.get('/areas/:id', async (req, res) => {
 
 router.put('/areas/:id', async (req, res) => {
   try {
-    const { nameEn, nameRu, nameAr, cityId, description, infrastructure, images } = req.body;
-    
+    const { nameEn, nameRu, nameAr, cityId, description, descriptionRu, infrastructure, images } = req.body;
+
     const area = await AppDataSource.getRepository(Area).findOne({
       where: { id: req.params.id },
     });
-    
+
     if (!area) {
       return res.status(404).json({ success: false, message: 'Area not found' });
     }
-    
+
     // Оновлюємо тільки передані поля
     if (nameEn !== undefined) area.nameEn = nameEn.trim();
     if (nameRu !== undefined) area.nameRu = nameRu.trim();
     if (nameAr !== undefined) area.nameAr = nameAr.trim();
     if (cityId !== undefined) area.cityId = cityId;
     if (description !== undefined) area.description = description;
+    if (descriptionRu !== undefined) area.descriptionRu = descriptionRu;
     if (infrastructure !== undefined) area.infrastructure = infrastructure;
     if (images !== undefined) {
       // Перевірка що не більше 8 фото
@@ -358,7 +365,7 @@ router.put('/areas/:id', async (req, res) => {
       }
       area.images = images;
     }
-    
+
     const updatedArea = await AppDataSource.getRepository(Area).save(area);
     res.json(successResponse(updatedArea));
   } catch (error: any) {
@@ -372,11 +379,11 @@ router.delete('/areas/:id', async (req, res) => {
     const area = await AppDataSource.getRepository(Area).findOne({
       where: { id: req.params.id },
     });
-    
+
     if (!area) {
       return res.status(404).json({ success: false, message: 'Area not found' });
     }
-    
+
     await AppDataSource.getRepository(Area).remove(area);
     res.json(successResponse(null, 'Area deleted successfully'));
   } catch (error: any) {
@@ -393,18 +400,18 @@ router.get('/facilities', async (req, res) => {
 router.post('/facilities', async (req, res) => {
   try {
     const { nameEn, nameRu, nameAr, iconName } = req.body;
-    
+
     if (!nameEn || typeof nameEn !== 'string' || !nameEn.trim()) {
       return res.status(400).json({ success: false, message: 'Facility name (nameEn) is required' });
     }
-    
+
     const facility = await AppDataSource.getRepository(Facility).save({
       nameEn: nameEn.trim(),
       nameRu: nameRu || nameEn.trim(),
       nameAr: nameAr || nameEn.trim(),
       iconName: iconName || nameEn.toLowerCase().replace(/\s+/g, '-'),
     });
-    
+
     res.json(successResponse(facility));
   } catch (error: any) {
     console.error('Error creating facility:', error);
@@ -417,11 +424,11 @@ router.delete('/facilities/:id', async (req, res) => {
     const facility = await AppDataSource.getRepository(Facility).findOne({
       where: { id: req.params.id },
     });
-    
+
     if (!facility) {
       return res.status(404).json({ success: false, message: 'Facility not found' });
     }
-    
+
     await AppDataSource.getRepository(Facility).remove(facility);
     res.json(successResponse(null, 'Facility deleted successfully'));
   } catch (error: any) {
@@ -438,33 +445,33 @@ router.get('/developers', async (req, res) => {
 router.post('/developers', async (req, res) => {
   try {
     const { name } = req.body;
-    
+
     if (!name || typeof name !== 'string' || !name.trim()) {
       return res.status(400).json({ success: false, message: 'Developer name is required' });
     }
-    
+
     // Check if developer with this name already exists
     const existingDeveloper = await AppDataSource.getRepository(Developer).findOne({
       where: { name: name.trim() },
     });
-    
+
     if (existingDeveloper) {
       return res.status(409).json({ success: false, message: 'Developer with this name already exists' });
     }
-    
+
     const developer = await AppDataSource.getRepository(Developer).save({
       name: name.trim(),
     });
-    
+
     res.json(successResponse(developer));
   } catch (error: any) {
     console.error('Error creating developer:', error);
-    
+
     // Handle unique constraint violation
     if (error.code === '23505' || error.message?.includes('UNIQUE constraint')) {
       return res.status(409).json({ success: false, message: 'Developer with this name already exists' });
     }
-    
+
     res.status(500).json({ success: false, message: error.message || 'Failed to create developer' });
   }
 });
@@ -507,11 +514,11 @@ router.delete('/developers/:id', async (req, res) => {
     const developer = await AppDataSource.getRepository(Developer).findOne({
       where: { id: req.params.id },
     });
-    
+
     if (!developer) {
       return res.status(404).json({ success: false, message: 'Developer not found' });
     }
-    
+
     await AppDataSource.getRepository(Developer).remove(developer);
     res.json(successResponse(null, 'Developer deleted successfully'));
   } catch (error: any) {
@@ -527,15 +534,15 @@ router.post('/developers/cleanup-duplicates', async (req, res) => {
     const allDevelopers = await developerRepository.find({
       order: { createdAt: 'ASC' }, // Keep the oldest one
     });
-    
+
     const seenNames = new Set<string>();
     const duplicatesToDelete: Developer[] = [];
     let kept = 0;
     let deleted = 0;
-    
+
     for (const dev of allDevelopers) {
       const normalizedName = dev.name.trim().toLowerCase();
-      
+
       if (seenNames.has(normalizedName)) {
         duplicatesToDelete.push(dev);
         deleted++;
@@ -544,11 +551,11 @@ router.post('/developers/cleanup-duplicates', async (req, res) => {
         kept++;
       }
     }
-    
+
     if (duplicatesToDelete.length > 0) {
       await developerRepository.remove(duplicatesToDelete);
     }
-    
+
     res.json(successResponse({
       kept,
       deleted,

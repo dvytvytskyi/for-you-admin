@@ -11,6 +11,7 @@ import { Modal } from '@/components/ui/modal'
 import Input from '@/components/form/input/InputField'
 import Label from '@/components/form/Label'
 import PortfolioManager from "@/components/user-profile/PortfolioManager";
+import AvatarText from '@/components/ui/avatar/AvatarText'
 
 export default function UserProfilePage() {
   const router = useRouter()
@@ -354,13 +355,17 @@ export default function UserProfilePage() {
             <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div className="flex flex-col items-center w-full gap-6 xl:flex-row">
                 <div className="w-20 h-20 overflow-hidden border border-gray-200 rounded-full dark:border-gray-800">
-                  <Image
-                    width={80}
-                    height={80}
-                    src={user.avatar || 'https://i.pravatar.cc/150?img=5'}
-                    alt={`${user.firstName} ${user.lastName}`}
-                    className="object-cover w-full h-full"
-                  />
+                  {user.avatar ? (
+                    <Image
+                      width={80}
+                      height={80}
+                      src={user.avatar}
+                      alt={`${user.firstName} ${user.lastName}`}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <AvatarText name={`${user.firstName} ${user.lastName}`} className="!w-full !h-full !text-2xl" />
+                  )}
                 </div>
                 <div className="order-3 xl:order-2">
                   <h4 className="mb-2 text-lg font-semibold text-center text-gray-800 dark:text-white/90 xl:text-left">
@@ -670,28 +675,33 @@ export default function UserProfilePage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 hover:border-brand-400 dark:hover:border-brand-600 transition-colors">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleAvatarUpload}
-                          className="hidden"
-                          id="avatar-upload"
-                        />
-                        <label
-                          htmlFor="avatar-upload"
-                          className="flex flex-col items-center justify-center cursor-pointer"
-                        >
-                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-gray-400 mb-2">
-                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            Click to upload avatar
-                          </span>
-                          <span className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                            PNG, JPG, GIF up to 10MB
-                          </span>
-                        </label>
+                      <div className="flex flex-col gap-4">
+                        <div className="w-32 h-32 overflow-hidden rounded-full border-2 border-gray-200 dark:border-gray-700">
+                          <AvatarText name={`${user.firstName} ${user.lastName}`} className="!w-full !h-full !text-4xl" />
+                        </div>
+                        <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 hover:border-brand-400 dark:hover:border-brand-600 transition-colors">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarUpload}
+                            className="hidden"
+                            id="avatar-upload"
+                          />
+                          <label
+                            htmlFor="avatar-upload"
+                            className="flex flex-col items-center justify-center cursor-pointer"
+                          >
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-gray-400 mb-2">
+                              <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                              Click to upload avatar
+                            </span>
+                            <span className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                              PNG, JPG, GIF up to 10MB
+                            </span>
+                          </label>
+                        </div>
                       </div>
                     )}
                   </div>

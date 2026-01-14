@@ -148,6 +148,7 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
         propertyType: p.propertyType,
         name: p.name,
         description: p.description,
+        descriptionRu: p.descriptionRu,
         price: p.price,
         priceFrom: p.priceFrom,
         priceAED: p.price ? Conversions.usdToAed(p.price) : null,
@@ -1038,6 +1039,49 @@ router.get('/news/:slug', authenticateApiKeyWithSecret, async (req: AuthRequest,
   } catch (error: any) {
     console.error('Error fetching news detail:', error);
     res.status(500).json(errorResponse('Failed to fetch news detail', error.message));
+  }
+});
+
+
+// GET /api/public/map - Get lightweight property data for map (id, coordinates, price)
+router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    console.log('[Public API] GET /api/public/map request:', {
+      hasApiKey: !!req.apiKey,
+      apiKeyName: req.apiKey?.name,
+    });
+
+    // Use QueryBuilder for optimized selection of specific fields only
+    const rawProperties = await AppDataSource.getRepository(Property)
+      .createQueryBuilder('property')
+      .select([
+        'property.id',
+        'property.latitude',
+        'property.longitude',
+        'property.price',
+        'property.priceFrom',
+        'property.propertyType'
+      ])
+      .where('property.latitude IS NOT NULL')
+      .andWhere('property.longitude IS NOT NULL')
+      .getMany();
+
+    // Map to simple structure
+    const mapPoints = rawProperties.map(p => ({
+      id: p.id,
+      lat: p.latitude,
+      lng: p.longitude,
+      price: p.propertyType === 'off-plan' ? p.priceFrom : p.price,
+    }));
+
+    console.log('[Public API] ✅ Map response sent:', {
+      totalPoints: mapPoints.length,
+    });
+
+    res.json(successResponse(mapPoints));
+  } catch (error: any) {
+    console.error('Error fetching map data:', error);
+    res.status(500).json(errorResponse('Failed to fetch map data', error.message));
   }
 });
 

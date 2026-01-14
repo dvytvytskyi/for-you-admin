@@ -54,14 +54,17 @@
     "import:countries": "ts-node-dev src/scripts/importCountriesFromCSV.ts",
     "import:cities": "ts-node-dev src/scripts/importCitiesFromCSV.ts",
     "import:areas": "ts-node-dev src/scripts/importAreasFromCSV.ts",
-    "import:areas:updated": "ts-node-dev src/scripts/importAreasFromUpdatedCSV.ts"
+    "import:areas:updated": "ts-node-dev src/scripts/importAreasFromUpdatedCSV.ts",
+    "translate:properties": "ts-node-dev src/scripts/translate-properties.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.962.0",
     "@types/nodemailer": "^7.0.3",
+    "@vitalets/google-translate-api": "^9.2.1",
     "axios": "^1.13.2",
     "bcrypt": "^6.0.0",
     "cloudinary": "^1.41.3",
@@ -77,6 +80,7 @@
     "pg": "^8.16.3",
     "puppeteer": "^24.34.0",
     "reflect-metadata": "^0.1.14",
+    "sharp": "^0.34.5",
     "typeorm": "^0.3.27",
     "uuid": "^11.1.0"
   },

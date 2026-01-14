@@ -197,7 +197,7 @@ router.get('/', async (req: AuthRequest, res) => {
     if (search) {
       const searchTerm = `%${search.toString().toLowerCase()}%`;
       queryBuilder.andWhere(
-        `(LOWER(property.name) LIKE :search OR LOWER(property.description) LIKE :search)`,
+        `(LOWER(property.name) LIKE :search OR LOWER(property.description) LIKE :search OR LOWER(property.descriptionRu) LIKE :search)`,
         { search: searchTerm }
       );
     }
@@ -224,7 +224,7 @@ router.get('/', async (req: AuthRequest, res) => {
     const limitNum = parseInt(limit?.toString() || '20', 10) || 20;
 
     // Максимальний limit для безпеки (на випадок якщо хтось передасть дуже велике значення)
-    const MAX_LIMIT = 100;
+    const MAX_LIMIT = 10000;
     const finalLimit = Math.min(limitNum, MAX_LIMIT) || 20;
     const skip = ((pageNum - 1) * finalLimit) || 0;
 
@@ -243,6 +243,23 @@ router.get('/', async (req: AuthRequest, res) => {
       propertyTypeFilter: propertyType,
     });
 
+    const transformPhotos = (photos: string[] | null) => {
+      if (!photos || !Array.isArray(photos)) return [];
+      return photos.map(photo => {
+        if (photo.includes('your-objectstorage.com')) {
+          let small = photo;
+          let full = photo;
+          if (photo.includes('_small.jpg')) {
+            full = photo.replace('_small.jpg', '_full.jpg');
+          } else if (photo.includes('_full.jpg')) {
+            small = photo.replace('_full.jpg', '_small.jpg');
+          }
+          return { small, full };
+        }
+        return { small: photo, full: photo };
+      });
+    };
+
     const propertiesWithConversions = properties.map(p => {
       // Для off-plan properties: area має бути рядком "areaName, cityName"
       // Для secondary properties: area залишається об'єктом
@@ -257,6 +274,7 @@ router.get('/', async (req: AuthRequest, res) => {
       return {
         ...p,
         area: areaField,
+        images: transformPhotos(p.photos),
         priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
         priceAED: p.price ? Conversions.usdToAed(p.price) : null,
         sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
@@ -473,11 +491,47 @@ router.get('/:id/presentation', async (req, res) => {
 });
 
 router.get('/:id', async (req, res) => {
-  const property = await AppDataSource.getRepository(Property).findOne({
-    where: { id: req.params.id },
-    relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
-  });
-  res.json(successResponse(property));
+  try {
+    const property = await AppDataSource.getRepository(Property).findOne({
+      where: { id: req.params.id },
+      relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
+    });
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    const transformPhotos = (photos: string[] | null) => {
+      if (!photos || !Array.isArray(photos)) return [];
+      return photos.map(photo => {
+        if (photo.includes('your-objectstorage.com')) {
+          let small = photo;
+          let full = photo;
+          if (photo.includes('_small.jpg')) {
+            full = photo.replace('_small.jpg', '_full.jpg');
+          } else if (photo.includes('_full.jpg')) {
+            small = photo.replace('_full.jpg', '_small.jpg');
+          }
+          return { small, full };
+        }
+        return { small: photo, full: photo };
+      });
+    };
+
+    const response = {
+      ...property,
+      images: transformPhotos(property.photos),
+      priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
+      priceAED: property.price ? Conversions.usdToAed(property.price) : null,
+      sizeFromSqft: property.sizeFrom ? Conversions.sqmToSqft(property.sizeFrom) : null,
+      sizeToSqft: property.sizeTo ? Conversions.sqmToSqft(property.sizeTo) : null,
+      sizeSqft: property.size ? Conversions.sqmToSqft(property.size) : null,
+    };
+
+    res.json(successResponse(response));
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 router.post('/', async (req, res) => {
@@ -705,7 +759,7 @@ router.patch('/:id', async (req, res) => {
       'priceFrom', 'bedroomsFrom', 'bedroomsTo', 'bathroomsFrom', 'bathroomsTo',
       'sizeFrom', 'sizeTo', 'paymentPlan',
       'price', 'bedrooms', 'bathrooms', 'size', 'propertyType',
-      'isForYouChoice'
+      'isForYouChoice', 'descriptionRu'
     ];
 
     const updateData: any = {};

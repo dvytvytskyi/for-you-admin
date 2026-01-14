@@ -14,7 +14,7 @@ import Label from '@/components/form/Label'
 
 export default function PropertiesPage() {
   const router = useRouter()
-  
+
   const [properties, setProperties] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>('off-plan')
@@ -26,7 +26,7 @@ export default function PropertiesPage() {
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({})
   const [duplicateMarkers, setDuplicateMarkers] = useState<Set<string>>(new Set())
   const [copiedId, setCopiedId] = useState<string | null>(null)
-  
+
   // Filter states
   const [developers, setDevelopers] = useState<any[]>([])
   const [cities, setCities] = useState<any[]>([])
@@ -66,7 +66,7 @@ export default function PropertiesPage() {
       const urlType = params.get('type') as 'off-plan' | 'secondary'
       const urlPage = parseInt(params.get('page') || '1', 10)
       const urlSearch = params.get('search') || ''
-      
+
       if (urlType && (urlType === 'off-plan' || urlType === 'secondary')) {
         setPropertyType(urlType)
       }
@@ -85,15 +85,15 @@ export default function PropertiesPage() {
     try {
       // Затримка щоб не блокувати основне завантаження - чекаємо поки основні дані завантажаться
       await new Promise(resolve => setTimeout(resolve, 1000))
-      
+
       const params: any = {
         propertyType: propertyType,
         limit: '10000', // Завантажуємо багато для перевірки дублікатів
         page: '1',
       }
-      
+
       const { data } = await api.get('/properties', { params })
-      
+
       let allProperties: any[] = []
       if (data.data?.data && Array.isArray(data.data.data)) {
         allProperties = data.data.data
@@ -116,22 +116,15 @@ export default function PropertiesPage() {
         }
       })
 
-      // Для кожної групи дублікатів (більше 1 проекту) позначаємо один як дублікат
+      // Для кожної групи дублікатів (більше 1 проекту) позначаємо ВСІ як дублікати
       nameMap.forEach((group, normalizedName) => {
         if (group.length > 1) {
-          // Сортуємо за датою створення (старіші першими) або за ID
-          // Позначаємо всі крім найстарішого
-          const sorted = group.sort((a, b) => {
-            const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-            const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
-            if (dateA !== dateB) return dateA - dateB
-            return (a.id || '').localeCompare(b.id || '')
+          // Якщо є дублікати, додаємо всі ID з групи до маркерів
+          group.forEach(item => {
+            if (item.id) {
+              markers.add(item.id)
+            }
           })
-          
-          // Позначаємо всі крім першого (найстарішого)
-          for (let i = 1; i < sorted.length; i++) {
-            markers.add(sorted[i].id)
-          }
         }
       })
 
@@ -157,10 +150,10 @@ export default function PropertiesPage() {
     if (propertyType !== 'off-plan') params.set('type', propertyType)
     if (currentPage > 1) params.set('page', currentPage.toString())
     if (searchQuery) params.set('search', searchQuery)
-    
+
     const queryString = params.toString()
     const newUrl = queryString ? `/properties?${queryString}` : '/properties'
-    
+
     // Оновлюємо URL без перезавантаження сторінки
     window.history.replaceState({}, '', newUrl)
   }, [propertyType, currentPage, searchQuery])
@@ -179,7 +172,7 @@ export default function PropertiesPage() {
         page: currentPage.toString(),
         limit: itemsPerPage.toString(),
       }
-      
+
       // Додаємо пошук, якщо є
       if (searchQuery) {
         params.search = searchQuery
@@ -213,7 +206,7 @@ export default function PropertiesPage() {
 
       // Використовуємо params як другий аргумент axios.get для правильного форматування
       const { data } = await api.get('/properties', { params })
-      
+
       // Бекенд ЗАВЖДИ повертає структуру з пагінацією
       if (data.data?.data && data.data?.pagination) {
         // Нова структура з пагінацією
@@ -258,7 +251,7 @@ export default function PropertiesPage() {
         behavior: 'smooth'
       })
     }, searchQuery ? 300 : 0) // Затримка тільки для пошуку
-    
+
     return () => clearTimeout(timeoutId)
   }, [loadProperties, propertyType, currentPage, searchQuery])
 
@@ -326,21 +319,19 @@ export default function PropertiesPage() {
         <div className="inline-flex rounded-lg border border-gray-200 p-1 dark:border-gray-800 dark:bg-gray-900">
           <button
             onClick={() => setPropertyType('off-plan')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              propertyType === 'off-plan'
-                ? 'bg-brand-500 text-white'
-                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === 'off-plan'
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
           >
             Off-Plan
           </button>
           <button
             onClick={() => setPropertyType('secondary')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              propertyType === 'secondary'
-                ? 'bg-brand-500 text-white'
-                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === 'secondary'
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
           >
             Secondary
           </button>
@@ -364,19 +355,19 @@ export default function PropertiesPage() {
             onClick={() => setShowFilters(!showFilters)}
             className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
           >
-            <svg 
-              className="w-4 h-4" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
             </svg>
             <span>Filters</span>
-            <svg 
+            <svg
               className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -403,105 +394,105 @@ export default function PropertiesPage() {
 
         {showFilters && (
           <div className="w-full">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
-            {/* Developer Filter */}
-            <div>
-              <Label>Developer</Label>
-              <Select
-                options={developers.map((d) => ({ value: d.id, label: d.name }))}
-                placeholder="All developers"
-                defaultValue={selectedDeveloper}
-                onChange={(value) => setSelectedDeveloper(value || '')}
-              />
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
+              {/* Developer Filter */}
+              <div>
+                <Label>Developer</Label>
+                <Select
+                  options={developers.map((d) => ({ value: d.id, label: d.name }))}
+                  placeholder="All developers"
+                  defaultValue={selectedDeveloper}
+                  onChange={(value) => setSelectedDeveloper(value || '')}
+                />
+              </div>
 
-            {/* City Filter */}
-            <div>
-              <Label>City</Label>
-              <Select
-                options={cities.map((c) => ({ value: c.id, label: c.nameEn || c.name }))}
-                placeholder="All cities"
-                defaultValue={selectedCity}
-                onChange={(value) => {
-                  setSelectedCity(value || '')
-                  setSelectedArea('') // Reset area when city changes
-                }}
-              />
-            </div>
+              {/* City Filter */}
+              <div>
+                <Label>City</Label>
+                <Select
+                  options={cities.map((c) => ({ value: c.id, label: c.nameEn || c.name }))}
+                  placeholder="All cities"
+                  defaultValue={selectedCity}
+                  onChange={(value) => {
+                    setSelectedCity(value || '')
+                    setSelectedArea('') // Reset area when city changes
+                  }}
+                />
+              </div>
 
-            {/* Area Filter */}
-            <div>
-              <Label>Area</Label>
-              <Select
-                options={areas.map((a) => ({ value: a.id, label: a.nameEn || a.name }))}
-                placeholder="All areas"
-                defaultValue={selectedArea}
-                onChange={(value) => setSelectedArea(value || '')}
-                disabled={!selectedCity}
-              />
-            </div>
+              {/* Area Filter */}
+              <div>
+                <Label>Area</Label>
+                <Select
+                  options={areas.map((a) => ({ value: a.id, label: a.nameEn || a.name }))}
+                  placeholder="All areas"
+                  defaultValue={selectedArea}
+                  onChange={(value) => setSelectedArea(value || '')}
+                  disabled={!selectedCity}
+                />
+              </div>
 
-            {/* Bedrooms Filter */}
-            <div>
-              <Label>Bedrooms</Label>
-              <Select
-                options={[
-                  { value: '1', label: '1' },
-                  { value: '2', label: '2' },
-                  { value: '3', label: '3' },
-                  { value: '4', label: '4' },
-                  { value: '5', label: '5+' },
-                ]}
-                placeholder="All bedrooms"
-                defaultValue={selectedBedrooms}
-                onChange={(value) => setSelectedBedrooms(value || '')}
-              />
-            </div>
+              {/* Bedrooms Filter */}
+              <div>
+                <Label>Bedrooms</Label>
+                <Select
+                  options={[
+                    { value: '1', label: '1' },
+                    { value: '2', label: '2' },
+                    { value: '3', label: '3' },
+                    { value: '4', label: '4' },
+                    { value: '5', label: '5+' },
+                  ]}
+                  placeholder="All bedrooms"
+                  defaultValue={selectedBedrooms}
+                  onChange={(value) => setSelectedBedrooms(value || '')}
+                />
+              </div>
 
-            {/* Price From */}
-            <div>
-              <Label>Price From (USD)</Label>
-              <Input
-                type="number"
-                placeholder="Min price"
-                value={priceFrom}
-                onChange={(e) => setPriceFrom(e.target.value)}
-              />
-            </div>
+              {/* Price From */}
+              <div>
+                <Label>Price From (USD)</Label>
+                <Input
+                  type="number"
+                  placeholder="Min price"
+                  value={priceFrom}
+                  onChange={(e) => setPriceFrom(e.target.value)}
+                />
+              </div>
 
-            {/* Price To */}
-            <div>
-              <Label>Price To (USD)</Label>
-              <Input
-                type="number"
-                placeholder="Max price"
-                value={priceTo}
-                onChange={(e) => setPriceTo(e.target.value)}
-              />
-            </div>
+              {/* Price To */}
+              <div>
+                <Label>Price To (USD)</Label>
+                <Input
+                  type="number"
+                  placeholder="Max price"
+                  value={priceTo}
+                  onChange={(e) => setPriceTo(e.target.value)}
+                />
+              </div>
 
-            {/* Size From */}
-            <div>
-              <Label>Size From (sq.m)</Label>
-              <Input
-                type="number"
-                placeholder="Min size"
-                value={sizeFrom}
-                onChange={(e) => setSizeFrom(e.target.value)}
-              />
-            </div>
+              {/* Size From */}
+              <div>
+                <Label>Size From (sq.m)</Label>
+                <Input
+                  type="number"
+                  placeholder="Min size"
+                  value={sizeFrom}
+                  onChange={(e) => setSizeFrom(e.target.value)}
+                />
+              </div>
 
-            {/* Size To */}
-            <div>
-              <Label>Size To (sq.m)</Label>
-              <Input
-                type="number"
-                placeholder="Max size"
-                value={sizeTo}
-                onChange={(e) => setSizeTo(e.target.value)}
-              />
+              {/* Size To */}
+              <div>
+                <Label>Size To (sq.m)</Label>
+                <Input
+                  type="number"
+                  placeholder="Max size"
+                  value={sizeTo}
+                  onChange={(e) => setSizeTo(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
           </div>
         )}
       </div>
@@ -575,8 +566,8 @@ export default function PropertiesPage() {
                   </TableRow>
                 ) : (
                   properties.map((property) => (
-                    <TableRow 
-                      key={property.id} 
+                    <TableRow
+                      key={property.id}
                       className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                       onClick={() => {
                         // Відкриваємо в новій вкладці з параметрами для повернення
@@ -584,9 +575,9 @@ export default function PropertiesPage() {
                         if (propertyType !== 'off-plan') params.set('type', propertyType)
                         if (currentPage > 1) params.set('page', currentPage.toString())
                         if (searchQuery) params.set('search', searchQuery)
-                        
+
                         const returnParams = params.toString()
-                        const url = returnParams 
+                        const url = returnParams
                           ? `/properties/edit/${property.id}?return=${encodeURIComponent(returnParams)}`
                           : `/properties/edit/${property.id}`
                         window.open(url, '_blank', 'noopener,noreferrer')
@@ -612,9 +603,8 @@ export default function PropertiesPage() {
                                 height={48}
                                 src={property.photos[0]}
                                 alt={property.name || 'Property'}
-                                className={`object-cover w-full h-full transition-opacity duration-300 ${
-                                  imageLoadingStates[property.id] === false ? 'opacity-100' : 'opacity-0'
-                                }`}
+                                className={`object-cover w-full h-full transition-opacity duration-300 ${imageLoadingStates[property.id] === false ? 'opacity-100' : 'opacity-0'
+                                  }`}
                                 onLoad={() => {
                                   setImageLoadingStates((prev) => ({
                                     ...prev,
@@ -649,15 +639,15 @@ export default function PropertiesPage() {
                           <div className="flex items-start gap-2">
                             <div className="flex-1">
                               <div className="flex items-center gap-2">
-                            <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                              {property.name || 'Unnamed Property'}
-                            </span>
                                 {duplicateMarkers.has(property.id) && (
-                                  <span 
-                                    className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" 
-                                    title="Duplicate property - consider removing"
-                                  />
+                                  <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 mr-1" title="Duplicate project name" />
                                 )}
+                                <span className={`block font-medium text-theme-sm ${duplicateMarkers.has(property.id)
+                                  ? 'text-red-500 dark:text-red-400'
+                                  : 'text-gray-800 dark:text-white/90'
+                                  }`}>
+                                  {property.name || 'Unnamed Property'}
+                                </span>
                                 <button
                                   onClick={(e) => copyPropertyName(property.name || 'Unnamed Property', property.id, e)}
                                   className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 ml-2 transition-colors"
@@ -671,9 +661,16 @@ export default function PropertiesPage() {
                                   )}
                                 </button>
                               </div>
-                            <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                              ID: {property.id?.slice(0, 8)}...
-                            </span>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
+                                  ID: {property.id?.slice(0, 8)}...
+                                </span>
+                                {property.descriptionRu && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-200 dark:border-blue-800 uppercase" title="Russian description available">
+                                    ru
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -710,20 +707,20 @@ export default function PropertiesPage() {
                       <TableCell className="px-5 py-4 text-gray-500 text-start text-theme-sm dark:text-gray-400">
                         {property.updatedAt
                           ? new Date(property.updatedAt).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                          : property.createdAt
+                            ? new Date(property.createdAt).toLocaleDateString('en-US', {
                               year: 'numeric',
                               month: 'short',
                               day: 'numeric',
                               hour: '2-digit',
                               minute: '2-digit',
                             })
-                          : property.createdAt
-                            ? new Date(property.createdAt).toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
                             : '-'}
                       </TableCell>
                     </TableRow>

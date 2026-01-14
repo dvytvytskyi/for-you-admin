@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components
 import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
 import { PencilIcon, TrashBinIcon, PlusIcon } from '@/icons'
+import AvatarText from '@/components/ui/avatar/AvatarText'
 
 export default function UsersPage() {
   const router = useRouter()
@@ -33,7 +34,7 @@ export default function UsersPage() {
         type: user.role === 'BROKER' ? 'agent' : user.role === 'INVESTOR' ? 'investor' : null,
         role: user.role,
         status: user.status?.toLowerCase() || 'inactive',
-        avatar: user.avatar || 'https://i.pravatar.cc/150?img=5',
+        avatar: user.avatar,
         properties: user.role === 'BROKER' ? 0 : undefined, // TODO: Get actual count from backend
         budget: user.role === 'INVESTOR' ? '-' : undefined, // TODO: Get actual budget from backend
       }))
@@ -171,13 +172,17 @@ export default function UsersPage() {
                     <TableCell className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 overflow-hidden rounded-full">
-                          <Image
-                            width={40}
-                            height={40}
-                            src={user.avatar}
-                            alt={user.name}
-                            className="object-cover w-full h-full"
-                          />
+                          {user.avatar ? (
+                            <Image
+                              width={40}
+                              height={40}
+                              src={user.avatar}
+                              alt={user.name}
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <AvatarText name={user.name} />
+                          )}
                         </div>
                         <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
                           {user.name}

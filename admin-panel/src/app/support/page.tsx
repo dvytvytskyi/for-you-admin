@@ -5,8 +5,8 @@ import { api } from '@/lib/api'
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table'
 import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
-import Image from 'next/image'
 import { PencilIcon, PaperPlaneIcon } from '@/icons'
+import AvatarText from '@/components/ui/avatar/AvatarText'
 
 export default function SupportPage() {
   const router = useRouter()
@@ -32,7 +32,6 @@ export default function SupportPage() {
           user: {
             name: 'John Smith',
             email: 'john.smith@example.com',
-            avatar: 'https://i.pravatar.cc/150?img=1',
           },
           subject: 'Payment issue',
           message: 'I am having trouble processing my payment',
@@ -45,7 +44,6 @@ export default function SupportPage() {
           user: {
             name: 'Sarah Johnson',
             email: 'sarah.j@example.com',
-            avatar: 'https://i.pravatar.cc/150?img=2',
           },
           subject: 'Account access',
           message: 'Cannot log into my account',
@@ -58,7 +56,6 @@ export default function SupportPage() {
           user: {
             name: 'Michael Brown',
             email: 'm.brown@example.com',
-            avatar: 'https://i.pravatar.cc/150?img=3',
           },
           subject: 'General question',
           message: 'How do I reset my password?',
@@ -137,14 +134,14 @@ export default function SupportPage() {
     const date = new Date(dateString)
     const now = new Date()
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-    
+
     if (diffInSeconds < 60) return 'Just now'
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
     return `${Math.floor(diffInSeconds / 86400)}d ago`
   }
 
-  const filteredRequests = statusFilter 
+  const filteredRequests = statusFilter
     ? requests.filter(r => r.status === statusFilter)
     : requests
 
@@ -177,7 +174,7 @@ export default function SupportPage() {
             </div>
             <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-                <path d="M8 2L2 6V14H6V9H10V14H14V6L8 2Z" fill="currentColor" className="text-gray-600 dark:text-gray-400"/>
+                <path d="M8 2L2 6V14H6V9H10V14H14V6L8 2Z" fill="currentColor" className="text-gray-600 dark:text-gray-400" />
               </svg>
             </div>
           </div>
@@ -190,7 +187,7 @@ export default function SupportPage() {
             </div>
             <div className="w-12 h-12 rounded-full bg-error-50 dark:bg-error-900/20 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-                <path d="M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12ZM8 4.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5Zm0 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" fill="currentColor" className="text-error-600 dark:text-error-400"/>
+                <path d="M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12ZM8 4.5a.5.5 0 0 0-.5.5v3a.5.5 0 0 0 1 0V5a.5.5 0 0 0-.5-.5Zm0 6a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" fill="currentColor" className="text-error-600 dark:text-error-400" />
               </svg>
             </div>
           </div>
@@ -203,7 +200,7 @@ export default function SupportPage() {
             </div>
             <div className="w-12 h-12 rounded-full bg-warning-50 dark:bg-warning-900/20 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-                <path d="M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12ZM8 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm-.5 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1H8a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1H8a.5.5 0 0 1-.5-.5Z" fill="currentColor" className="text-warning-600 dark:text-warning-400"/>
+                <path d="M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12ZM8 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8Zm-.5 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1H8a.5.5 0 0 1-.5-.5Zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1H8a.5.5 0 0 1-.5-.5Z" fill="currentColor" className="text-warning-600 dark:text-warning-400" />
               </svg>
             </div>
           </div>
@@ -216,7 +213,7 @@ export default function SupportPage() {
             </div>
             <div className="w-12 h-12 rounded-full bg-success-50 dark:bg-success-900/20 flex items-center justify-center">
               <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-                <path d="M14 4L6 12L2 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-success-600 dark:text-success-400"/>
+                <path d="M14 4L6 12L2 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-success-600 dark:text-success-400" />
               </svg>
             </div>
           </div>
@@ -227,41 +224,37 @@ export default function SupportPage() {
       <div className="flex items-center gap-2 overflow-x-auto">
         <button
           onClick={() => setStatusFilter(null)}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-            statusFilter === null
-              ? 'bg-brand-500 text-white'
-              : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
-          }`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === null
+            ? 'bg-brand-500 text-white'
+            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
+            }`}
         >
           All
         </button>
         <button
           onClick={() => setStatusFilter('pending')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-            statusFilter === 'pending'
-              ? 'bg-brand-500 text-white'
-              : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
-          }`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === 'pending'
+            ? 'bg-brand-500 text-white'
+            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
+            }`}
         >
           Pending
         </button>
         <button
           onClick={() => setStatusFilter('in-progress')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-            statusFilter === 'in-progress'
-              ? 'bg-brand-500 text-white'
-              : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
-          }`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === 'in-progress'
+            ? 'bg-brand-500 text-white'
+            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
+            }`}
         >
           In Progress
         </button>
         <button
           onClick={() => setStatusFilter('resolved')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-            statusFilter === 'resolved'
-              ? 'bg-brand-500 text-white'
-              : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
-          }`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${statusFilter === 'resolved'
+            ? 'bg-brand-500 text-white'
+            : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-white/5'
+            }`}
         >
           Resolved
         </button>
@@ -309,21 +302,25 @@ export default function SupportPage() {
                 </TableRow>
               ) : (
                 filteredRequests.map((request) => (
-                  <TableRow 
-                    key={request.id} 
+                  <TableRow
+                    key={request.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                     onClick={() => router.push(`/support/${request.id}`)}
                   >
                     <TableCell className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 overflow-hidden rounded-full">
-                          <Image
-                            width={40}
-                            height={40}
-                            src={request.user?.avatar || 'https://i.pravatar.cc/150?img=5'}
-                            alt={request.user?.name || 'User'}
-                            className="object-cover w-full h-full"
-                          />
+                          {request.user?.avatar ? (
+                            <Image
+                              width={40}
+                              height={40}
+                              src={request.user.avatar}
+                              alt={request.user?.name || 'User'}
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <AvatarText name={request.user?.name || 'Unknown User'} />
+                          )}
                         </div>
                         <div>
                           <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
@@ -367,14 +364,14 @@ export default function SupportPage() {
                     </TableCell>
                     <TableCell className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => router.push(`/support/${request.id}`)}
                           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                           title="View/Edit"
                         >
                           <PencilIcon className="w-4 h-4" />
                         </button>
-                        <button 
+                        <button
                           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                           title="Reply"
                         >

@@ -29,6 +29,12 @@ export class Area {
   };
 
   @Column('jsonb', { nullable: true })
+  descriptionRu?: {
+    title?: string;
+    description?: string;
+  };
+
+  @Column('jsonb', { nullable: true })
   infrastructure?: {
     title?: string;
     description?: string;

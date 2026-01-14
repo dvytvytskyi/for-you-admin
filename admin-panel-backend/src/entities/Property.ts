@@ -52,6 +52,9 @@ export class Property {
   @Column('text')
   description!: string;
 
+  @Column('text', { nullable: true })
+  descriptionRu?: string;
+
   @Column('uuid', { nullable: true })
   developerId!: string;
   @ManyToOne(() => Developer)
