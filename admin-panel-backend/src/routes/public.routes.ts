@@ -1046,13 +1046,9 @@ router.get('/news/:slug', authenticateApiKeyWithSecret, async (req: AuthRequest,
 // GET /api/public/map - Get lightweight property data for map (id, coordinates, price)
 router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    console.log('[Public API] GET /api/public/map request:', {
-      hasApiKey: !!req.apiKey,
-      apiKeyName: req.apiKey?.name,
-    });
+    console.log('[Public API] GET /api/public/map request');
 
-    // Use QueryBuilder for optimized selection of specific fields only
-    const rawProperties = await AppDataSource.getRepository(Property)
+    const properties = await AppDataSource.getRepository(Property)
       .createQueryBuilder('property')
       .select([
         'property.id',
@@ -1066,22 +1062,68 @@ router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
       .andWhere('property.longitude IS NOT NULL')
       .getMany();
 
-    // Map to simple structure
-    const mapPoints = rawProperties.map(p => ({
+    const mapPoints = properties.map(p => ({
       id: p.id,
       lat: p.latitude,
       lng: p.longitude,
-      price: p.propertyType === 'off-plan' ? p.priceFrom : p.price,
+      priceAED: p.propertyType === 'off-plan'
+        ? (p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null)
+        : (p.price ? Conversions.usdToAed(p.price) : null),
+      propertyType: p.propertyType,
     }));
 
-    console.log('[Public API] ✅ Map response sent:', {
-      totalPoints: mapPoints.length,
-    });
-
+    res.setHeader('Cache-Control', 'public, max-age=300'); // Cache for 5 mins
     res.json(successResponse(mapPoints));
   } catch (error: any) {
-    console.error('Error fetching map data:', error);
     res.status(500).json(errorResponse('Failed to fetch map data', error.message));
+  }
+});
+
+// GET /api/public/areas-simple - Get minimal area data for filters
+router.get('/areas-simple', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const areas = await AppDataSource.getRepository(Area)
+      .createQueryBuilder('area')
+      .select(['area.id', 'area.nameEn', 'area.nameRu', 'area.nameAr'])
+      .orderBy('area.nameEn', 'ASC')
+      .getMany();
+
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(successResponse(areas));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch areas', error.message));
+  }
+});
+
+// GET /api/public/developers-simple - Get minimal developer data for filters
+router.get('/developers-simple', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const developers = await AppDataSource.getRepository(Developer)
+      .createQueryBuilder('developer')
+      .select(['developer.id', 'developer.name'])
+      .orderBy('developer.name', 'ASC')
+      .getMany();
+
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(successResponse(developers));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch developers', error.message));
+  }
+});
+
+// GET /api/public/facilities-list - Simple list of facilities
+router.get('/facilities-list', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const facilities = await AppDataSource.getRepository(Facility)
+      .createQueryBuilder('facility')
+      .select(['facility.id', 'facility.nameEn', 'facility.nameRu', 'facility.nameAr', 'facility.iconName'])
+      .orderBy('facility.nameEn', 'ASC')
+      .getMany();
+
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(successResponse(facilities));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch facilities', error.message));
   }
 });
 
