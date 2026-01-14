@@ -51,6 +51,8 @@ FILES=(
   "admin-panel-backend/src/routes/settings.routes.ts"
   "admin-panel/src/app/settings/page.tsx"
   "admin-panel-backend/src/scripts/translate-areas-azure.ts"
+  "admin-panel-backend/src/routes/images.routes.ts"
+  "admin-panel-backend/src/entities/Property.ts"
   "docker-compose.prod.yml"
 )
 
