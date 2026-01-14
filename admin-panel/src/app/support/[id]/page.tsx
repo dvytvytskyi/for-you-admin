@@ -5,13 +5,14 @@ import { api } from '@/lib/api'
 import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
 import Image from 'next/image'
+import AvatarText from '@/components/ui/avatar/AvatarText'
 
 export default function TicketDetailPage() {
   const router = useRouter()
   const params = useParams()
   const ticketId = params.id as string
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  
+
   const [ticket, setTicket] = useState<any>(null)
   const [responses, setResponses] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -81,11 +82,11 @@ export default function TicketDetailPage() {
         message: replyMessage,
         isFromAdmin: true,
       })
-      
+
       setResponses([...responses, data.data])
       setReplyMessage('')
       await loadTicket()
-      
+
       // Update status if needed
       if (selectedStatus !== ticket?.status) {
         await api.patch(`/support/${ticketId}/status`, { status: selectedStatus })
@@ -116,7 +117,7 @@ export default function TicketDetailPage() {
     const now = new Date()
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
     const diffInDays = Math.floor(diffInHours / 24)
-    
+
     if (diffInHours < 1) return 'Just now'
     if (diffInHours < 24) return `${diffInHours} hrs ago`
     if (diffInDays === 1) return '1 day ago'
@@ -170,7 +171,7 @@ export default function TicketDetailPage() {
           onClick={() => router.back()}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Back
         </Button>
@@ -209,20 +210,25 @@ export default function TicketDetailPage() {
                     className={`flex gap-4 ${msg.isFromAdmin ? 'flex-row-reverse' : 'flex-row'}`}
                   >
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
-                      <Image
-                        width={40}
-                        height={40}
-                        src={msg.isFromAdmin ? "https://i.pravatar.cc/150?img=5" : (ticket.user?.avatar || 'https://i.pravatar.cc/150?img=5')}
-                        alt={msg.isFromAdmin ? "Admin" : (ticket.user?.name || 'User')}
-                        className="object-cover w-full h-full"
-                      />
+                      {msg.isFromAdmin ? (
+                        <AvatarText name="Admin" className="bg-brand-100 text-brand-600" />
+                      ) : ticket.user?.avatar ? (
+                        <Image
+                          width={40}
+                          height={40}
+                          src={ticket.user.avatar}
+                          alt={ticket.user?.name || 'User'}
+                          className="object-cover w-full h-full"
+                        />
+                      ) : (
+                        <AvatarText name={ticket.user?.name || 'User'} />
+                      )}
                     </div>
                     <div
-                      className={`max-w-[80%] rounded-lg p-4 ${
-                        msg.isFromAdmin
+                      className={`max-w-[80%] rounded-lg p-4 ${msg.isFromAdmin
                           ? 'bg-brand-500 text-white'
                           : 'bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-gray-100'
-                      }`}
+                        }`}
                     >
                       {msg.isFromAdmin ? (
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.message}</p>
@@ -269,7 +275,7 @@ export default function TicketDetailPage() {
                         className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 dark:text-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700"
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <path d="M9.33333 2L14 6.66667M14 6.66667H10.6667M14 6.66667V3.33333M13.3333 13.3333H2.66667C2.29848 13.3333 2 13.0348 2 12.6667V3.33333C2 2.96514 2.29848 2.66667 2.66667 2.66667H7.33333L9.33333 4.66667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <path d="M9.33333 2L14 6.66667M14 6.66667H10.6667M14 6.66667V3.33333M13.3333 13.3333H2.66667C2.29848 13.3333 2 13.0348 2 12.6667V3.33333C2 2.96514 2.29848 2.66667 2.66667 2.66667H7.33333L9.33333 4.66667" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         Attach
                       </button>

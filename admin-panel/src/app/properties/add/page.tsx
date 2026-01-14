@@ -84,6 +84,7 @@ const offPlanSchema = z.object({
     return String(val).trim()
   }).refine((val) => val.length > 0, { message: 'Size to is required' }),
   description: z.string().min(1, 'Description is required').max(400, 'Description cannot exceed 400 characters'),
+  descriptionRu: z.string().optional(),
   facilityIds: z.array(z.string()).optional(),
   developerId: z.string().optional(),
   paymentPlan: z.string().optional(),
@@ -121,6 +122,8 @@ const secondarySchema = z.object({
     if (val === null || val === undefined || val === '') return ''
     return String(val).trim()
   }).refine((val) => val.length > 0, { message: 'Size is required' }),
+  description: z.string().optional(),
+  descriptionRu: z.string().optional(),
   developerId: z.string().optional(),
   isForYouChoice: z.boolean().default(false),
 })
@@ -401,6 +404,7 @@ export default function AddPropertyPage() {
         payload.sizeFrom = parseFloat(data.sizeFrom)
         payload.sizeTo = parseFloat(data.sizeTo)
         payload.description = data.description
+        payload.descriptionRu = data.descriptionRu
         payload.paymentPlan = data.paymentPlan || undefined
         payload.facilityIds = data.facilityIds || []
         if (units.length > 0) {
@@ -420,6 +424,8 @@ export default function AddPropertyPage() {
         payload.bedrooms = parseInt(data.bedrooms)
         payload.bathrooms = parseInt(data.bathrooms)
         payload.size = parseFloat(data.size)
+        payload.description = data.description
+        payload.descriptionRu = data.descriptionRu
       }
 
       const response = await api.post('/properties', payload)
@@ -524,19 +530,24 @@ export default function AddPropertyPage() {
                 )}
               </div>
 
-              <div className="md:col-span-2 flex items-center gap-2">
-                <Controller
-                  name="isForYouChoice"
-                  control={control}
-                  render={({ field }) => (
-                    <Checkbox
-                      id="isForYouChoice"
-                      checked={field.value || false}
-                      onChange={(checked) => field.onChange(checked)}
-                      label="Special from ForYou"
-                    />
-                  )}
-                />
+              <div className="md:col-span-2">
+                <div className="flex flex-col gap-1">
+                  <Controller
+                    name="isForYouChoice"
+                    control={control}
+                    render={({ field }) => (
+                      <Checkbox
+                        id="isForYouChoice"
+                        checked={field.value || false}
+                        onChange={(checked) => field.onChange(checked)}
+                        label="Special from ForYou"
+                      />
+                    )}
+                  />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 ml-8">
+                    Відмітити цей об'єкт як власний лістінг. Він буде відображатися вгорі у вкладці недвижимость та на головній сторінці.
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -898,17 +909,28 @@ export default function AddPropertyPage() {
               </div>
 
               <div>
-                <Label htmlFor="description">Description *</Label>
+                <Label htmlFor="description">Description (EN) *</Label>
                 <TextArea
                   id="description"
-                  rows={6}
+                  rows={4}
                   value={watch('description') || ''}
                   onChange={(value) => setValue('description', value)}
-                  placeholder="Enter description"
+                  placeholder="Enter English description"
                 />
                 {(errors as any).description && (
                   <p className="mt-1 text-sm text-error-500">{(errors as any).description.message}</p>
                 )}
+              </div>
+
+              <div>
+                <Label htmlFor="descriptionRu">Description (RU)</Label>
+                <TextArea
+                  id="descriptionRu"
+                  rows={4}
+                  value={watch('descriptionRu') || ''}
+                  onChange={(value: string) => setValue('descriptionRu', value)}
+                  placeholder="Russian translation will appear here automatically"
+                />
               </div>
 
               <div>

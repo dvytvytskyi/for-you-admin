@@ -57,3 +57,14 @@ import-errors.json
 # Script output files
 area-projects.md
 
+
+# Database Data
+docker-data/
+
+# Migration Checkpoints
+src/scripts/.migration_checkpoint*
+
+# Temporary Scripts
+*.exp
+*.pdf
+

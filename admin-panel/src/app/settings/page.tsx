@@ -57,10 +57,10 @@ export default function SettingsPage() {
           return { data: { data: [] } };
         }),
       ])
-      
+
       console.log('Loaded developers:', devs.data?.data?.length || 0);
       const developersData = devs.data?.data || []
-      
+
       // Log sample developer data to verify structure
       if (developersData.length > 0) {
         const sampleDev = developersData.find((d: any) => d.logo || d.description || d.images)
@@ -78,7 +78,7 @@ export default function SettingsPage() {
           })
         }
       }
-      
+
       setDevelopers(developersData)
       setFacilities(facs.data?.data || [])
       setCountries(locations.data?.data?.countries || [])
@@ -137,7 +137,7 @@ function DevelopersTab({ developers, onReload }: any) {
   const [addingDeveloper, setAddingDeveloper] = useState(false)
   const [cleaningUp, setCleaningUp] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  
+
   // Developer edit modal state
   const [showEditDeveloperModal, setShowEditDeveloperModal] = useState(false)
   const [editingDeveloper, setEditingDeveloper] = useState<any>(null)
@@ -148,17 +148,17 @@ function DevelopersTab({ developers, onReload }: any) {
   const [savingDeveloper, setSavingDeveloper] = useState(false)
   const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
   const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
-  
+
   // Helper to check if button should be enabled
   const hasValidInput = newDeveloper && newDeveloper.trim().length > 0
   const isButtonDisabled = addingDeveloper || !hasValidInput
   const itemsPerPage = 100
-  
+
   // Reset addingDeveloper state on mount (in case it was stuck)
   useEffect(() => {
     setAddingDeveloper(false)
   }, [])
-  
+
   // Reset addingDeveloper state if it gets stuck (safety mechanism)
   useEffect(() => {
     if (addingDeveloper) {
@@ -169,14 +169,14 @@ function DevelopersTab({ developers, onReload }: any) {
       return () => clearTimeout(timer)
     }
   }, [addingDeveloper])
-  
+
   // Debug: log state changes
   useEffect(() => {
-    console.log('Developer input state:', { 
-      newDeveloper, 
-      hasValidInput, 
-      addingDeveloper, 
-      isButtonDisabled 
+    console.log('Developer input state:', {
+      newDeveloper,
+      hasValidInput,
+      addingDeveloper,
+      isButtonDisabled
     })
   }, [newDeveloper, hasValidInput, addingDeveloper, isButtonDisabled])
 
@@ -453,28 +453,28 @@ function DevelopersTab({ developers, onReload }: any) {
 
   const handleAdd = async () => {
     console.log('handleAdd called', { newDeveloper, addingDeveloper })
-    
+
     if (!newDeveloper || !newDeveloper.trim()) {
       alert('Please enter a developer name')
       return
     }
-    
+
     if (addingDeveloper) {
       console.log('Already adding, ignoring')
       return // Prevent double submission
     }
-    
+
     const developerName = newDeveloper.trim()
     console.log('Setting addingDeveloper to true')
     setAddingDeveloper(true)
-    
+
     try {
       console.log('Adding developer:', developerName)
-      
+
       // Try to add developer
       const response = await api.post('/settings/developers', { name: developerName })
       console.log('Success:', response.data)
-      
+
       if (response.data?.success !== false) {
         // Success - clear input and reload
         setNewDeveloper('')
@@ -486,7 +486,7 @@ function DevelopersTab({ developers, onReload }: any) {
     } catch (error: any) {
       console.error('Error adding developer:', error)
       console.error('Error response:', error.response)
-      
+
       // Check if it's an auth error
       if (error.response?.status === 401 || error.response?.status === 403) {
         alert('Please log in to add developers')
@@ -495,7 +495,7 @@ function DevelopersTab({ developers, onReload }: any) {
         }
         return
       }
-      
+
       const errorMessage = error.response?.data?.message || error.message || 'Failed to add developer'
       alert(errorMessage)
     } finally {
@@ -508,16 +508,16 @@ function DevelopersTab({ developers, onReload }: any) {
     try {
       const existingNames = new Set(developers.map((d: any) => d.name))
       const toAdd = predefinedDevelopers.filter(name => !existingNames.has(name))
-      
+
       if (toAdd.length === 0) {
         return
       }
-      
+
       // Add all developers in parallel, but ignore duplicates (409 errors)
       const results = await Promise.allSettled(
         toAdd.map(name => api.post('/settings/developers', { name }))
       )
-      
+
       // Log any errors except duplicate errors (409)
       results.forEach((result, index) => {
         if (result.status === 'rejected') {
@@ -527,7 +527,7 @@ function DevelopersTab({ developers, onReload }: any) {
           }
         }
       })
-      
+
       onReload()
     } catch (error) {
       console.error('Error loading predefined developers:', error)
@@ -541,19 +541,19 @@ function DevelopersTab({ developers, onReload }: any) {
 
   const handleConfirmDelete = async () => {
     if (!developerToDelete) return
-    
+
     setDeletingId(developerToDelete.id)
     try {
       await api.delete(`/settings/developers/${developerToDelete.id}`)
       setShowDeleteModal(false)
       setDeveloperToDelete(null)
-      
+
       // Adjust page if current page becomes empty after deletion
       const newTotalPages = Math.ceil((developers.length - 1) / itemsPerPage)
       if (currentPage > newTotalPages && newTotalPages > 0) {
         setCurrentPage(newTotalPages)
       }
-      
+
       onReload()
     } catch (error) {
       console.error('Error deleting developer:', error)
@@ -589,7 +589,7 @@ function DevelopersTab({ developers, onReload }: any) {
   const handleEditDeveloperClick = (developer: any) => {
     console.log('Opening developer modal with data:', developer)
     console.log('Developer images raw:', developer.images, 'Type:', typeof developer.images)
-    
+
     // Ensure images is an array (TypeORM simple-array might return string)
     let images = developer.images || []
     if (typeof images === 'string') {
@@ -602,9 +602,9 @@ function DevelopersTab({ developers, onReload }: any) {
     } else if (!Array.isArray(images)) {
       images = []
     }
-    
+
     console.log('Processed images:', images)
-    
+
     setEditingDeveloper(developer)
     setDeveloperDescription(developer.description || '')
     setDeveloperLogo(developer.logo || '')
@@ -701,11 +701,11 @@ function DevelopersTab({ developers, onReload }: any) {
         imagesIsArray: Array.isArray(editingDeveloper.images),
         imagesValue: editingDeveloper.images
       })
-      
+
       // Ensure images is an array (TypeORM simple-array might return string)
       let images = editingDeveloper.images || []
       console.log('Raw images from developer:', images, 'Type:', typeof images, 'IsArray:', Array.isArray(images))
-      
+
       if (typeof images === 'string') {
         // If it's a string (comma-separated), split it
         if (images.trim()) {
@@ -721,7 +721,7 @@ function DevelopersTab({ developers, onReload }: any) {
       } else {
         images = []
       }
-      
+
       console.log('Setting modal fields:', {
         description: editingDeveloper.description || '',
         logo: editingDeveloper.logo || '',
@@ -729,7 +729,7 @@ function DevelopersTab({ developers, onReload }: any) {
         imagesCount: images.length,
         imageUrls: images
       })
-      
+
       setDeveloperDescription(editingDeveloper.description || '')
       setDeveloperLogo(editingDeveloper.logo || '')
       setDeveloperImages(images)
@@ -779,16 +779,16 @@ function DevelopersTab({ developers, onReload }: any) {
               }
             }}
           />
-          <Tooltip 
-            content="Please fill in the developer name field first" 
+          <Tooltip
+            content="Please fill in the developer name field first"
             disabled={hasValidInput || addingDeveloper}
           >
-            <Button 
-              onClick={handleAdd} 
+            <Button
+              onClick={handleAdd}
               disabled={addingDeveloper || !hasValidInput}
               className="min-w-[100px]"
               type="button"
-              style={{ 
+              style={{
                 opacity: (addingDeveloper || !hasValidInput) ? 0.5 : 1,
                 cursor: (addingDeveloper || !hasValidInput) ? 'not-allowed' : 'pointer'
               }}
@@ -813,8 +813,8 @@ function DevelopersTab({ developers, onReload }: any) {
         <div className="relative">
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M14 14L11.1 11.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 14L11.1 11.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </div>
           <Input
@@ -831,7 +831,7 @@ function DevelopersTab({ developers, onReload }: any) {
               title="Clear search"
             >
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </button>
           )}
@@ -877,7 +877,7 @@ function DevelopersTab({ developers, onReload }: any) {
                       </svg>
                     ) : (
                       <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor"/>
+                        <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor" />
                       </svg>
                     )}
                   </button>
@@ -925,7 +925,7 @@ function DevelopersTab({ developers, onReload }: any) {
           <div className="flex items-start gap-4 mb-6">
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-error-100 dark:bg-error-900/20 flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-error-600 dark:text-error-400">
-                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </div>
             <div className="flex-1">
@@ -1050,14 +1050,14 @@ function DevelopersTab({ developers, onReload }: any) {
                   {developerImages.length} photo{developerImages.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              
+
               {developerImages.length > 0 && (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {developerImages.map((url, index) => {
                     // Перевіряємо чи URL валідний
                     const trimmedUrl = url && typeof url === 'string' ? url.trim() : ''
                     const isValidUrl = trimmedUrl.length > 0 && (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/'))
-                    
+
                     if (!isValidUrl) {
                       console.warn('Invalid developer image URL at index', index, ':', url, 'Type:', typeof url)
                       return (
@@ -1068,7 +1068,7 @@ function DevelopersTab({ developers, onReload }: any) {
                         </div>
                       )
                     }
-                    
+
                     return (
                       <div key={index} className="relative group">
                         <img
@@ -1101,7 +1101,7 @@ function DevelopersTab({ developers, onReload }: any) {
                           title="Remove photo"
                         >
                           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                           </svg>
                         </button>
                       </div>
@@ -1191,14 +1191,14 @@ function FacilitiesTab({ facilities, onReload }: any) {
       alert('Please enter a facility name')
       return
     }
-    
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!token) {
       alert('Please log in to add facilities')
       window.location.href = '/login'
       return
     }
-    
+
     try {
       console.log('Adding facility:', newFacility.trim())
       // Generate icon name from facility name
@@ -1208,8 +1208,8 @@ function FacilitiesTab({ facilities, onReload }: any) {
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-')
         .trim();
-      
-      const response = await api.post('/settings/facilities', { 
+
+      const response = await api.post('/settings/facilities', {
         nameEn: newFacility.trim(),
         nameRu: newFacility.trim(),
         nameAr: newFacility.trim(),
@@ -1233,7 +1233,7 @@ function FacilitiesTab({ facilities, onReload }: any) {
 
   const handleConfirmDelete = async () => {
     if (!facilityToDelete) return
-    
+
     setDeletingId(facilityToDelete.id)
     try {
       await api.delete(`/settings/facilities/${facilityToDelete.id}`)
@@ -1289,7 +1289,7 @@ function FacilitiesTab({ facilities, onReload }: any) {
                     </svg>
                   ) : (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor"/>
+                      <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor" />
                     </svg>
                   )}
                 </button>
@@ -1305,7 +1305,7 @@ function FacilitiesTab({ facilities, onReload }: any) {
           <div className="flex items-start gap-4 mb-6">
             <div className="flex-shrink-0 w-12 h-12 rounded-full bg-error-100 dark:bg-error-900/20 flex items-center justify-center">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-error-600 dark:text-error-400">
-                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </div>
             <div className="flex-1">
@@ -1356,11 +1356,12 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [itemToDelete, setItemToDelete] = useState<any>(null)
-  
+
   // Area edit modal state
   const [showEditAreaModal, setShowEditAreaModal] = useState(false)
   const [editingArea, setEditingArea] = useState<any>(null)
   const [areaDescription, setAreaDescription] = useState({ title: '', description: '' })
+  const [areaDescriptionRu, setAreaDescriptionRu] = useState({ title: '', description: '' })
   const [areaInfrastructure, setAreaInfrastructure] = useState({ title: '', description: '' })
   const [areaImages, setAreaImages] = useState<string[]>([])
   const [uploadingImage, setUploadingImage] = useState(false)
@@ -1371,20 +1372,20 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
       alert('Please enter a name')
       return
     }
-    
+
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (!token) {
       alert('Please log in to add locations')
       window.location.href = '/login'
       return
     }
-    
+
     try {
       console.log('Adding location:', activeSection, newItem.trim())
       const endpoint = `/settings/${activeSection}`
-      
+
       let payload: any = {};
-      
+
       if (activeSection === 'countries') {
         // For countries, we need nameEn and code
         // User enters name, we'll use it as nameEn and generate code from first 2 letters
@@ -1405,12 +1406,12 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
         const countriesResponse = await api.get('/settings/countries').catch(() => ({ data: { data: [] } }));
         const countries = countriesResponse.data?.data || [];
         const defaultCountryId = countries.length > 0 ? countries[0].id : null;
-        
+
         if (!defaultCountryId) {
           alert('Please create a country first');
           return;
         }
-        
+
         payload = {
           nameEn: newItem.trim(),
           nameRu: newItem.trim(),
@@ -1423,12 +1424,12 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
         const citiesResponse = await api.get('/settings/cities').catch(() => ({ data: { data: [] } }));
         const cities = citiesResponse.data?.data || [];
         const defaultCityId = cities.length > 0 ? cities[0].id : null;
-        
+
         if (!defaultCityId) {
           alert('Please create a city first');
           return;
         }
-        
+
         payload = {
           nameEn: newItem.trim(),
           nameRu: newItem.trim(),
@@ -1436,7 +1437,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
           cityId: defaultCityId
         };
       }
-      
+
       console.log('Payload:', payload)
       const response = await api.post(endpoint, payload)
       console.log('Success:', response.data)
@@ -1460,7 +1461,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
       // Завантажуємо повні дані району з API для отримання актуальних description, infrastructure, images
       const response = await api.get(`/settings/areas/${area.id}`).catch(() => ({ data: { data: area } }))
       const fullArea = response.data?.data || area
-      
+
       // Обробляємо description (може бути об'єктом або рядком)
       let descriptionObj = { title: '', description: '' }
       if (fullArea.description) {
@@ -1476,7 +1477,18 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
           }
         }
       }
-      
+
+      // Обробляємо descriptionRu
+      let descriptionRuObj = { title: '', description: '' }
+      if (fullArea.descriptionRu) {
+        if (typeof fullArea.descriptionRu === 'object') {
+          descriptionRuObj = {
+            title: fullArea.descriptionRu.title || '',
+            description: fullArea.descriptionRu.description || ''
+          }
+        }
+      }
+
       // Обробляємо infrastructure (може бути об'єктом або рядком)
       let infrastructureObj = { title: '', description: '' }
       if (fullArea.infrastructure) {
@@ -1492,11 +1504,11 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
           }
         }
       }
-      
+
       // Обробляємо images (має бути масивом)
       console.log('[handleEditAreaClick] Raw images from API:', fullArea.images, 'Type:', typeof fullArea.images, 'IsArray:', Array.isArray(fullArea.images))
       let imagesArray: string[] = []
-      
+
       // Helper function to clean URL
       const cleanUrl = (url: string): string => {
         if (!url || typeof url !== 'string') return ''
@@ -1516,7 +1528,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
         }
         return cleaned
       }
-      
+
       if (fullArea.images) {
         if (Array.isArray(fullArea.images)) {
           // Фільтруємо та очищаємо URL
@@ -1551,12 +1563,13 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
           }
         }
       }
-      
+
       console.log('[handleEditAreaClick] Processed images:', imagesArray.map((url, i) => ({ index: i, url: url.substring(0, 60) })))
-      
+
       console.log('[handleEditAreaClick] Final images array:', imagesArray, 'Length:', imagesArray.length)
       setEditingArea(fullArea)
       setAreaDescription(descriptionObj)
+      setAreaDescriptionRu(descriptionRuObj)
       setAreaInfrastructure(infrastructureObj)
       setAreaImages(imagesArray)
       setShowEditAreaModal(true)
@@ -1567,6 +1580,10 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
       setAreaDescription({
         title: typeof area.description === 'object' ? (area.description?.title || '') : '',
         description: typeof area.description === 'object' ? (area.description?.description || '') : (typeof area.description === 'string' ? area.description : '')
+      })
+      setAreaDescriptionRu({
+        title: typeof area.descriptionRu === 'object' ? (area.descriptionRu?.title || '') : '',
+        description: typeof area.descriptionRu === 'object' ? (area.descriptionRu?.description || '') : ''
       })
       setAreaInfrastructure({
         title: typeof area.infrastructure === 'object' ? (area.infrastructure?.title || '') : '',
@@ -1611,6 +1628,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
     setShowEditAreaModal(false)
     setEditingArea(null)
     setAreaDescription({ title: '', description: '' })
+    setAreaDescriptionRu({ title: '', description: '' })
     setAreaInfrastructure({ title: '', description: '' })
     setAreaImages([])
   }
@@ -1620,26 +1638,26 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
     return new Promise((resolve) => {
       const img = new Image()
       const objectUrl = URL.createObjectURL(file)
-      
+
       img.onload = () => {
         URL.revokeObjectURL(objectUrl)
         const width = img.width
         const height = img.height
         const aspectRatio = width / height
-        
+
         // Check for 3x4 (0.75) or 4x3 (1.333...)
         // Allow tolerance (±0.05) for more flexibility
         const is3x4 = Math.abs(aspectRatio - 0.75) < 0.05
         const is4x3 = Math.abs(aspectRatio - 1.333) < 0.05
-        
+
         resolve(is3x4 || is4x3)
       }
-      
+
       img.onerror = () => {
         URL.revokeObjectURL(objectUrl)
         resolve(false)
       }
-      
+
       img.src = objectUrl
     })
   }
@@ -1717,10 +1735,11 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
     try {
       await api.put(`/settings/areas/${editingArea.id}`, {
         description: areaDescription,
+        descriptionRu: areaDescriptionRu,
         infrastructure: areaInfrastructure,
         images: areaImages,
       })
-      
+
       onReload()
       handleCloseEditAreaModal()
     } catch (error: any) {
@@ -1733,7 +1752,7 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
 
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return
-    
+
     setDeletingId(itemToDelete.id)
     try {
       const endpoint = `/settings/${activeSection}/${itemToDelete.id}`
@@ -1761,365 +1780,390 @@ function LocationsTab({ countries, cities, areas, onReload }: any) {
 
   return (
     <>
-    <div className="space-y-6">
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-800">
-        <button
-          onClick={() => setActiveSection('countries')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeSection === 'countries'
+      <div className="space-y-6">
+        <div className="flex gap-2 border-b border-gray-200 dark:border-gray-800">
+          <button
+            onClick={() => setActiveSection('countries')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeSection === 'countries'
               ? 'border-brand-500 text-brand-500'
               : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Countries
-        </button>
-        <button
-          onClick={() => setActiveSection('cities')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeSection === 'cities'
-              ? 'border-brand-500 text-brand-500'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Cities
-        </button>
-        <button
-          onClick={() => setActiveSection('areas')}
-          className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${
-            activeSection === 'areas'
-              ? 'border-brand-500 text-brand-500'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Areas
-        </button>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <Input
-          type="text"
-          placeholder={`${activeSection === 'countries' ? 'Country' : activeSection === 'cities' ? 'City' : 'Area'} name`}
-          value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              handleAdd()
-            }
-          }}
-          className="flex-1"
-        />
-        <Tooltip 
-          content={tooltipMessage}
-          disabled={hasValidInput}
-        >
-          <Button 
-            onClick={handleAdd} 
-            disabled={!hasValidInput}
-            className="min-w-[100px]"
-          >
-            Add
-          </Button>
-        </Tooltip>
-      </div>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {items.length === 0 ? (
-          <p className="text-gray-500">No items</p>
-        ) : (
-          items.map((item: any) => (
-            <div
-              key={item.id}
-              className={`flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-800 ${
-                activeSection === 'areas' ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''
               }`}
-              onClick={activeSection === 'areas' ? () => handleEditAreaClick(item) : undefined}
-            >
-              <span className="text-gray-800 dark:text-white flex-1">
-                {item.nameEn || item.nameRu || item.nameAr || item.name || 'Unnamed'}
-              </span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDeleteClick(item)
-                }}
-                disabled={deletingId === item.id}
-                className="text-error-500 hover:text-error-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
-              >
-                {deletingId === item.id ? (
-                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor"/>
-                  </svg>
-                )}
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Delete Confirmation Modal */}
-      <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="max-w-md m-4">
-        <div className="p-6">
-          <div className="flex items-start gap-4 mb-6">
-            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-error-100 dark:bg-error-900/20 flex items-center justify-center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-error-600 dark:text-error-400">
-                <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Delete {sectionName}
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Are you sure you want to delete <span className="font-medium text-gray-900 dark:text-white">"{itemToDelete?.nameEn || itemToDelete?.nameRu || itemToDelete?.nameAr || itemToDelete?.name || 'this item'}"</span>? This action cannot be undone.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            <Button
-              variant="outline"
-              onClick={handleCancelDelete}
-              disabled={deletingId !== null}
-            >
-              No, Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmDelete}
-              disabled={deletingId !== null}
-              className="bg-error-600 hover:bg-error-700 text-white"
-            >
-              {deletingId !== null ? (
-                <>
-                  <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Deleting...
-                </>
-              ) : (
-                'Yes, Delete'
-              )}
-            </Button>
-          </div>
+          >
+            Countries
+          </button>
+          <button
+            onClick={() => setActiveSection('cities')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeSection === 'cities'
+              ? 'border-brand-500 text-brand-500'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+          >
+            Cities
+          </button>
+          <button
+            onClick={() => setActiveSection('areas')}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 ${activeSection === 'areas'
+              ? 'border-brand-500 text-brand-500'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+          >
+            Areas
+          </button>
         </div>
-      </Modal>
 
-      {/* Edit Area Modal */}
-      <Modal isOpen={showEditAreaModal} onClose={handleCloseEditAreaModal} className="max-w-4xl m-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-            Edit Area: {editingArea?.nameEn || editingArea?.nameRu || editingArea?.nameAr || 'Unnamed'}
-          </h2>
+        <div className="flex items-center gap-4">
+          <Input
+            type="text"
+            placeholder={`${activeSection === 'countries' ? 'Country' : activeSection === 'cities' ? 'City' : 'Area'} name`}
+            value={newItem}
+            onChange={(e) => setNewItem(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                handleAdd()
+              }
+            }}
+            className="flex-1"
+          />
+          <Tooltip
+            content={tooltipMessage}
+            disabled={hasValidInput}
+          >
+            <Button
+              onClick={handleAdd}
+              disabled={!hasValidInput}
+              className="min-w-[100px]"
+            >
+              Add
+            </Button>
+          </Tooltip>
+        </div>
 
-          <div className="space-y-6">
-            {/* Description Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Description</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Description Title
-                  </label>
-                  <Input
-                    type="text"
-                    value={areaDescription.title}
-                    onChange={(e) => setAreaDescription({ ...areaDescription, title: e.target.value })}
-                    placeholder="Enter description title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Description Text
-                  </label>
-                  <TextArea
-                    value={areaDescription.description}
-                    onChange={(value) => setAreaDescription({ ...areaDescription, description: value })}
-                    placeholder="Enter area description"
-                    rows={4}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Infrastructure Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Infrastructure</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Infrastructure Title
-                  </label>
-                  <Input
-                    type="text"
-                    value={areaInfrastructure.title}
-                    onChange={(e) => setAreaInfrastructure({ ...areaInfrastructure, title: e.target.value })}
-                    placeholder="Enter infrastructure title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Infrastructure Text
-                  </label>
-                  <TextArea
-                    value={areaInfrastructure.description}
-                    onChange={(value) => setAreaInfrastructure({ ...areaInfrastructure, description: value })}
-                    placeholder="Enter infrastructure description"
-                    rows={4}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Images Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Photos</h3>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {areaImages.length} / 8
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {items.length === 0 ? (
+            <p className="text-gray-500">No items</p>
+          ) : (
+            items.map((item: any) => (
+              <div
+                key={item.id}
+                className={`flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-800 ${activeSection === 'areas' ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800' : ''
+                  }`}
+                onClick={activeSection === 'areas' ? () => handleEditAreaClick(item) : undefined}
+              >
+                <span className="text-gray-800 dark:text-white flex-1">
+                  {item.nameEn || item.nameRu || item.nameAr || item.name || 'Unnamed'}
                 </span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteClick(item)
+                  }}
+                  disabled={deletingId === item.id}
+                  className="text-error-500 hover:text-error-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ml-2"
+                >
+                  {deletingId === item.id ? (
+                    <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                      <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor" />
+                    </svg>
+                  )}
+                </button>
               </div>
-              
-              {areaImages.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {areaImages.map((url, index) => {
-                    // Додаткова очистка URL перед відображенням
-                    let displayUrl = url && typeof url === 'string' ? url.trim() : ''
-                    
-                    // Видаляємо фігурні дужки якщо вони все ще є
-                    while ((displayUrl.startsWith('{') && displayUrl.endsWith('}')) || displayUrl.startsWith('{') || displayUrl.endsWith('}')) {
-                      if (displayUrl.startsWith('{')) displayUrl = displayUrl.slice(1).trim()
-                      if (displayUrl.endsWith('}')) displayUrl = displayUrl.slice(0, -1).trim()
-                    }
-                    
-                    // Декодуємо URL якщо потрібно
-                    try {
-                      displayUrl = decodeURIComponent(displayUrl)
-                    } catch (e) {
-                      // Якщо декодування не вдалося, використовуємо оригінал
-                    }
-                    
-                    const isValidUrl = displayUrl.length > 0 && (displayUrl.startsWith('http://') || displayUrl.startsWith('https://') || displayUrl.startsWith('/'))
-                    
-                    if (!isValidUrl) {
-                      console.warn('[Area Image Display] Invalid area image URL at index', index, ':', url, 'Cleaned:', displayUrl.substring(0, 80))
-                      return null // Не відображаємо невалідні URL
-                    }
-                    
-                    console.log('[Area Image Display] Rendering image', index, ':', displayUrl.substring(0, 60))
-                    
-                    return (
-                      <div key={index} className="relative group">
-                        <img
-                          src={displayUrl}
-                          alt={`Area ${index + 1}`}
-                          className="w-full aspect-[3/4] object-cover rounded-lg border border-gray-200 dark:border-gray-700"
-                          onError={(e) => {
-                            console.error('[Area Image Display] Error loading area image at index', index, ':', displayUrl.substring(0, 80))
-                            const img = e.target as HTMLImageElement
-                            img.style.display = 'none'
-                            // Приховуємо весь контейнер якщо зображення не завантажилось
-                            const parent = img.parentElement
-                            if (parent) {
-                              parent.style.display = 'none'
-                            }
-                          }}
-                          onLoad={() => {
-                            console.log('[Area Image Display] Area image loaded successfully at index', index, ':', displayUrl.substring(0, 60))
-                          }}
-                        />
-                        <button
-                          onClick={() => handleRemoveImage(index)}
-                          className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                          title="Remove photo"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                          </svg>
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+            ))
+          )}
+        </div>
 
-              {areaImages.length < 8 && (
-                <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 hover:border-brand-400 dark:hover:border-brand-600 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleImageUpload}
-                    disabled={uploadingImage}
-                    className="hidden"
-                    id="area-image-upload"
-                  />
-                  <label
-                    htmlFor="area-image-upload"
-                    className="flex flex-col items-center justify-center cursor-pointer"
-                  >
-                    {uploadingImage ? (
-                      <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>Uploading...</span>
-                      </div>
-                    ) : (
-                      <>
-                        <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                        </svg>
-                        <span className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                          Click to upload photos
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-500 mt-1 text-center block">
-                          Format: 3x4 or 4x3 (portrait or landscape)
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-500 mt-1 text-center block">
-                          You can upload up to {8 - areaImages.length} photos
-                        </span>
-                      </>
-                    )}
-                  </label>
-                </div>
-              )}
+        {/* Delete Confirmation Modal */}
+        <Modal isOpen={showDeleteModal} onClose={handleCancelDelete} className="max-w-md m-4">
+          <div className="p-6">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-error-100 dark:bg-error-900/20 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-error-600 dark:text-error-400">
+                  <path d="M12 9V13M12 17H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Delete {sectionName}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Are you sure you want to delete <span className="font-medium text-gray-900 dark:text-white">"{itemToDelete?.nameEn || itemToDelete?.nameRu || itemToDelete?.nameAr || itemToDelete?.name || 'this item'}"</span>? This action cannot be undone.
+                </p>
+              </div>
             </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-end gap-3">
               <Button
                 variant="outline"
-                onClick={handleCloseEditAreaModal}
-                disabled={savingArea}
+                onClick={handleCancelDelete}
+                disabled={deletingId !== null}
               >
-                Cancel
+                No, Cancel
               </Button>
               <Button
-                onClick={handleSaveArea}
-                disabled={savingArea}
+                onClick={handleConfirmDelete}
+                disabled={deletingId !== null}
+                className="bg-error-600 hover:bg-error-700 text-white"
               >
-                {savingArea ? (
+                {deletingId !== null ? (
                   <>
                     <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Saving...
+                    Deleting...
                   </>
                 ) : (
-                  'Save'
+                  'Yes, Delete'
                 )}
               </Button>
             </div>
           </div>
-        </div>
-      </Modal>
-    </div>
+        </Modal>
+
+        {/* Edit Area Modal */}
+        <Modal isOpen={showEditAreaModal} onClose={handleCloseEditAreaModal} className="max-w-4xl m-4 max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
+              Edit Area: {editingArea?.nameEn || editingArea?.nameRu || editingArea?.nameAr || 'Unnamed'}
+            </h2>
+
+            <div className="space-y-6">
+              {/* Description Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Description</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Description Title
+                    </label>
+                    <Input
+                      type="text"
+                      value={areaDescription.title}
+                      onChange={(e) => setAreaDescription({ ...areaDescription, title: e.target.value })}
+                      placeholder="Enter description title"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Description Text
+                    </label>
+                    <TextArea
+                      value={areaDescription.description}
+                      onChange={(value) => setAreaDescription({ ...areaDescription, description: value })}
+                      placeholder="Enter area description"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Description (RU) Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Description (RU)</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Description Title (RU)
+                    </label>
+                    <Input
+                      type="text"
+                      value={areaDescriptionRu.title}
+                      onChange={(e) => setAreaDescriptionRu({ ...areaDescriptionRu, title: e.target.value })}
+                      placeholder="Enter Russian description title"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Description Text (RU)
+                    </label>
+                    <TextArea
+                      value={areaDescriptionRu.description}
+                      onChange={(value) => setAreaDescriptionRu({ ...areaDescriptionRu, description: value })}
+                      placeholder="Enter Russian area description"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Infrastructure Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Infrastructure</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Infrastructure Title
+                    </label>
+                    <Input
+                      type="text"
+                      value={areaInfrastructure.title}
+                      onChange={(e) => setAreaInfrastructure({ ...areaInfrastructure, title: e.target.value })}
+                      placeholder="Enter infrastructure title"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Infrastructure Text
+                    </label>
+                    <TextArea
+                      value={areaInfrastructure.description}
+                      onChange={(value) => setAreaInfrastructure({ ...areaInfrastructure, description: value })}
+                      placeholder="Enter infrastructure description"
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Images Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">Photos</h3>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {areaImages.length} / 8
+                  </span>
+                </div>
+
+                {areaImages.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {areaImages.map((url, index) => {
+                      // Додаткова очистка URL перед відображенням
+                      let displayUrl = url && typeof url === 'string' ? url.trim() : ''
+
+                      // Видаляємо фігурні дужки якщо вони все ще є
+                      while ((displayUrl.startsWith('{') && displayUrl.endsWith('}')) || displayUrl.startsWith('{') || displayUrl.endsWith('}')) {
+                        if (displayUrl.startsWith('{')) displayUrl = displayUrl.slice(1).trim()
+                        if (displayUrl.endsWith('}')) displayUrl = displayUrl.slice(0, -1).trim()
+                      }
+
+                      // Декодуємо URL якщо потрібно
+                      try {
+                        displayUrl = decodeURIComponent(displayUrl)
+                      } catch (e) {
+                        // Якщо декодування не вдалося, використовуємо оригінал
+                      }
+
+                      const isValidUrl = displayUrl.length > 0 && (displayUrl.startsWith('http://') || displayUrl.startsWith('https://') || displayUrl.startsWith('/'))
+
+                      if (!isValidUrl) {
+                        console.warn('[Area Image Display] Invalid area image URL at index', index, ':', url, 'Cleaned:', displayUrl.substring(0, 80))
+                        return null // Не відображаємо невалідні URL
+                      }
+
+                      console.log('[Area Image Display] Rendering image', index, ':', displayUrl.substring(0, 60))
+
+                      return (
+                        <div key={index} className="relative group">
+                          <img
+                            src={displayUrl}
+                            alt={`Area ${index + 1}`}
+                            className="w-full aspect-[3/4] object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                            onError={(e) => {
+                              console.error('[Area Image Display] Error loading area image at index', index, ':', displayUrl.substring(0, 80))
+                              const img = e.target as HTMLImageElement
+                              img.style.display = 'none'
+                              // Приховуємо весь контейнер якщо зображення не завантажилось
+                              const parent = img.parentElement
+                              if (parent) {
+                                parent.style.display = 'none'
+                              }
+                            }}
+                            onLoad={() => {
+                              console.log('[Area Image Display] Area image loaded successfully at index', index, ':', displayUrl.substring(0, 60))
+                            }}
+                          />
+                          <button
+                            onClick={() => handleRemoveImage(index)}
+                            className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+                            title="Remove photo"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                              <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            </svg>
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {areaImages.length < 8 && (
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 hover:border-brand-400 dark:hover:border-brand-600 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleImageUpload}
+                      disabled={uploadingImage}
+                      className="hidden"
+                      id="area-image-upload"
+                    />
+                    <label
+                      htmlFor="area-image-upload"
+                      className="flex flex-col items-center justify-center cursor-pointer"
+                    >
+                      {uploadingImage ? (
+                        <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                          <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Uploading...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          <span className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                            Click to upload photos
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-500 mt-1 text-center block">
+                            Format: 3x4 or 4x3 (portrait or landscape)
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-500 mt-1 text-center block">
+                            You can upload up to {8 - areaImages.length} photos
+                          </span>
+                        </>
+                      )}
+                    </label>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+                <Button
+                  variant="outline"
+                  onClick={handleCloseEditAreaModal}
+                  disabled={savingArea}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveArea}
+                  disabled={savingArea}
+                >
+                  {savingArea ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      </div>
     </>
   )
 }

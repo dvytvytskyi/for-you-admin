@@ -34,12 +34,23 @@ FILES=(
   "admin-panel/src/components/ui/modal/index.tsx"
   "admin-panel/src/components/form/Select.tsx"
   "admin-panel/src/components/form/form-elements/SelectInputs.tsx"
+  "admin-panel-backend/src/routes/public.routes.ts"
+  "admin-panel-backend/src/routes/properties.routes.ts"
+  "admin-panel-backend/src/scripts/translate-properties.ts"
+  "admin-panel/src/app/properties/page.tsx"
   "admin-panel-backend/src/services/pdf.service.ts"
   "admin-panel-backend/src/entities/Document.ts"
   "admin-panel-backend/src/routes/documents.routes.ts"
   "admin-panel-backend/src/templates/portfolio-analytics.ejs"
   "admin-panel-backend/src/templates/presentation.ejs"
   "admin-panel/next.config.js"
+  "admin-panel-backend/src/entities/News.ts"
+  "admin-panel-backend/src/entities/NewsContent.ts"
+  "admin-panel-backend/src/routes/news.routes.ts"
+  "admin-panel-backend/src/entities/Area.ts"
+  "admin-panel-backend/src/routes/settings.routes.ts"
+  "admin-panel/src/app/settings/page.tsx"
+  "admin-panel-backend/src/scripts/translate-areas-azure.ts"
   "docker-compose.prod.yml"
 )
 
@@ -75,9 +86,9 @@ ENV_EOF
   fi
 
   echo "🗄  Running Database Migration..."
-  DB_CONTAINER=$(docker ps -q -f name=admin-panel-postgres-prod)
-  if [ -n "$DB_CONTAINER" ]; then
-    docker exec -i $DB_CONTAINER psql -U admin -d foryou_admin_panel < admin-panel-backend/src/migrations/010-add-user-amo-crm-relation.sql
+  DB_CONTAINER=\$(docker ps -q -f name=admin-panel-postgres-prod)
+  if [ -n "\$DB_CONTAINER" ]; then
+    docker exec -i \$DB_CONTAINER psql -U admin -d foryou_admin_panel < admin-panel-backend/src/migrations/010-add-user-amo-crm-relation.sql
   else
     echo "⚠️  Postgres container not found, skipping migration."
   fi
@@ -90,6 +101,24 @@ ENV_EOF
   
   docker-compose -f docker-compose.prod.yml up -d admin-panel-backend
   docker-compose -f docker-compose.prod.yml up -d admin-panel-frontend
+
+  echo "⏳ Waiting for services to start..."
+  sleep 20
+
+  echo "🌍 Running Area Translation Script..."
+  BACKEND_CONTAINER=\$(docker ps -q -f name=admin-panel-backend-prod)
+  if [ -n "\$BACKEND_CONTAINER" ]; then
+    # Ensure script is compiled (if backend does it on startup) or run with ts-node/node
+    # Assuming backend runs dist/server.js so we run dist/scripts/...
+    # But wait, does build compile scripts? Just in case, try ts-node if installed or node dist/
+    # We will try node dist/scripts/translate-areas-azure.js assuming build process includes it.
+    # If not, we might need to compile specific file or assume it's there.
+    # Given we uploaded it to src/scripts, and assuming build command compiles src/** to dist/**
+    
+    docker exec \$BACKEND_CONTAINER node dist/scripts/translate-areas-azure.js || echo "⚠️ Translation script failed (maybe not compiled?)"
+  else
+    echo "⚠️ Backend container not found"
+  fi
 
   echo "✅ Deployment Complete!"
   docker ps | grep for-you-admin-panel

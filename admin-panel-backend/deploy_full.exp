@@ -2,27 +2,19 @@
 set timeout 300
 set password "xTVvPEwrpaF4"
 
-# 1. Sync backend code
-spawn scp -r -o StrictHostKeyChecking=no /Users/vytvytskyi/admin_for_you/admin-panel-backend/src root@135.181.201.185:/root/admin-panel/admin-panel-backend/
+set server "root@135.181.201.185"
+
+# 1. Sync backend code (using rsync for speed)
+spawn rsync -avz --exclude 'node_modules' --exclude 'dist' --exclude '.git' /Users/vytvytskyi/admin_for_you/admin-panel-backend/ $server:/root/admin-panel/admin-panel-backend/
 expect "password:" { send "$password\r" }
 expect eof
 
-# 2. Sync backend package.json and tsconfig
-spawn scp -o StrictHostKeyChecking=no /Users/vytvytskyi/admin_for_you/admin-panel-backend/package.json /Users/vytvytskyi/admin_for_you/admin-panel-backend/package-lock.json /Users/vytvytskyi/admin_for_you/admin-panel-backend/tsconfig.json root@135.181.201.185:/root/admin-panel/admin-panel-backend/
+# 2. Sync frontend code
+spawn rsync -avz --exclude 'node_modules' --exclude '.next' --exclude '.git' /Users/vytvytskyi/admin_for_you/admin-panel/ $server:/root/admin-panel/admin/
 expect "password:" { send "$password\r" }
 expect eof
 
-# 3. Sync frontend code
-spawn scp -r -o StrictHostKeyChecking=no /Users/vytvytskyi/admin_for_you/admin-panel/src root@135.181.201.185:/root/admin-panel/admin/
-expect "password:" { send "$password\r" }
-expect eof
-
-# 4. Rebuild Backend with migrations (using synchronize: true for this run)
-spawn ssh -o StrictHostKeyChecking=no root@135.181.201.185 "cd /root/admin-panel && docker-compose -f docker-compose.prod.yml up -d --build admin-panel-backend"
-expect "password:" { send "$password\r" }
-expect eof
-
-# 5. Rebuild Frontend
-spawn ssh -o StrictHostKeyChecking=no root@135.181.201.185 "cd /root/admin-panel && docker-compose -f docker-compose.prod.yml up -d --build admin-panel-frontend"
+# 3. Rebuild Containers
+spawn ssh -o StrictHostKeyChecking=no $server "cd /root/admin-panel && docker-compose -f docker-compose.prod.yml up -d --build"
 expect "password:" { send "$password\r" }
 expect eof
