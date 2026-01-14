@@ -1127,5 +1127,92 @@ router.get('/facilities-list', authenticateApiKeyWithSecret, async (req: AuthReq
   }
 });
 
+// GET /api/public/properties/:id/summary - Get lightweight property detail for map popup
+router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const property = await AppDataSource.getRepository(Property).findOne({
+      where: { id: req.params.id },
+      relations: ['area', 'city', 'developer'],
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        priceFrom: true,
+        photos: true,
+        propertyType: true,
+        area: {
+          id: true,
+          nameEn: true,
+          nameRu: true,
+          nameAr: true
+        },
+        city: {
+          id: true,
+          nameEn: true,
+          nameRu: true,
+          nameAr: true
+        },
+        developer: {
+          id: true,
+          name: true,
+          logo: true
+        }
+      }
+    });
+
+    if (!property) {
+      return res.status(404).json(errorResponse('Property not found'));
+    }
+
+    const transformPhotos = (photos: string[] | null) => {
+      if (!photos || !Array.isArray(photos)) return [];
+      // Limit to 5 photos for summary as requested
+      return photos.slice(0, 5).map(photo => {
+        if (photo.includes('your-objectstorage.com')) {
+          let small = photo;
+          let full = photo;
+          if (photo.includes('_small.jpg')) {
+            full = photo.replace('_small.jpg', '_full.jpg');
+          } else if (photo.includes('_full.jpg')) {
+            small = photo.replace('_full.jpg', '_small.jpg');
+          }
+          return { small, full };
+        }
+        return { small: photo, full: photo };
+      });
+    };
+
+    const response = {
+      id: property.id,
+      name: property.name,
+      propertyType: property.propertyType,
+      price: property.price,
+      priceFrom: property.priceFrom,
+      priceAED: property.price ? Conversions.usdToAed(property.price) : null,
+      priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
+      area: property.area ? {
+        nameEn: property.area.nameEn,
+        nameRu: property.area.nameRu,
+        nameAr: property.area.nameAr
+      } : null,
+      city: property.city ? {
+        nameEn: property.city.nameEn,
+        nameRu: property.city.nameRu,
+        nameAr: property.city.nameAr
+      } : null,
+      developer: property.developer ? {
+        name: property.developer.name,
+        logo: property.developer.logo
+      } : null,
+      images: transformPhotos(property.photos),
+    };
+
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(successResponse(response));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch property summary', error.message));
+  }
+});
+
 export default router;
 
