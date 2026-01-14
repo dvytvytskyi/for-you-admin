@@ -1,13 +1,16 @@
 import express from 'express';
 import multer from 'multer';
-import cloudinary from '../config/cloudinary';
+import sharp from 'sharp';
+import { v4 as uuidv4 } from 'uuid';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { s3Client, S3_CONFIG } from '../config/s3';
 import { authenticateJWT } from '../middleware/auth';
 import { successResponse } from '../utils/response';
 
 const router = express.Router();
 router.use(authenticateJWT);
 
-// Configure multer to use memory storage for Cloudinary upload
+// Configure multer to use memory storage
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
@@ -30,127 +33,107 @@ const docUpload = multer({
   limits: {
     fileSize: 20 * 1024 * 1024, // 20MB
   },
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = [
-      'application/pdf',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/csv',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    if (allowedMimes.includes(file.mimetype) || file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      // For Cloudinary 'raw' we can be more flexible
-      cb(null, true);
-    }
-  },
 });
 
-// Upload single image to Cloudinary
+/**
+ * Helper to upload a file to S3
+ */
+async function uploadFileToS3(buffer: Buffer, key: string, contentType: string) {
+  const command = new PutObjectCommand({
+    Bucket: S3_CONFIG.bucketName,
+    Key: key,
+    Body: buffer,
+    ContentType: contentType,
+    ACL: 'public-read',
+    CacheControl: 'public, max-age=31536000, immutable'
+  });
+
+  await s3Client.send(command);
+  return `${S3_CONFIG.publicUrl}/${key}`;
+}
+
+/**
+ * Process and upload image (both full and small versions)
+ */
+async function processAndUploadImage(file: Express.Multer.File, folder: string) {
+  const fileUuid = uuidv4();
+  const baseKey = `${folder}/${fileUuid}`;
+
+  // 1. Full Version (Compressed but original size)
+  const fullBuffer = await sharp(file.buffer)
+    .jpeg({ quality: 80, mozjpeg: true, progressive: true })
+    .toBuffer();
+
+  const fullUrl = await uploadFileToS3(fullBuffer, `${baseKey}_full.jpg`, 'image/jpeg');
+
+  // 2. Small Version (800px width)
+  try {
+    const smallBuffer = await sharp(file.buffer)
+      .resize(800, null, { withoutEnlargement: true, fit: 'inside' })
+      .jpeg({ quality: 80, mozjpeg: true, progressive: true })
+      .toBuffer();
+
+    await uploadFileToS3(smallBuffer, `${baseKey}_small.jpg`, 'image/jpeg');
+  } catch (err) {
+    console.error('Error creating small version, skipping:', err);
+  }
+
+  return fullUrl;
+}
+
+// Upload single image to S3
 router.post('/image', upload.single('file'), async (req, res) => {
   try {
-    console.log('[Upload] POST /image - Headers:', req.headers['content-type']);
     if (!req.file) {
-      console.error('[Upload] No file received in /image');
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    console.log('[Upload] File received:', req.file.originalname, req.file.mimetype, req.file.size);
 
-    // Upload to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'properties',
-          resource_type: 'image',
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
+    const folder = req.query.folder as string || 'properties';
+    const url = await processAndUploadImage(req.file, folder);
 
-      uploadStream.end(req.file!.buffer);
-    });
-
-    const url = (uploadResult as any).secure_url;
     res.json(successResponse({ url }));
   } catch (error: any) {
-    console.error('Cloudinary upload error:', error);
+    console.error('S3 upload error:', error);
     res.status(500).json({ error: error.message || 'Failed to upload image' });
   }
 });
 
-// Upload multiple images to Cloudinary
-router.post('/images', upload.array('files', 10), async (req, res) => {
+// Upload multiple images to S3
+router.post('/images', upload.array('files', 20), async (req, res) => {
   try {
-    if (!req.files || (req.files as Express.Multer.File[]).length === 0) {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
       return res.status(400).json({ error: 'No files uploaded' });
     }
 
-    const files = req.files as Express.Multer.File[];
-    const uploadPromises = files.map((file) => {
-      return new Promise((resolve, reject) => {
-        const uploadStream = cloudinary.uploader.upload_stream(
-          {
-            folder: 'properties',
-            resource_type: 'image',
-          },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-
-        uploadStream.end(file.buffer);
-      });
-    });
-
-    const results = await Promise.all(uploadPromises);
-    const urls = results.map((result: any) => result.secure_url);
+    const folder = req.query.folder as string || 'properties';
+    const uploadPromises = files.map(file => processAndUploadImage(file, folder));
+    const urls = await Promise.all(uploadPromises);
 
     res.json(successResponse({ urls }));
   } catch (error: any) {
-    console.error('Cloudinary upload error:', error);
+    console.error('S3 upload error:', error);
     res.status(500).json({ error: error.message || 'Failed to upload images' });
   }
 });
 
-// Upload document (PDF, Excel, etc.) to Cloudinary AND create Document entity
+// Upload document (PDF, Excel, etc.) to S3 AND create Document entity
 router.post('/document', docUpload.single('file'), async (req: any, res) => {
   try {
-    console.log('[Upload] POST /document - Headers:', req.headers['content-type']);
     if (!req.file) {
-      console.error('[Upload] No file received in /document');
       return res.status(400).json({ error: 'No file uploaded' });
     }
-    console.log('[Upload] Document received:', req.file.originalname, req.file.mimetype, req.file.size);
 
     const userId = req.user?.id || req.user?.userId;
     if (!userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Upload to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'documents',
-          resource_type: 'auto', // Auto handles PDF, Excel, etc.
-          public_id: req.file?.originalname.split('.')[0] + '_' + Date.now(),
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
+    const fileUuid = uuidv4();
+    const ext = req.file.originalname.split('.').pop();
+    const key = `documents/${fileUuid}.${ext}`;
 
-      uploadStream.end(req.file!.buffer);
-    });
-
-    const fileUrl = (uploadResult as any).secure_url;
-    const s3Key = (uploadResult as any).public_id;
+    const fileUrl = await uploadFileToS3(req.file.buffer, key, req.file.mimetype);
 
     // Create Document Entity
     const { AppDataSource } = require('../config/database');
@@ -159,12 +142,12 @@ router.post('/document', docUpload.single('file'), async (req: any, res) => {
     const docRepo = AppDataSource.getRepository(Document);
     const newDoc = docRepo.create({
       type: DocumentType.OTHER,
-      entityType: DocumentCategory.USER, // Fixed: USER (all caps)
+      entityType: DocumentCategory.USER,
       entityId: String(userId),
       fileName: req.file.originalname,
       originalName: req.file.originalname,
       fileUrl: fileUrl,
-      s3Key: s3Key,
+      s3Key: key,
       mimeType: req.file.mimetype,
       fileSize: Number(req.file.size),
       uploadedBy: String(userId),
@@ -173,7 +156,6 @@ router.post('/document', docUpload.single('file'), async (req: any, res) => {
 
     const savedDoc = await docRepo.save(newDoc);
 
-    // Return ID included
     res.json(successResponse({
       id: savedDoc.id,
       url: fileUrl,
@@ -181,7 +163,7 @@ router.post('/document', docUpload.single('file'), async (req: any, res) => {
     }));
 
   } catch (error: any) {
-    console.error('Cloudinary upload error:', error);
+    console.error('S3 document upload error:', error);
     res.status(500).json({ error: error.message || 'Failed to upload document' });
   }
 });
@@ -198,26 +180,15 @@ router.post('/avatar', upload.single('file'), async (req: any, res) => {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Upload to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'avatars',
-          resource_type: 'image',
-          transformation: [
-            { width: 500, height: 500, crop: 'fill', gravity: 'face' } // Auto-crop to face for avatars
-          ]
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
+    // Process Avatar (Fill 500x500)
+    const avatarBuffer = await sharp(req.file.buffer)
+      .resize(500, 500, { fit: 'cover', position: 'center' })
+      .jpeg({ quality: 80, mozjpeg: true })
+      .toBuffer();
 
-      uploadStream.end(req.file.buffer);
-    });
-
-    const fileUrl = (uploadResult as any).secure_url;
+    const fileUuid = uuidv4();
+    const key = `avatars/${fileUuid}.jpg`;
+    const fileUrl = await uploadFileToS3(avatarBuffer, key, 'image/jpeg');
 
     // Update User Entity
     const { AppDataSource } = require('../config/database');
