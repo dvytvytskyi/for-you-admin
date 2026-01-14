@@ -345,19 +345,19 @@ router.get('/', async (req: AuthRequest, res) => {
       actualLimit: finalLimit,
     });
 
-    // Повертаємо формат з пагінацією
-    // total - загальна кількість всіх properties з урахуванням фільтрів (НЕ кількість завантажених)
     const totalPages = Math.ceil(totalCount / finalLimit);
 
-    res.json(successResponse({
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.json({
+      success: true,
       data: propertiesWithConversions,
       pagination: {
-        total: totalCount, // Загальна кількість з урахуванням фільтрів
+        total: totalCount,
         page: pageNum,
         limit: finalLimit,
         totalPages: totalPages,
       },
-    }));
+    });
   } catch (error: any) {
     console.error('Error fetching properties:', error);
     res.status(500).json({
