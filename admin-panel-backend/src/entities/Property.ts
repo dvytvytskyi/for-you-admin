@@ -101,8 +101,23 @@ export class Property {
   @Column('text', { nullable: true })
   commission?: string;
 
-  @Column('date', { name: 'plannedcompletionat', nullable: true })
+  @Column('text', { name: 'plannedcompletionat', nullable: true })
   plannedCompletionAt?: string;
+
+  @Column({ name: 'isactive', type: 'boolean', default: true })
+  isActive!: boolean;
+
+  @Column({ name: 'priority', type: 'integer', default: 0 })
+  priority!: number;
+
+  @Column({ name: 'nameEn', nullable: true })
+  nameEn?: string;
+
+  @Column({ name: 'nameRu', nullable: true })
+  nameRu?: string;
+
+  @Column({ name: 'nameAr', nullable: true })
+  nameAr?: string;
 
   @OneToMany(() => PropertyUnit, unit => unit.property, { cascade: true })
   units!: PropertyUnit[];
