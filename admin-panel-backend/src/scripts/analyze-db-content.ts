@@ -60,7 +60,7 @@ async function analyzeProperties() {
         console.log(`Other links found: ${otherLinks}`);
 
         if (totalPhotosInSample > 0) {
-            console.log('Sample Photo URL:', props[0].photos[0]);
+            console.log('Sample Photo URL:', props[0].photos?.[0]);
         }
 
         await ds.destroy();

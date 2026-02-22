@@ -82,6 +82,16 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    if (user.status === UserStatus.DELETED) {
+      console.warn(`[AUTH] Login failed (403): User is deleted: ${email}`);
+      return res.status(403).json({ success: false, message: 'Account deleted' });
+    }
+
+    if (user.status === UserStatus.BLOCKED) {
+      console.warn(`[AUTH] Login failed (403): User is blocked: ${email}`);
+      return res.status(403).json({ success: false, message: 'Account blocked' });
+    }
+
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
     if (!isValidPassword) {
       console.warn(`[AUTH] Login failed (401): Invalid password for: ${email}`);

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { forwardRef } from "react";
 
 interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange'> {
   onChange?: (value: string) => void; // Change handler (custom signature)
@@ -6,21 +6,23 @@ interface TextareaProps extends Omit<React.TextareaHTMLAttributes<HTMLTextAreaEl
   hint?: string; // Hint text to display
 }
 
-const TextArea: React.FC<TextareaProps> = ({
+const TextArea = forwardRef<HTMLTextAreaElement, TextareaProps>(({
   placeholder = "Enter your message",
   rows = 3,
-  value = "",
+  value,
   onChange,
   className = "",
   disabled = false,
   error = false,
   hint = "",
   ...rest
-}) => {
+}, ref) => {
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (onChange) {
       onChange(e.target.value);
     }
+    // If rest.onChange exists (e.g. from register), it will be handled by ...rest spread
+    // but TextAreaProps omits 'onChange' from attributes, so we need to be careful.
   };
 
   let textareaClasses = `w-full rounded-lg border px-4 py-2.5 text-sm shadow-theme-xs focus:outline-hidden ${className}`;
@@ -36,25 +38,28 @@ const TextArea: React.FC<TextareaProps> = ({
   return (
     <div className="relative">
       <textarea
+        ref={ref}
         placeholder={placeholder}
         rows={rows}
         value={value}
         onChange={handleChange}
         disabled={disabled}
         className={textareaClasses}
+        autoComplete="off"
         {...rest}
       />
       {hint && (
         <p
-          className={`mt-2 text-sm ${
-            error ? "text-error-500" : "text-gray-500 dark:text-gray-400"
-          }`}
+          className={`mt-2 text-sm ${error ? "text-error-500" : "text-gray-500 dark:text-gray-400"
+            }`}
         >
           {hint}
         </p>
       )}
     </div>
   );
-};
+});
+
+TextArea.displayName = "TextArea";
 
 export default TextArea;

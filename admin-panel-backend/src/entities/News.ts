@@ -13,6 +13,12 @@ export class News {
   description!: string;
 
   @Column({ nullable: true })
+  titleRu!: string;
+
+  @Column('text', { nullable: true })
+  descriptionRu!: string;
+
+  @Column({ nullable: true })
   imageUrl!: string;
 
   @Column({ default: false })

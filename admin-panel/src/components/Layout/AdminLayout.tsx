@@ -1,15 +1,16 @@
 'use client'
 import { Layout, Menu, Button } from 'antd'
 import { useRouter, usePathname } from 'next/navigation'
-import { 
-  DashboardOutlined, 
-  HomeOutlined, 
-  UserOutlined, 
-  BookOutlined, 
-  FileTextOutlined, 
-  MessageOutlined, 
+import {
+  DashboardOutlined,
+  HomeOutlined,
+  UserOutlined,
+  BookOutlined,
+  FileTextOutlined,
+  MessageOutlined,
   SettingOutlined,
-  LogoutOutlined
+  LogoutOutlined,
+  UserAddOutlined
 } from '@ant-design/icons'
 import { message } from 'antd'
 
@@ -26,6 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { key: '/knowledge-base', icon: <BookOutlined />, label: 'База Знань' },
     { key: '/news', icon: <FileTextOutlined />, label: 'Новини' },
     { key: '/support', icon: <MessageOutlined />, label: 'Підтримка' },
+    { key: '/vacancies', icon: <UserAddOutlined />, label: 'Вакансії' },
     { key: '/settings', icon: <SettingOutlined />, label: 'Налаштування' },
   ]
 
@@ -38,9 +40,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider theme="dark" width={250}>
-        <div style={{ 
-          color: 'white', 
-          padding: 16, 
+        <div style={{
+          color: 'white',
+          padding: 16,
           fontSize: 20,
           fontWeight: 'bold',
           textAlign: 'center',
@@ -58,16 +60,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       </Sider>
       <Layout>
-        <Header style={{ 
-          background: '#fff', 
-          padding: '0 24px', 
+        <Header style={{
+          background: '#fff',
+          padding: '0 24px',
           display: 'flex',
           justifyContent: 'flex-end',
           alignItems: 'center',
           borderBottom: '1px solid #f0f0f0'
         }}>
-          <Button 
-            icon={<LogoutOutlined />} 
+          <Button
+            icon={<LogoutOutlined />}
             onClick={handleLogout}
           >
             Вийти

@@ -84,6 +84,8 @@ router.patch('/:id', async (req, res) => {
           type: c.type,
           title: c.title,
           description: c.description || '',
+          titleRu: c.titleRu || null,
+          descriptionRu: c.descriptionRu || '',
           imageUrl: c.imageUrl || null,
           videoUrl: c.videoUrl || null,
           order: index

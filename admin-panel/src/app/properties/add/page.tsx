@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -209,6 +209,29 @@ export default function AddPropertyPage() {
   const [sizeToValue, setSizeToValue] = useState<string>('')
   const [sizeValue, setSizeValue] = useState<string>('')
 
+  const dragItem = useRef<number | null>(null)
+  const dragOverItem = useRef<number | null>(null)
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>, position: number) => {
+    dragItem.current = position
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>, position: number) => {
+    dragOverItem.current = position
+  }
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    if (dragItem.current === null || dragOverItem.current === null) return
+    const copyListItems = [...photos]
+    const dragItemContent = copyListItems[dragItem.current]
+    copyListItems.splice(dragItem.current, 1)
+    copyListItems.splice(dragOverItem.current, 0, dragItemContent)
+    dragItem.current = null
+    dragOverItem.current = null
+    setPhotos(copyListItems)
+    setValue('photos', copyListItems, { shouldValidate: true })
+  }
+
   const {
     register,
     handleSubmit,
@@ -300,7 +323,6 @@ export default function AddPropertyPage() {
         formData.append('files', file)
       })
 
-      // Use axios directly for multipart/form-data upload
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
       const { data } = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/upload/images`, formData, {
         headers: {
@@ -309,13 +331,11 @@ export default function AddPropertyPage() {
         },
       })
 
-      // Response format: { data: { urls: [...] } }
       const newPhotos = data?.data?.urls || data?.urls || []
       const updatedPhotos = [...photos, ...newPhotos]
       setPhotos(updatedPhotos)
       setValue('photos', updatedPhotos, { shouldValidate: true })
 
-      // Reset input
       e.target.value = ''
     } catch (error: any) {
       console.error('Error uploading photos:', error)
@@ -356,7 +376,6 @@ export default function AddPropertyPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      // Use axios directly for multipart/form-data upload
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
       const { data } = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/upload/image`, formData, {
         headers: {
@@ -365,7 +384,6 @@ export default function AddPropertyPage() {
         },
       })
 
-      // Response format: { data: { url: "..." } }
       const imageUrl = data?.data?.url || data?.url || ''
       updateUnit(index, 'planImage', imageUrl)
     } catch (error: any) {
@@ -388,11 +406,6 @@ export default function AddPropertyPage() {
         longitude: parseFloat(data.longitude),
         developerId: data.developerId || undefined,
         isForYouChoice: data.isForYouChoice || false,
-      }
-
-      // Set first photo as main photo
-      if (photos.length > 0) {
-        // mainPhotoUrl removed - not part of Property entity
       }
 
       if (data.propertyType === PropertyType.OFF_PLAN) {
@@ -429,12 +442,7 @@ export default function AddPropertyPage() {
       }
 
       const response = await api.post('/properties', payload)
-      console.log('Property created successfully:', response.data)
-
-      // Show success message
       alert('Property created successfully!')
-
-      // Redirect to properties list
       router.push('/properties')
     } catch (error: any) {
       console.error('Error creating property:', error)
@@ -659,22 +667,34 @@ export default function AddPropertyPage() {
                   </p>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {photos.map((photo, index) => (
-                      <div key={index} className="relative group">
+                      <div
+                        key={index}
+                        className="relative group cursor-move"
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragEnter={(e) => handleDragEnter(e, index)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => e.preventDefault()}
+                      >
                         <div className="relative w-full aspect-video overflow-hidden rounded-lg border-2 border-gray-200 dark:border-gray-700">
                           <img
                             src={photo}
                             alt={`Photo ${index + 1}`}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover pointer-events-none"
                           />
                           {index === 0 && (
                             <div className="absolute top-2 left-2 px-2 py-1 bg-brand-500 text-white text-xs font-semibold rounded">
                               Main
                             </div>
                           )}
+                          <div className="absolute top-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                            {index + 1} {index === 0 && '(Main)'}
+                          </div>
+
                           <button
                             type="button"
                             onClick={() => removePhoto(index)}
-                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
                             title="Remove photo"
                           >
                             <svg
@@ -906,8 +926,274 @@ export default function AddPropertyPage() {
                     )}
                   </div>
                 </div>
-              </div>
 
+                {/* Facilities */}
+                <div className="mt-8">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                    Facilities
+                  </h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {facilities.map((facility) => (
+                      <Checkbox
+                        key={facility.id}
+                        id={`facility-${facility.id}`}
+                        label={facility.nameEn}
+                        checked={selectedFacilities.includes(facility.id)}
+                        onChange={(checked) => {
+                          const newFacilities = checked
+                            ? [...selectedFacilities, facility.id]
+                            : selectedFacilities.filter((id) => id !== facility.id)
+                          setValue('facilityIds', newFacilities)
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {/* Units */}
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Units</h2>
+                    <Button type="button" variant="outline" size="sm" onClick={addUnit}>
+                      Add Unit
+                    </Button>
+                  </div>
+                  {units.map((unit, index) => (
+                    <div
+                      key={index}
+                      className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-4 space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-medium text-gray-800 dark:text-white">
+                          Unit {index + 1}
+                        </h3>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => removeUnit(index)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Unit ID *</Label>
+                          <Input
+                            value={unit.unitId}
+                            onChange={(e) => updateUnit(index, 'unitId', e.target.value)}
+                            placeholder="Enter unit ID"
+                          />
+                        </div>
+                        <div>
+                          <Label>Type *</Label>
+                          <Select
+                            options={unitTypeOptions}
+                            placeholder="Select type"
+                            defaultValue={unit.type}
+                            onChange={(value) => updateUnit(index, 'type', value as UnitType)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Size (sq.m) *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={unit.totalSize}
+                            onChange={(e) => updateUnit(index, 'totalSize', e.target.value)}
+                            placeholder="0.00"
+                          />
+                          {unit.totalSize && parseFloat(unit.totalSize || '0') > 0 && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              ≈ {sqmToSqft(parseFloat(unit.totalSize || '0')).toFixed(2)} sq.ft
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label>Balcony Size (sq.m)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={unit.balconySize || ''}
+                            onChange={(e) => updateUnit(index, 'balconySize', e.target.value)}
+                            placeholder="0.00"
+                          />
+                          {unit.balconySize && parseFloat(unit.balconySize || '0') > 0 && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              ≈ {sqmToSqft(parseFloat(unit.balconySize || '0')).toFixed(2)} sq.ft
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label>Price (USD) *</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={unit.price}
+                            onChange={(e) => updateUnit(index, 'price', e.target.value)}
+                            placeholder="0.00"
+                          />
+                          {unit.price && parseFloat(unit.price || '0') > 0 && (
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                              ≈ {formatNumber(usdToAed(parseFloat(unit.price || '0')))} AED • {formatNumber(usdToEur(parseFloat(unit.price || '0')))} EUR
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label>Plan Image</Label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0]
+                              if (file) handleUnitImageUpload(index, file)
+                            }}
+                            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 dark:file:bg-gray-800 dark:file:text-gray-300"
+                          />
+                          {unit.planImage && (
+                            <img
+                              src={unit.planImage}
+                              alt="Plan"
+                              className="mt-2 w-full h-32 object-contain rounded-lg border border-gray-200 dark:border-gray-800"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Secondary Specific Fields */}
+          {propertyType === PropertyType.SECONDARY && (
+            <div className="space-y-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
+                Pricing & Details
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Label htmlFor="price">Price (USD) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    {...register('price', {
+                      valueAsNumber: false,
+                      onChange: (e) => {
+                        const value = e.target.value
+                        setPriceValue(value)
+                        setValue('price', value, { shouldValidate: true })
+                      }
+                    })}
+                    placeholder="0.00"
+                    error={!!(errors as any).price}
+                  />
+                  {(errors as any).price && (
+                    <p className="mt-1 text-sm text-error-500">{(errors as any).price.message}</p>
+                  )}
+                  {priceValue && parseFloat(priceValue) > 0 && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      ≈ {formatNumber(usdToAed(parseFloat(priceValue)))} AED • {formatNumber(usdToEur(parseFloat(priceValue)))} EUR
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="developerId">Developer</Label>
+                  <SearchableSelect
+                    options={developers.map((d) => ({ value: d.id, label: d.name }))}
+                    placeholder="Search developer..."
+                    defaultValue={watch('developerId') || ''}
+                    onChange={(value) => setValue('developerId', value)}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="bedrooms">Bedrooms *</Label>
+                  <Controller
+                    name="bedrooms"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="bedrooms"
+                        type="number"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          field.onChange(e.target.value)
+                        }}
+                        placeholder="0"
+                        error={!!(errors as any).bedrooms}
+                      />
+                    )}
+                  />
+                  {(errors as any).bedrooms && (
+                    <p className="mt-1 text-sm text-error-500">{(errors as any).bedrooms.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="bathrooms">Bathrooms *</Label>
+                  <Controller
+                    name="bathrooms"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="bathrooms"
+                        type="number"
+                        {...field}
+                        value={field.value || ''}
+                        onChange={(e) => {
+                          field.onChange(e.target.value)
+                        }}
+                        placeholder="0"
+                        error={!!(errors as any).bathrooms}
+                      />
+                    )}
+                  />
+                  {(errors as any).bathrooms && (
+                    <p className="mt-1 text-sm text-error-500">{(errors as any).bathrooms.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="size">Size (sq.m) *</Label>
+                  <Input
+                    id="size"
+                    type="number"
+                    step="0.01"
+                    {...register('size', {
+                      valueAsNumber: false,
+                      onChange: (e) => {
+                        const value = e.target.value
+                        setSizeValue(value)
+                        setValue('size', value, { shouldValidate: true })
+                      }
+                    })}
+                    placeholder="0.00"
+                    error={!!(errors as any).size}
+                  />
+                  {(errors as any).size && (
+                    <p className="mt-1 text-sm text-error-500">{(errors as any).size.message}</p>
+                  )}
+                  {sizeValue && parseFloat(sizeValue) > 0 && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      ≈ {sqmToSqft(parseFloat(sizeValue)).toFixed(2)} sq.ft
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Description and Common Fields (Available for both Off-Plan and Secondary) */}
+          <div className="space-y-6 pt-6 border-t border-gray-100 dark:border-gray-800">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+              Description
+            </h2>
+            <div className="grid grid-cols-1 gap-6">
               <div>
                 <Label htmlFor="description">Description (EN) *</Label>
                 <TextArea
@@ -929,284 +1215,25 @@ export default function AddPropertyPage() {
                   rows={4}
                   value={watch('descriptionRu') || ''}
                   onChange={(value: string) => setValue('descriptionRu', value)}
-                  placeholder="Russian translation will appear here automatically"
+                  placeholder="Russian translation"
                 />
               </div>
 
-              <div>
-                <Label htmlFor="paymentPlan">Payment Plan</Label>
-                <TextArea
-                  id="paymentPlan"
-                  rows={4}
-                  value={watch('paymentPlan') || ''}
-                  onChange={(value) => setValue('paymentPlan', value)}
-                  placeholder="Enter payment plan details"
-                />
-              </div>
-
-              {/* Facilities */}
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                  Facilities
-                </h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {facilities.map((facility) => (
-                    <Checkbox
-                      key={facility.id}
-                      id={`facility-${facility.id}`}
-                      label={facility.nameEn}
-                      checked={selectedFacilities.includes(facility.id)}
-                      onChange={(checked) => {
-                        const newFacilities = checked
-                          ? [...selectedFacilities, facility.id]
-                          : selectedFacilities.filter((id) => id !== facility.id)
-                        setValue('facilityIds', newFacilities)
-                      }}
-                    />
-                  ))}
+              {propertyType === PropertyType.OFF_PLAN && (
+                <div>
+                  <Label htmlFor="paymentPlan">Payment Plan</Label>
+                  <TextArea
+                    id="paymentPlan"
+                    rows={4}
+                    value={watch('paymentPlan') || ''}
+                    onChange={(value) => setValue('paymentPlan', value)}
+                    placeholder="Enter payment plan details"
+                  />
                 </div>
-              </div>
+              )}
+            </div>
+          </div>
 
-              {/* Units */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Units</h2>
-                  <Button type="button" variant="outline" size="sm" onClick={addUnit}>
-                    Add Unit
-                  </Button>
-                </div>
-                {units.map((unit, index) => (
-                  <div
-                    key={index}
-                    className="border border-gray-200 dark:border-gray-800 rounded-lg p-4 mb-4 space-y-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium text-gray-800 dark:text-white">
-                        Unit {index + 1}
-                      </h3>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => removeUnit(index)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Unit ID *</Label>
-                        <Input
-                          value={unit.unitId}
-                          onChange={(e) => updateUnit(index, 'unitId', e.target.value)}
-                          placeholder="Enter unit ID"
-                        />
-                      </div>
-                      <div>
-                        <Label>Type *</Label>
-                        <Select
-                          options={unitTypeOptions}
-                          placeholder="Select type"
-                          defaultValue={unit.type}
-                          onChange={(value) => updateUnit(index, 'type', value as UnitType)}
-                        />
-                      </div>
-                      <div>
-                        <Label>Total Size (sq.m) *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={unit.totalSize}
-                          onChange={(e) => updateUnit(index, 'totalSize', e.target.value)}
-                          placeholder="0.00"
-                        />
-                        {unit.totalSize && parseFloat(unit.totalSize || '0') > 0 && (
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            ≈ {sqmToSqft(parseFloat(unit.totalSize || '0')).toFixed(2)} sq.ft
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Balcony Size (sq.m)</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={unit.balconySize || ''}
-                          onChange={(e) => updateUnit(index, 'balconySize', e.target.value)}
-                          placeholder="0.00"
-                        />
-                        {unit.balconySize && parseFloat(unit.balconySize || '0') > 0 && (
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            ≈ {sqmToSqft(parseFloat(unit.balconySize || '0')).toFixed(2)} sq.ft
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Price (USD) *</Label>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={unit.price}
-                          onChange={(e) => updateUnit(index, 'price', e.target.value)}
-                          placeholder="0.00"
-                        />
-                        {unit.price && parseFloat(unit.price || '0') > 0 && (
-                          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                            ≈ {formatNumber(usdToAed(parseFloat(unit.price || '0')))} AED • {formatNumber(usdToEur(parseFloat(unit.price || '0')))} EUR
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label>Plan Image</Label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleUnitImageUpload(index, file)
-                          }}
-                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 dark:file:bg-gray-800 dark:file:text-gray-300"
-                        />
-                        {unit.planImage && (
-                          <img
-                            src={unit.planImage}
-                            alt="Plan"
-                            className="mt-2 w-full h-32 object-contain rounded-lg border border-gray-200 dark:border-gray-800"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-
-          {/* Secondary Specific Fields */}
-          {propertyType === PropertyType.SECONDARY && (
-            <>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
-                  Pricing & Details
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <Label htmlFor="price">Price (USD) *</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      step="0.01"
-                      {...register('price', {
-                        valueAsNumber: false,
-                        onChange: (e) => {
-                          const value = e.target.value
-                          setPriceValue(value)
-                          setValue('price', value, { shouldValidate: true })
-                        }
-                      })}
-                      placeholder="0.00"
-                      error={!!(errors as any).price}
-                    />
-                    {(errors as any).price && (
-                      <p className="mt-1 text-sm text-error-500">{(errors as any).price.message}</p>
-                    )}
-                    {priceValue && parseFloat(priceValue) > 0 && (
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        ≈ {formatNumber(usdToAed(parseFloat(priceValue)))} AED • {formatNumber(usdToEur(parseFloat(priceValue)))} EUR
-                      </p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="developerId">Developer</Label>
-                    <SearchableSelect
-                      options={developers.map((d) => ({ value: d.id, label: d.name }))}
-                      placeholder="Search developer..."
-                      defaultValue={watch('developerId') || ''}
-                      onChange={(value) => setValue('developerId', value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="bedrooms">Bedrooms *</Label>
-                    <Controller
-                      name="bedrooms"
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          id="bedrooms"
-                          type="number"
-                          {...field}
-                          value={field.value || ''}
-                          onChange={(e) => {
-                            field.onChange(e.target.value)
-                          }}
-                          placeholder="0"
-                          error={!!(errors as any).bedrooms}
-                        />
-                      )}
-                    />
-                    {(errors as any).bedrooms && (
-                      <p className="mt-1 text-sm text-error-500">{(errors as any).bedrooms.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="bathrooms">Bathrooms *</Label>
-                    <Controller
-                      name="bathrooms"
-                      control={control}
-                      render={({ field }) => (
-                        <Input
-                          id="bathrooms"
-                          type="number"
-                          {...field}
-                          value={field.value || ''}
-                          onChange={(e) => {
-                            field.onChange(e.target.value)
-                          }}
-                          placeholder="0"
-                          error={!!(errors as any).bathrooms}
-                        />
-                      )}
-                    />
-                    {(errors as any).bathrooms && (
-                      <p className="mt-1 text-sm text-error-500">{(errors as any).bathrooms.message}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <Label htmlFor="size">Size (sq.m) *</Label>
-                    <Input
-                      id="size"
-                      type="number"
-                      step="0.01"
-                      {...register('size', {
-                        valueAsNumber: false,
-                        onChange: (e) => {
-                          const value = e.target.value
-                          setSizeValue(value)
-                          setValue('size', value, { shouldValidate: true })
-                        }
-                      })}
-                      placeholder="0.00"
-                      error={!!(errors as any).size}
-                    />
-                    {(errors as any).size && (
-                      <p className="mt-1 text-sm text-error-500">{(errors as any).size.message}</p>
-                    )}
-                    {sizeValue && parseFloat(sizeValue) > 0 && (
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        ≈ {sqmToSqft(parseFloat(sizeValue)).toFixed(2)} sq.ft
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Hidden field for propertyType */}
           <input type="hidden" {...register('propertyType')} value={propertyType} />
         </div>
 

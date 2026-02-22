@@ -59,21 +59,21 @@ async function processAndUploadImage(file: Express.Multer.File, folder: string) 
   const fileUuid = uuidv4();
   const baseKey = `${folder}/${fileUuid}`;
 
-  // 1. Full Version (Compressed but original size)
+  // 1. Full Version (WebP)
   const fullBuffer = await sharp(file.buffer)
-    .jpeg({ quality: 80, mozjpeg: true, progressive: true })
+    .webp({ quality: 80 })
     .toBuffer();
 
-  const fullUrl = await uploadFileToS3(fullBuffer, `${baseKey}_full.jpg`, 'image/jpeg');
+  const fullUrl = await uploadFileToS3(fullBuffer, `${baseKey}_full.webp`, 'image/webp');
 
-  // 2. Small Version (800px width)
+  // 2. Small Version (800px width, WebP)
   try {
     const smallBuffer = await sharp(file.buffer)
       .resize(800, null, { withoutEnlargement: true, fit: 'inside' })
-      .jpeg({ quality: 80, mozjpeg: true, progressive: true })
+      .webp({ quality: 80 })
       .toBuffer();
 
-    await uploadFileToS3(smallBuffer, `${baseKey}_small.jpg`, 'image/jpeg');
+    await uploadFileToS3(smallBuffer, `${baseKey}_small.webp`, 'image/webp');
   } catch (err) {
     console.error('Error creating small version, skipping:', err);
   }
@@ -183,12 +183,12 @@ router.post('/avatar', upload.single('file'), async (req: any, res) => {
     // Process Avatar (Fill 500x500)
     const avatarBuffer = await sharp(req.file.buffer)
       .resize(500, 500, { fit: 'cover', position: 'center' })
-      .jpeg({ quality: 80, mozjpeg: true })
+      .webp({ quality: 80 })
       .toBuffer();
 
     const fileUuid = uuidv4();
-    const key = `avatars/${fileUuid}.jpg`;
-    const fileUrl = await uploadFileToS3(avatarBuffer, key, 'image/jpeg');
+    const key = `avatars/${fileUuid}.webp`;
+    const fileUrl = await uploadFileToS3(avatarBuffer, key, 'image/webp');
 
     // Update User Entity
     const { AppDataSource } = require('../config/database');

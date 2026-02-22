@@ -9,24 +9,16 @@ dotenv.config();
 const isProduction = process.env.NODE_ENV === 'production';
 const migrationsPath = isProduction ? ['dist/migrations/**/*.js'] : ['src/migrations/**/*.ts'];
 
-// ForYou Admin Panel - use foryou_admin_panel in production, admin_panel locally
-const FORYOU_DATABASE_URL = 'postgresql://admin:REDACTED_DB_PASSWORD@for-you-admin-panel-postgres-prod:5432/foryou_admin_panel';
-const envDatabaseUrl = process.env.DATABASE_URL || FORYOU_DATABASE_URL;
-// In development/local, use admin_panel. In production, use foryou_admin_panel
-// Check if URL explicitly contains admin_panel - if so, don't change it
-const isLocal = process.env.NODE_ENV !== 'production' && (envDatabaseUrl.includes('localhost') || envDatabaseUrl.includes('127.0.0.1') || envDatabaseUrl.includes('172.18.0.4'));
-const finalDatabaseUrl = isLocal || envDatabaseUrl.includes('/admin_panel')
-  ? envDatabaseUrl // Use as-is for local (admin_panel) or if explicitly set to admin_panel
-  : envDatabaseUrl.includes('/foryou_admin_panel')
-    ? envDatabaseUrl
-    : FORYOU_DATABASE_URL;
+// Default database URL (used if DATABASE_URL is not set in .env)
+const DEFAULT_DATABASE_URL = 'postgresql://admin:admin123@admin-panel-db:5432/admin_panel';
+const finalDatabaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
 
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: finalDatabaseUrl,
-  synchronize: true, // Вмикаємо синхронізацію для створення таблиць портфоліо
+  synchronize: !isProduction, // Disable synchronization in production for stability
   logging: process.env.NODE_ENV === 'development',
-  entities: entities, // Використовуємо масив класів напряму
+  entities: entities,
   migrations: migrationsPath,
 });
 

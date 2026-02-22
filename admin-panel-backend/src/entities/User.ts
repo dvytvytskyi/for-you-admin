@@ -13,6 +13,7 @@ export enum UserStatus {
   ACTIVE = 'ACTIVE',
   BLOCKED = 'BLOCKED',
   REJECTED = 'REJECTED',
+  DELETED = 'DELETED',
 }
 
 @Entity('users')

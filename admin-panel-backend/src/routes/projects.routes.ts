@@ -1,6 +1,7 @@
 import express from 'express';
 import { AppDataSource } from '../config/database';
 import { PortfolioItem } from '../entities/PortfolioItem';
+import { User, UserRole } from '../entities/User';
 import { authenticateJWT } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
 
@@ -32,7 +33,7 @@ router.get('/:id', async (req: any, res) => {
         }
 
         // Security check: Only the owner or admin can access
-        if (item.userId !== userId && userRole !== 'admin') {
+        if (item.userId !== userId && userRole !== UserRole.ADMIN) {
             return res.status(403).json(errorResponse('Forbidden'));
         }
 

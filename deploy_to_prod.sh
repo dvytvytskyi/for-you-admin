@@ -12,6 +12,7 @@ FILES=(
   "admin-panel-backend/src/routes/portfolio.routes.ts"
   "admin-panel-backend/src/routes/projects.routes.ts"
   "admin-panel-backend/src/routes/upload.routes.ts"
+  "admin-panel-backend/src/config/s3.ts"
   "admin-panel/src/components/user-profile/PortfolioManager.tsx"
   "admin-panel-backend/src/entities/User.ts"
   "admin-panel-backend/src/entities/AmoCrmUser.ts"
@@ -53,6 +54,24 @@ FILES=(
   "admin-panel-backend/src/scripts/translate-areas-azure.ts"
   "admin-panel-backend/src/routes/images.routes.ts"
   "admin-panel-backend/src/entities/Property.ts"
+  "admin-panel/src/components/investor-chat/ProjectSelector.tsx"
+  "admin-panel/src/components/form/input/InputField.tsx"
+  "admin-panel/src/components/form/input/TextArea.tsx"
+  "admin-panel/src/components/tables/Pagination.tsx"
+  "admin-panel/src/app/support/page.tsx"
+  "admin-panel/src/app/news/[id]/page.tsx"
+  "admin-panel/src/app/news/add/page.tsx"
+  "admin-panel-backend/src/migrations/013-add-vacancy-localization.sql"
+  "admin-panel-backend/src/entities/Vacancy.ts"
+  "admin-panel-backend/src/entities/VacancyRequest.ts"
+  "admin-panel-backend/src/entities/index.ts"
+  "admin-panel-backend/src/routes/vacancies.routes.ts"
+  "admin-panel-backend/src/routes/public-vacancies.routes.ts"
+  "admin-panel/src/app/vacancies/page.tsx"
+  "admin-panel/src/app/vacancies/new/page.tsx"
+  "admin-panel/src/app/vacancies/[id]/page.tsx"
+  "admin-panel/src/types/vacancy.ts"
+  "admin-panel-backend/src/scripts/convert-s3-to-webp.ts"
   "docker-compose.prod.yml"
 )
 
@@ -91,6 +110,8 @@ ENV_EOF
   DB_CONTAINER=\$(docker ps -q -f name=admin-panel-postgres-prod)
   if [ -n "\$DB_CONTAINER" ]; then
     docker exec -i \$DB_CONTAINER psql -U admin -d foryou_admin_panel < admin-panel-backend/src/migrations/010-add-user-amo-crm-relation.sql
+    echo "🗄  Running Vacancy Localization Migration..."
+    docker exec -i \$DB_CONTAINER psql -U admin -d admin_panel < admin-panel-backend/src/migrations/013-add-vacancy-localization.sql
   else
     echo "⚠️  Postgres container not found, skipping migration."
   fi
@@ -101,6 +122,9 @@ ENV_EOF
   docker-compose -f docker-compose.prod.yml build admin-panel-backend
   docker-compose -f docker-compose.prod.yml build admin-panel-frontend
   
+  echo "🛑 Force removing existing containers to avoid conflicts..."
+  docker rm -f for-you-admin-panel-backend-prod for-you-admin-panel-frontend-prod || true
+
   docker-compose -f docker-compose.prod.yml up -d admin-panel-backend
   docker-compose -f docker-compose.prod.yml up -d admin-panel-frontend
 

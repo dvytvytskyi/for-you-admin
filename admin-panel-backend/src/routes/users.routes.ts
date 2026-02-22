@@ -2,7 +2,8 @@ import express from 'express';
 import { AppDataSource } from '../config/database';
 import { User, UserRole, UserStatus } from '../entities/User';
 import { AmoCrmUser } from '../entities/AmoCrmUser';
-import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
+import { UserBlock } from '../entities/UserBlock';
+import { authenticateJWT, authenticateAPIKey, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
 import { sendBrokerInvitationEmail } from '../services/email.service';
 import bcrypt from 'bcrypt';
@@ -134,6 +135,127 @@ router.get('/', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to load users' });
   }
 });
+
+router.delete('/me', async (req: any, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'User not found' });
+    }
+
+    const userRepository = AppDataSource.getRepository(User);
+    const user = await userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Soft delete
+    user.status = UserStatus.DELETED;
+    // Also clear sensitive data if needed, but for "soft delete" status is enough for login block
+    // We can also anonymize email/phone to allow re-registration but keep history?
+    // For now, simple status change as requested.
+
+    await userRepository.save(user);
+
+    return res.json(successResponse(null, 'Account deleted successfully'));
+  } catch (error: any) {
+    console.error('Error deleting account:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete account' });
+  }
+});
+
+/**
+ * POST /api/users/block/:userId
+ * Block a user
+ */
+router.post('/block/:userId', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const blockedUserId = req.params.userId;
+
+    if (!userId) {
+      return res.status(401).json(errorResponse('User not authenticated'));
+    }
+
+    if (userId === blockedUserId) {
+      return res.status(400).json(errorResponse('You cannot block yourself'));
+    }
+
+    const blockRepo = AppDataSource.getRepository(UserBlock);
+
+    // Check if already blocked
+    const existingBlock = await blockRepo.findOne({
+      where: { userId, blockedUserId }
+    });
+
+    if (existingBlock) {
+      return res.json(successResponse(null, 'User is already blocked'));
+    }
+
+    const newBlock = blockRepo.create({
+      userId,
+      blockedUserId
+    });
+
+    await blockRepo.save(newBlock);
+    return res.json(successResponse(null, 'User blocked successfully'));
+  } catch (error: any) {
+    console.error('Error blocking user:', error);
+    return res.status(500).json(errorResponse(error.message || 'Failed to block user'));
+  }
+});
+
+/**
+ * GET /api/users/me/blocks
+ * Get list of blocked user IDs
+ */
+router.get('/me/blocks', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json(errorResponse('User not authenticated'));
+    }
+
+    const blockRepo = AppDataSource.getRepository(UserBlock);
+    const blocks = await blockRepo.find({
+      where: { userId },
+      select: ['blockedUserId']
+    });
+
+    const blockedIds = blocks.map(b => b.blockedUserId);
+    return res.json(successResponse(blockedIds));
+  } catch (error: any) {
+    console.error('Error fetching blocked users:', error);
+    return res.status(500).json(errorResponse(error.message || 'Failed to fetch blocked users'));
+  }
+});
+
+/**
+ * DELETE /api/users/block/:userId
+ * Unblock a user
+ */
+router.delete('/block/:userId', async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.id;
+    const blockedUserId = req.params.userId;
+
+    if (!userId) {
+      return res.status(401).json(errorResponse('User not authenticated'));
+    }
+
+    const blockRepo = AppDataSource.getRepository(UserBlock);
+    await blockRepo.delete({ userId, blockedUserId });
+
+    return res.json(successResponse(null, 'User unblocked successfully'));
+  } catch (error: any) {
+    console.error('Error unblocking user:', error);
+    return res.status(500).json(errorResponse(error.message || 'Failed to unblock user'));
+  }
+});
+
 
 router.get('/:id', async (req, res) => {
   try {

@@ -207,16 +207,22 @@ export default function PropertiesPage() {
       // Використовуємо params як другий аргумент axios.get для правильного форматування
       const { data } = await api.get('/properties', { params })
 
-      // Бекенд ЗАВЖДИ повертає структуру з пагінацією
-      if (data.data?.data && data.data?.pagination) {
-        // Нова структура з пагінацією
+      // Перевіряємо структуру відповіді { data: [], pagination: {} }
+      if (data.pagination && Array.isArray(data.data)) {
+        setProperties(data.data)
+        setTotalCount(data.pagination.total)
+        setTotalPages(data.pagination.totalPages)
+      } else if (data.data?.data && data.data?.pagination) {
+        // Структура { data: { data: [], pagination: {} } }
         setProperties(data.data.data)
         setTotalCount(data.data.pagination.total)
         setTotalPages(data.data.pagination.totalPages)
       } else if (data.data && Array.isArray(data.data)) {
-        // Fallback для старої структури (якщо бекенд ще не оновлений)
+        // Fallback для старої структури (якщо бекенд ще не оновлений) or no pagination handling
         console.warn('Backend returned old format without pagination')
         setProperties(data.data)
+        // Якщо пагінації немає у відповіді, вважаємо що отримали всі записи (або сторінку)
+        // Але краще не перезаписувати totalCount якщо це просто помилка формату
         setTotalCount(data.data.length)
         setTotalPages(Math.ceil(data.data.length / itemsPerPage))
       } else if (data.data && data.data.data && data.data.total !== undefined) {
