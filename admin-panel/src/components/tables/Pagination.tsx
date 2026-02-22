@@ -1,3 +1,6 @@
+import React from 'react';
+import Select from '../form/Select';
+
 type PaginationProps = {
   currentPage: number;
   totalPages: number;
@@ -14,14 +17,14 @@ const Pagination: React.FC<PaginationProps> = ({
     if (totalPages === 0) {
       return [1]
     }
-    
+
     if (totalPages <= 5) {
       // Show all pages if 5 or less
       return Array.from({ length: totalPages }, (_, i) => i + 1)
     }
 
     const pages: (number | string)[] = []
-    
+
     if (currentPage <= 3) {
       // Near the start: show 1, 2, 3, 4, 5 ... last
       for (let i = 1; i <= 5; i++) {
@@ -48,7 +51,7 @@ const Pagination: React.FC<PaginationProps> = ({
       pages.push('...')
       pages.push(totalPages)
     }
-    
+
     return pages
   }
 
@@ -76,11 +79,10 @@ const Pagination: React.FC<PaginationProps> = ({
             <button
               key={page}
               onClick={() => onPageChange(page as number)}
-              className={`flex w-10 items-center justify-center h-10 rounded-lg text-sm font-medium transition-colors ${
-                currentPage === page
-                  ? "bg-brand-500 text-white"
-                  : "text-gray-700 dark:text-gray-400 hover:bg-blue-500/[0.08] hover:text-brand-500 dark:hover:text-brand-500 border border-gray-300 dark:border-gray-700"
-              }`}
+              className={`flex w-10 items-center justify-center h-10 rounded-lg text-sm font-medium transition-colors ${currentPage === page
+                ? "bg-brand-500 text-white"
+                : "text-gray-700 dark:text-gray-400 hover:bg-blue-500/[0.08] hover:text-brand-500 dark:hover:text-brand-500 border border-gray-300 dark:border-gray-700"
+                }`}
             >
               {page}
             </button>
@@ -94,6 +96,23 @@ const Pagination: React.FC<PaginationProps> = ({
       >
         Next
       </button>
+
+      {totalPages > 1 && (
+        <div className="flex items-center gap-2 ml-4">
+          <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">Go to page:</span>
+          <div className="w-24">
+            <Select
+              options={Array.from({ length: totalPages }, (_, i) => ({
+                value: (i + 1).toString(),
+                label: (i + 1).toString(),
+              }))}
+              defaultValue={currentPage.toString()}
+              onChange={(val) => onPageChange(parseInt(val, 10))}
+              placeholder="Page"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

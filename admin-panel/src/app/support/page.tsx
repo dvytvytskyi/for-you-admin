@@ -7,6 +7,7 @@ import Badge from '@/components/ui/badge/Badge'
 import Button from '@/components/ui/button/Button'
 import { PencilIcon, PaperPlaneIcon } from '@/icons'
 import AvatarText from '@/components/ui/avatar/AvatarText'
+import Image from 'next/image'
 
 export default function SupportPage() {
   const router = useRouter()

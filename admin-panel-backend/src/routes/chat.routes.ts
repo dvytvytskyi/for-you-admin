@@ -79,4 +79,40 @@ router.post('/', upload.single('file'), async (req: AuthRequest, res) => {
     }
 });
 
+import { ChatMessageReport } from '../entities/ChatMessageReport';
+
+// Report message
+router.post('/messages/:id/report', async (req: AuthRequest, res) => {
+    try {
+        const messageId = req.params.id;
+        const reporterId = req.user!.id;
+        const { reason } = req.body;
+
+        if (!reason) {
+            return res.status(400).json({ success: false, message: 'Reason is required' });
+        }
+
+        const messageRepo = AppDataSource.getRepository(InvestorChatMessage);
+        const reportRepo = AppDataSource.getRepository(ChatMessageReport);
+
+        const message = await messageRepo.findOne({ where: { id: messageId } });
+        if (!message) {
+            return res.status(404).json({ success: false, message: 'Message not found' });
+        }
+
+        const report = reportRepo.create({
+            messageId,
+            reporterId,
+            reason,
+        });
+
+        await reportRepo.save(report);
+
+        res.json(successResponse(null, 'Report submitted successfully'));
+    } catch (error: any) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 export default router;
+

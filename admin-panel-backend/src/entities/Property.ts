@@ -19,11 +19,14 @@ export class Property {
   @Column({ type: 'enum', enum: PropertyType })
   propertyType!: PropertyType;
 
+  @Column({ unique: true, nullable: true })
+  slug?: string;
+
   @Column()
   name!: string;
 
-  @Column('simple-array')
-  photos!: string[];
+  @Column('simple-array', { nullable: true })
+  photos?: string[];
 
   @Column('uuid')
   countryId!: string;
@@ -62,32 +65,44 @@ export class Property {
   developer!: Developer;
 
   // Off-Plan fields
-  @Column('decimal', { precision: 15, scale: 2, nullable: true })
+  @Column('decimal', { name: 'priceFrom', precision: 15, scale: 2, nullable: true })
   priceFrom!: number;
 
-  @Column('int', { nullable: true })
+  @Column('int', { name: 'bedroomsFrom', nullable: true })
   bedroomsFrom!: number;
 
-  @Column('int', { nullable: true })
+  @Column('int', { name: 'bedroomsTo', nullable: true })
   bedroomsTo!: number;
 
-  @Column('int', { nullable: true })
+  @Column('int', { name: 'bathroomsFrom', nullable: true })
   bathroomsFrom!: number;
 
-  @Column('int', { nullable: true })
+  @Column('int', { name: 'bathroomsTo', nullable: true })
   bathroomsTo!: number;
 
-  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  @Column('decimal', { name: 'sizeFrom', precision: 10, scale: 2, nullable: true })
   sizeFrom!: number;
 
-  @Column('decimal', { precision: 10, scale: 2, nullable: true })
+  @Column('decimal', { name: 'sizeTo', precision: 10, scale: 2, nullable: true })
   sizeTo!: number;
 
   @Column('text', { nullable: true })
   paymentPlan!: string;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'isForYouChoice', type: 'boolean', default: false })
   isForYouChoice!: boolean;
+
+  @Column('text', { name: 'projectedroi', nullable: true })
+  projectedRoi?: string;
+
+  @Column({ name: 'isinvestorfeatured', type: 'boolean', default: false })
+  isInvestorFeatured!: boolean;
+
+  @Column('text', { nullable: true })
+  commission?: string;
+
+  @Column('date', { name: 'plannedcompletionat', nullable: true })
+  plannedCompletionAt?: string;
 
   @OneToMany(() => PropertyUnit, unit => unit.property, { cascade: true })
   units!: PropertyUnit[];

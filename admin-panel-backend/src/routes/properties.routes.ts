@@ -107,8 +107,7 @@ router.get('/', async (req: AuthRequest, res) => {
         .leftJoinAndSelect('property.city', 'city')
         .leftJoinAndSelect('property.area', 'area')
         .leftJoinAndSelect('property.developer', 'developer')
-        .leftJoinAndSelect('property.facilities', 'facilities')
-        .leftJoinAndSelect('property.units', 'units');
+        .leftJoinAndSelect('property.facilities', 'facilities');
     }
 
     // --- Фільтрація ---
@@ -127,7 +126,7 @@ router.get('/', async (req: AuthRequest, res) => {
 
     // 2. Unit Type (Apartment, Villa, etc.)
     if (type) {
-      if (isSummary) queryBuilder.leftJoin('property.units', 'units'); // Join but don't select
+      queryBuilder.leftJoin('property.units', 'units'); // Always join for filtering
       const unitTypes = (Array.isArray(type)
         ? type.map(String)
         : String(type).split(',').map(s => s.trim()))
@@ -164,10 +163,31 @@ router.get('/', async (req: AuthRequest, res) => {
       }
     }
 
-    // Existing exact ID filters
-    if (developerId) queryBuilder.andWhere('property.developerId = :developerId', { developerId });
-    if (cityId) queryBuilder.andWhere('property.cityId = :cityId', { cityId });
-    if (areaId) queryBuilder.andWhere('property.areaId = :areaId', { areaId });
+    // Exact ID filters (supporting multiple IDs)
+    if (developerId) {
+      const developerIds = Array.isArray(developerId)
+        ? developerId
+        : developerId.toString().split(',').map(id => id.trim()).filter(id => id !== '');
+      if (developerIds.length > 0) {
+        queryBuilder.andWhere('property.developerId IN (:...developerIds)', { developerIds });
+      }
+    }
+    if (cityId) {
+      const cityIds = Array.isArray(cityId)
+        ? cityId
+        : cityId.toString().split(',').map(id => id.trim()).filter(id => id !== '');
+      if (cityIds.length > 0) {
+        queryBuilder.andWhere('property.cityId IN (:...cityIds)', { cityIds });
+      }
+    }
+    if (areaId) {
+      const areaIds = Array.isArray(areaId)
+        ? areaId
+        : areaId.toString().split(',').map(id => id.trim()).filter(id => id !== '');
+      if (areaIds.length > 0) {
+        queryBuilder.andWhere('property.areaId IN (:...areaIds)', { areaIds });
+      }
+    }
 
     // 3. Bedrooms (Smart Filter)
     if (bedrooms) {
@@ -225,48 +245,53 @@ router.get('/', async (req: AuthRequest, res) => {
       if (!isNaN(val)) queryBuilder.andWhere('(property.sizeFrom <= :sizeTo OR property.size <= :sizeTo)', { sizeTo: val });
     }
 
-    // 6. Search (Name/Description)
+    // 6. Search (Name/Description/Slug-like)
     if (search) {
       const searchTerm = `%${search.toString().toLowerCase()}%`;
+      const slugSearch = `%${search.toString().toLowerCase().replace(/-/g, '%')}%`;
       queryBuilder.andWhere(
-        `(LOWER(property.name) LIKE :search OR LOWER(property.description) LIKE :search OR LOWER(property.descriptionRu) LIKE :search)`,
-        { search: searchTerm }
+        new Brackets(qb => {
+          qb.where('LOWER(property.name) LIKE :search', { search: searchTerm })
+            .orWhere('LOWER(property.description) LIKE :search', { search: searchTerm })
+            .orWhere('LOWER(property.descriptionRu) LIKE :search', { search: searchTerm })
+            .orWhere('LOWER(property.name) LIKE :slugSearch', { slugSearch });
+        })
       );
     }
 
     // Сортування - спочатку featured (isForYouChoice = true), потім по іншим полям
+    // Сортування - featured (isForYouChoice) спочатку лише якщо не вказано інше сортування
     const sortField = sortBy?.toString() || 'createdAt';
     const sortDirection = sortOrder?.toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // Спочатку сортуємо по isForYouChoice (featured спочатку)
-    queryBuilder.addOrderBy('property.isForYouChoice', 'DESC');
-
     // Дозволені поля для сортування
     const allowedSortFields = ['createdAt', 'name', 'price', 'priceFrom', 'size', 'sizeFrom'];
-    if (allowedSortFields.includes(sortField)) {
+
+    if (sortBy && allowedSortFields.includes(sortField)) {
+      // Якщо користувач явно вказав поле для сортування, використовуємо його як основне
       queryBuilder.addOrderBy(`property.${sortField}`, sortDirection);
+      // Featured об'єкти як другий критерій
+      queryBuilder.addOrderBy('property.isForYouChoice', 'DESC');
     } else {
-      // За замовчуванням сортування по даті створення
+      // Стандартна поведінка: спочатку featured, потім дата
+      queryBuilder.addOrderBy('property.isForYouChoice', 'DESC');
       queryBuilder.addOrderBy('property.createdAt', 'DESC');
     }
 
     // Пагінація - фронтенд завжди передає page та limit через infinite scroll
     // Якщо параметри не передані, використовуємо мінімальні значення для безпеки
     const pageNum = parseInt(page?.toString() || '1', 10) || 1;
-    const limitNum = parseInt(limit?.toString() || '20', 10) || 20;
+    const limitNum = parseInt(limit?.toString() || '100', 10) || 100;
 
     // Максимальний limit для безпеки (на випадок якщо хтось передасть дуже велике значення)
     const MAX_LIMIT = 10000;
-    const finalLimit = Math.min(limitNum, MAX_LIMIT) || 20;
+    const finalLimit = Math.min(limitNum, MAX_LIMIT) || 100;
     const skip = ((pageNum - 1) * finalLimit) || 0;
 
-    // Отримуємо загальну кількість записів перед пагінацією
-    const totalCount = await queryBuilder.getCount();
-
-    // Застосовуємо пагінацію
+    // Застосовуємо пагінацію та отримуємо дані разом з кількістю одним запитом
     queryBuilder.skip(skip).take(finalLimit);
 
-    const properties = await queryBuilder.getMany();
+    const [properties, totalCount] = await queryBuilder.getManyAndCount();
 
     console.log('[Properties API] Query results:', {
       totalProperties: properties.length,
@@ -275,20 +300,45 @@ router.get('/', async (req: AuthRequest, res) => {
       propertyTypeFilter: propertyType,
     });
 
-    const transformPhotos = (photos: string[] | null) => {
-      if (!photos || !Array.isArray(photos)) return [];
-      return photos.map(photo => {
-        if (photo.includes('your-objectstorage.com')) {
-          let small = photo;
-          let full = photo;
-          if (photo.includes('_small.jpg')) {
-            full = photo.replace('_small.jpg', '_full.jpg');
-          } else if (photo.includes('_full.jpg')) {
-            small = photo.replace('_full.jpg', '_small.jpg');
+    const parseSimpleArray = (val: any): string[] => {
+      if (!val) return [];
+      if (Array.isArray(val)) {
+        return val.filter(item => typeof item === 'string' && item.length > 0 && item !== '[]');
+      }
+      if (typeof val === 'string') {
+        let cleaned = val.trim();
+        if (cleaned === '[]' || cleaned === '') return [];
+        if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+          cleaned = cleaned.slice(1, -1);
+        }
+        return cleaned.split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(s => s.length > 0 && s !== '[]');
+      }
+      return [];
+    };
+
+    const transformPhotos = (photos: any) => {
+      const photosArray = parseSimpleArray(photos);
+      return photosArray.map(photo => {
+        let fullUrl = photo;
+        if (photo.startsWith('/storage')) {
+          const domain = process.env.BACKEND_URL || 'https://admin.foryou-realestate.com';
+          fullUrl = `${domain}${photo}`;
+        }
+        if (fullUrl.includes('your-objectstorage.com')) {
+          let small = fullUrl;
+          let full = fullUrl;
+          if (fullUrl.includes('_small.jpg')) {
+            full = fullUrl.replace('_small.jpg', '_full.jpg');
+          } else if (fullUrl.includes('_full.jpg')) {
+            small = fullUrl.replace('_full.jpg', '_small.jpg');
+          } else if (fullUrl.includes('_small.webp')) {
+            full = fullUrl.replace('_small.webp', '_full.webp');
+          } else if (fullUrl.includes('_full.webp')) {
+            small = fullUrl.replace('_full.webp', '_small.webp');
           }
           return { small, full };
         }
-        return { small: photo, full: photo };
+        return { small: fullUrl, full: fullUrl };
       });
     };
 
@@ -301,6 +351,8 @@ router.get('/', async (req: AuthRequest, res) => {
         const cityName = p.city?.nameEn || '';
         areaField = cityName ? `${areaName}, ${cityName}` : areaName;
       }
+
+      const photosArray = parseSimpleArray(p.photos);
 
       const baseData = {
         id: p.id,
@@ -316,10 +368,13 @@ router.get('/', async (req: AuthRequest, res) => {
         bathrooms: p.propertyType === 'off-plan' ? p.bathroomsFrom : p.bathrooms,
         size: p.propertyType === 'off-plan' ? p.sizeFrom : p.size,
         sizeFrom: p.sizeFrom,
-        sizeSqft: p.propertyType === 'off-plan'
-          ? (p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null)
-          : (p.size ? Conversions.sqmToSqft(p.size) : null),
+        sizeSqft: (p.propertyType === 'off-plan' ? p.sizeFrom : p.size)
+          ? Conversions.sqmToSqft(p.propertyType === 'off-plan' ? p.sizeFrom : p.size)
+          : null,
         area: areaField,
+        areaId: p.areaId,
+        cityId: p.cityId,
+        photos: photosArray,
         images: transformPhotos(p.photos),
         isForYouChoice: p.isForYouChoice,
         createdAt: p.createdAt,
@@ -546,16 +601,21 @@ router.get('/:id/presentation', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
+    const identifier = req.params.id;
+    console.log(`[DEBUG] Looking up property. Identifier: "${identifier}". Checking slug/UUID...`);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+
     const property = await AppDataSource.getRepository(Property).findOne({
-      where: { id: req.params.id },
+      where: isUuid ? { id: identifier } : { slug: identifier },
       relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
     });
 
     if (!property) {
+      console.log(`[DEBUG] Property NOT FOUND for identifier: "${identifier}"`);
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
-    const transformPhotos = (photos: string[] | null) => {
+    const transformPhotos = (photos: string[] | null | undefined) => {
       if (!photos || !Array.isArray(photos)) return [];
       return photos.map(photo => {
         if (photo.includes('your-objectstorage.com')) {
@@ -565,6 +625,10 @@ router.get('/:id', async (req, res) => {
             full = photo.replace('_small.jpg', '_full.jpg');
           } else if (photo.includes('_full.jpg')) {
             small = photo.replace('_full.jpg', '_small.jpg');
+          } else if (photo.includes('_small.webp')) {
+            full = photo.replace('_small.webp', '_full.webp');
+          } else if (photo.includes('_full.webp')) {
+            small = photo.replace('_full.webp', '_small.webp');
           }
           return { small, full };
         }
@@ -808,12 +872,13 @@ router.patch('/:id', async (req, res) => {
 
     // Filter out fields that don't exist in Property entity
     const allowedFields = [
-      'name', 'photos', 'description', 'latitude', 'longitude',
+      'name', 'slug', 'photos', 'description', 'latitude', 'longitude',
       'countryId', 'cityId', 'areaId', 'developerId',
       'priceFrom', 'bedroomsFrom', 'bedroomsTo', 'bathroomsFrom', 'bathroomsTo',
       'sizeFrom', 'sizeTo', 'paymentPlan',
       'price', 'bedrooms', 'bathrooms', 'size', 'propertyType',
-      'isForYouChoice', 'descriptionRu'
+      'isForYouChoice', 'descriptionRu', 'projectedRoi', 'isInvestorFeatured',
+      'commission', 'plannedCompletionAt'
     ];
 
     const updateData: any = {};

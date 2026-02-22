@@ -42,5 +42,19 @@ export class Area {
 
   @Column('simple-array', { nullable: true })
   images?: string[]; // Масив URL фото (до 8 штук, 3x4 або 4x3)
-}
 
+  @Column({ name: 'isactive', default: true })
+  isActive!: boolean;
+
+  @Column({ name: 'mainimage', nullable: true })
+  mainImage?: string;
+
+  @Column({ nullable: true, unique: true })
+  slug?: string;
+
+  @Column({ name: 'isfeatured', default: false })
+  isFeatured!: boolean;
+
+  @Column({ default: 0 })
+  priority!: number;
+}

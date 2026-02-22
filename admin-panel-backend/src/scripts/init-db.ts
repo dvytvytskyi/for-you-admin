@@ -14,7 +14,7 @@ async function init() {
         username: 'admin',
         password: 'admin123',
         database: 'admin_panel',
-        synchronize: true, // Key: create tables
+        synchronize: false, // Key: create tables
         logging: true,
         entities: entities, // Use all entities
     });

@@ -13,6 +13,8 @@ interface ContentItem {
   type: 'text' | 'image' | 'video'
   title: string
   description: string
+  titleRu: string
+  descriptionRu: string
   imageUrl: string
   videoUrl: string
 }
@@ -21,17 +23,21 @@ export default function NewsDetailPage() {
   const router = useRouter()
   const params = useParams()
   const newsId = params.id as string
-  
+
   const [isEditMode, setIsEditMode] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState<string | null>(null)
   const [uploadingMainImage, setUploadingMainImage] = useState(false)
-  
+
+  const [activeLang, setActiveLang] = useState<'en' | 'ru'>('en')
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    titleRu: '',
+    descriptionRu: '',
     imageUrl: '',
     isPublished: false,
   })
@@ -59,10 +65,12 @@ export default function NewsDetailPage() {
         setFormData({
           title: news.title || '',
           description: news.description || '',
+          titleRu: news.titleRu || '',
+          descriptionRu: news.descriptionRu || '',
           imageUrl: news.imageUrl || '',
           isPublished: news.isPublished || false,
         })
-        
+
         // Map contents
         if (news.contents && news.contents.length > 0) {
           const mappedContents = news.contents
@@ -72,6 +80,8 @@ export default function NewsDetailPage() {
               type: content.type || 'text',
               title: content.title || '',
               description: content.description || '',
+              titleRu: content.titleRu || '',
+              descriptionRu: content.descriptionRu || '',
               imageUrl: content.imageUrl || '',
               videoUrl: content.videoUrl || '',
             }))
@@ -80,7 +90,7 @@ export default function NewsDetailPage() {
           setContents([])
         }
       } else {
-        setFormData({ title: '', description: '', imageUrl: '', isPublished: false })
+        setFormData({ title: '', description: '', titleRu: '', descriptionRu: '', imageUrl: '', isPublished: false })
         setContents([])
       }
     } catch (error: any) {
@@ -109,6 +119,8 @@ export default function NewsDetailPage() {
       type: 'text',
       title: '',
       description: '',
+      titleRu: '',
+      descriptionRu: '',
       imageUrl: '',
       videoUrl: '',
     }
@@ -117,7 +129,7 @@ export default function NewsDetailPage() {
 
   const handleUpdateContent = (id: string, field: keyof ContentItem, value: string) => {
     if (!isEditMode) return
-    setContents(contents.map(item => 
+    setContents(contents.map(item =>
       item.id === id ? { ...item, [field]: value } : item
     ))
   }
@@ -133,13 +145,13 @@ export default function NewsDetailPage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      
+
       const { data } = await api.post('/upload/image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       })
-      
+
       if (data.data?.url) {
         handleUpdateContent(contentId, 'imageUrl', data.data.url)
       }
@@ -157,13 +169,13 @@ export default function NewsDetailPage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      
+
       const { data } = await api.post('/upload/image', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       })
-      
+
       if (data.data?.url) {
         setFormData(prev => ({ ...prev, imageUrl: data.data.url }))
       }
@@ -178,7 +190,7 @@ export default function NewsDetailPage() {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!isEditMode) return
-    
+
     setError(null)
     setSaving(true)
 
@@ -192,6 +204,8 @@ export default function NewsDetailPage() {
       const payload = {
         title: formData.title,
         description: formData.description,
+        titleRu: formData.titleRu || null,
+        descriptionRu: formData.descriptionRu || null,
         imageUrl: formData.imageUrl || null,
         isPublished: formData.isPublished,
         publishedAt: formData.isPublished ? new Date().toISOString() : null,
@@ -199,6 +213,8 @@ export default function NewsDetailPage() {
           type: content.type,
           title: content.title,
           description: content.description || null,
+          titleRu: content.titleRu || null,
+          descriptionRu: content.descriptionRu || null,
           imageUrl: content.imageUrl || null,
           videoUrl: content.videoUrl || null,
           order: index,
@@ -206,7 +222,7 @@ export default function NewsDetailPage() {
       }
 
       await api.patch(`/news/${newsId}`, payload)
-      
+
       setIsEditMode(false)
       await loadNews()
     } catch (err: any) {
@@ -245,9 +261,29 @@ export default function NewsDetailPage() {
           <h1 className="text-2xl font-semibold text-gray-800 dark:text-white">
             {isEditMode ? 'Edit News' : 'News Details'}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {isEditMode ? 'Update news information' : 'View and manage news details'}
-          </p>
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {isEditMode ? 'Update news information' : 'View and manage news details'}
+            </p>
+            <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <button
+                onClick={() => setActiveLang('en')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${activeLang === 'en'
+                  ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                English
+              </button>
+              <button
+                onClick={() => setActiveLang('ru')}
+                className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${activeLang === 'ru'
+                  ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'}`}
+              >
+                Russian
+              </button>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {!isEditMode ? (
@@ -256,7 +292,7 @@ export default function NewsDetailPage() {
                 onClick={() => setIsEditMode(true)}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="mr-2">
-                  <path d="M11.3333 2.00004H4.66659C3.93021 2.00004 3.33325 2.59699 3.33325 3.33337V13.3334C3.33325 14.0698 3.93021 14.6667 4.66659 14.6667H11.3333C12.0696 14.6667 12.6666 14.0698 12.6666 13.3334V5.05337C12.6666 4.68443 12.5254 4.33033 12.2754 4.08033L9.94659 1.75162C9.69659 1.50162 9.34249 1.3604 8.97355 1.3604H4.66659C3.93021 1.3604 3.33325 1.95735 3.33325 2.69373V13.3334C3.33325 14.0698 3.93021 14.6667 4.66659 14.6667H11.3333C12.0696 14.6667 12.6666 14.0698 12.6666 13.3334V5.05337C12.6666 4.68443 12.5254 4.33033 12.2754 4.08033L9.94659 1.75162C9.69659 1.50162 9.34249 1.3604 8.97355 1.3604ZM8.97355 2.3604L11.3022 4.68911H8.97355V2.3604Z" fill="currentColor"/>
+                  <path d="M11.3333 2.00004H4.66659C3.93021 2.00004 3.33325 2.59699 3.33325 3.33337V13.3334C3.33325 14.0698 3.93021 14.6667 4.66659 14.6667H11.3333C12.0696 14.6667 12.6666 14.0698 12.6666 13.3334V5.05337C12.6666 4.68443 12.5254 4.33033 12.2754 4.08033L9.94659 1.75162C9.69659 1.50162 9.34249 1.3604 8.97355 1.3604H4.66659C3.93021 1.3604 3.33325 1.95735 3.33325 2.69373V13.3334C3.33325 14.0698 3.93021 14.6667 4.66659 14.6667H11.3333C12.0696 14.6667 12.6666 14.0698 12.6666 13.3334V5.05337C12.6666 4.68443 12.5254 4.33033 12.2754 4.08033L9.94659 1.75162C9.69659 1.50162 9.34249 1.3604 8.97355 1.3604ZM8.97355 2.3604L11.3022 4.68911H8.97355V2.3604Z" fill="currentColor" />
                 </svg>
                 Edit
               </Button>
@@ -265,7 +301,7 @@ export default function NewsDetailPage() {
                 onClick={() => router.back()}
               >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Back
               </Button>
@@ -303,42 +339,46 @@ export default function NewsDetailPage() {
                   </h2>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="title">Title *</Label>
+                      <Label htmlFor={activeLang === 'en' ? 'title' : 'titleRu'}>
+                        Title ({activeLang === 'en' ? 'EN' : 'RU'}) *
+                      </Label>
                       <Input
-                        id="title"
-                        name="title"
+                        id={activeLang === 'en' ? 'title' : 'titleRu'}
+                        name={activeLang === 'en' ? 'title' : 'titleRu'}
                         type="text"
-                        placeholder="Enter news title"
-                        value={formData.title}
+                        placeholder={`Enter news title in ${activeLang === 'en' ? 'English' : 'Russian'}`}
+                        value={activeLang === 'en' ? formData.title : formData.titleRu}
                         onChange={handleChange}
                         disabled={!isEditMode}
-                        required
+                        required={activeLang === 'en'}
                         className={!isEditMode ? 'bg-gray-50 dark:bg-gray-800 cursor-default' : ''}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="description">Description *</Label>
+                      <Label htmlFor={activeLang === 'en' ? 'description' : 'descriptionRu'}>
+                        Description ({activeLang === 'en' ? 'EN' : 'RU'}) *
+                      </Label>
                       <textarea
-                        id="description"
-                        name="description"
-                        placeholder="Enter news description"
-                        value={formData.description}
+                        id={activeLang === 'en' ? 'description' : 'descriptionRu'}
+                        name={activeLang === 'en' ? 'description' : 'descriptionRu'}
+                        placeholder={`Enter news description in ${activeLang === 'en' ? 'English' : 'Russian'}`}
+                        value={activeLang === 'en' ? formData.description : formData.descriptionRu}
                         onChange={handleChange}
                         disabled={!isEditMode}
-                        required
+                        required={activeLang === 'en'}
                         rows={4}
                         className={`h-auto w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 bg-transparent text-gray-800 ${!isEditMode ? 'bg-gray-50 dark:bg-gray-800 cursor-default' : ''}`}
                       />
                     </div>
-                    
+
                     {/* Main Image Upload */}
                     <div>
                       <Label>Featured Image</Label>
                       <div className="space-y-3">
                         {formData.imageUrl ? (
                           <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                            <img 
-                              src={formData.imageUrl} 
+                            <img
+                              src={formData.imageUrl}
                               alt="Featured image"
                               className="w-full h-full object-cover"
                               onError={(e) => {
@@ -352,7 +392,7 @@ export default function NewsDetailPage() {
                                 className="absolute top-2 right-2 p-1.5 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 hover:text-red-500 dark:text-gray-300"
                               >
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                  <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                  <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                                 </svg>
                               </button>
                             )}
@@ -389,7 +429,7 @@ export default function NewsDetailPage() {
                               className="flex flex-col items-center justify-center cursor-pointer"
                             >
                               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-gray-400 mb-2">
-                                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                               </svg>
                               <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                                 Click to upload featured image
@@ -434,7 +474,7 @@ export default function NewsDetailPage() {
                         variant="outline"
                       >
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                          <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                         </svg>
                         Add Content
                       </Button>
@@ -458,12 +498,12 @@ export default function NewsDetailPage() {
                                 className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 hover:text-red-500"
                               >
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                  <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                  <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                                 </svg>
                               </button>
                             )}
                           </div>
-                          
+
                           <div className="space-y-4">
                             <div>
                               <Label>Type</Label>
@@ -476,22 +516,23 @@ export default function NewsDetailPage() {
                               />
                             </div>
                             <div>
-                              <Label>Title *</Label>
+                              <Label>Title ({activeLang === 'en' ? 'EN' : 'RU'}) *</Label>
                               <Input
                                 type="text"
                                 placeholder="Enter title"
-                                value={content.title}
-                                onChange={(e) => handleUpdateContent(content.id, 'title', e.target.value)}
+                                value={activeLang === 'en' ? content.title : content.titleRu}
+                                onChange={(e) => handleUpdateContent(content.id, activeLang === 'en' ? 'title' : 'titleRu', e.target.value)}
                                 disabled={!isEditMode}
+                                required={activeLang === 'en'}
                                 className={!isEditMode ? 'bg-gray-50 dark:bg-gray-800 cursor-default' : ''}
                               />
                             </div>
                             <div>
-                              <Label>Description</Label>
+                              <Label>Description ({activeLang === 'en' ? 'EN' : 'RU'})</Label>
                               <textarea
                                 placeholder="Enter description"
-                                value={content.description}
-                                onChange={(e) => handleUpdateContent(content.id, 'description', e.target.value)}
+                                value={activeLang === 'en' ? content.description : content.descriptionRu}
+                                onChange={(e) => handleUpdateContent(content.id, activeLang === 'en' ? 'description' : 'descriptionRu', e.target.value)}
                                 disabled={!isEditMode}
                                 rows={3}
                                 className={`h-auto w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 bg-transparent text-gray-800 ${!isEditMode ? 'bg-gray-50 dark:bg-gray-800 cursor-default' : ''}`}
@@ -503,8 +544,8 @@ export default function NewsDetailPage() {
                                 <div className="space-y-3">
                                   {content.imageUrl ? (
                                     <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                                      <img 
-                                        src={content.imageUrl} 
+                                      <img
+                                        src={content.imageUrl}
                                         alt={content.title || 'Uploaded image'}
                                         className="w-full h-full object-cover"
                                         onError={(e) => {
@@ -518,7 +559,7 @@ export default function NewsDetailPage() {
                                           className="absolute top-2 right-2 p-1.5 rounded-lg bg-white dark:bg-gray-800 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 hover:text-red-500 dark:text-gray-300"
                                         >
                                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                            <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                            <path d="M4 12L12 4M4 4L12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                                           </svg>
                                         </button>
                                       )}
@@ -555,7 +596,7 @@ export default function NewsDetailPage() {
                                         className="flex flex-col items-center justify-center cursor-pointer"
                                       >
                                         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" className="text-gray-400 mb-2">
-                                          <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                          <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15M17 8L12 3M12 3L7 8M12 3V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                         </svg>
                                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
                                           Click to upload image
@@ -621,7 +662,7 @@ export default function NewsDetailPage() {
                       ) : (
                         <>
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                            <path d="M13.3333 4L6 11.3333L2.66667 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M13.3333 4L6 11.3333L2.66667 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                           Save Changes
                         </>
@@ -640,15 +681,15 @@ export default function NewsDetailPage() {
             <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-4">
               Preview
             </h3>
-            
+
             <div className="space-y-4">
               {/* News Header */}
               {formData.title || formData.description ? (
                 <div className="space-y-3 pb-4 border-b border-gray-200 dark:border-gray-700">
                   {formData.imageUrl && (
                     <div className="w-full aspect-video rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                      <img 
-                        src={formData.imageUrl} 
+                      <img
+                        src={formData.imageUrl}
                         alt="Featured"
                         className="w-full h-full object-cover"
                         onError={(e) => {
@@ -657,15 +698,32 @@ export default function NewsDetailPage() {
                       />
                     </div>
                   )}
-                  {formData.title && (
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                      {formData.title}
-                    </h2>
-                  )}
-                  {formData.description && (
-                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
-                      {formData.description}
-                    </p>
+                  {activeLang === 'en' ? (
+                    <>
+                      {formData.title && (
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                          {formData.title}
+                        </h2>
+                      )}
+                      {formData.description && (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
+                          {formData.description}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {formData.titleRu && (
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                          {formData.titleRu}
+                        </h2>
+                      )}
+                      {formData.descriptionRu && (
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
+                          {formData.descriptionRu}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (
@@ -680,20 +738,37 @@ export default function NewsDetailPage() {
                   <h4 className="font-medium text-gray-800 dark:text-white text-sm">Contents:</h4>
                   {contents.map((content, index) => (
                     <div key={content.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                      {content.title && (
-                        <h5 className="font-medium text-gray-900 dark:text-white mb-1 text-sm">
-                          {content.title}
-                        </h5>
-                      )}
-                      {content.description && (
-                        <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
-                          {content.description}
-                        </p>
+                      {activeLang === 'en' ? (
+                        <>
+                          {content.title && (
+                            <h5 className="font-medium text-gray-900 dark:text-white mb-1 text-sm">
+                              {content.title}
+                            </h5>
+                          )}
+                          {content.description && (
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
+                              {content.description}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          {content.titleRu && (
+                            <h5 className="font-medium text-gray-900 dark:text-white mb-1 text-sm">
+                              {content.titleRu}
+                            </h5>
+                          )}
+                          {content.descriptionRu && (
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
+                              {content.descriptionRu}
+                            </p>
+                          )}
+                        </>
                       )}
                       {content.type === 'image' && content.imageUrl && (
                         <div className="w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
-                          <img 
-                            src={content.imageUrl} 
+                          <img
+                            src={content.imageUrl}
                             alt={content.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
@@ -705,7 +780,7 @@ export default function NewsDetailPage() {
                       {content.type === 'video' && content.videoUrl && (
                         <div className="w-full aspect-video bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-gray-400">
-                            <path d="M8 5V19L19 12L8 5Z" fill="currentColor"/>
+                            <path d="M8 5V19L19 12L8 5Z" fill="currentColor" />
                           </svg>
                         </div>
                       )}

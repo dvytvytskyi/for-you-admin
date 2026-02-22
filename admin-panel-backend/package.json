@@ -55,7 +55,8 @@
     "import:cities": "ts-node-dev src/scripts/importCitiesFromCSV.ts",
     "import:areas": "ts-node-dev src/scripts/importAreasFromCSV.ts",
     "import:areas:updated": "ts-node-dev src/scripts/importAreasFromUpdatedCSV.ts",
-    "translate:properties": "ts-node-dev src/scripts/translate-properties.ts"
+    "translate:properties": "ts-node-dev src/scripts/translate-properties.ts",
+    "db:health-check": "ts-node-dev src/scripts/check-db-health.ts"
   },
   "keywords": [],
   "author": "",
@@ -81,6 +82,7 @@
     "puppeteer": "^24.34.0",
     "reflect-metadata": "^0.1.14",
     "sharp": "^0.34.5",
+    "slugify": "^1.6.6",
     "typeorm": "^0.3.27",
     "uuid": "^11.1.0"
   },
@@ -94,6 +96,7 @@
     "@types/node": "^24.9.2",
     "@types/uuid": "^10.0.0",
     "ts-node-dev": "^2.0.0",
+    "typeorm-ts-node-esm": "^0.3.20",
     "typescript": "^5.9.3"
   }
 }

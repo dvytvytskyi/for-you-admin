@@ -14,6 +14,7 @@ import {
   ChatIcon,
   SettingsIcon,
   IntegrationsIcon,
+  TaskIcon,
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
 
@@ -54,6 +55,11 @@ const navItems: NavItem[] = [
     icon: <ChatIcon />,
     name: "Investor Chat",
     path: "/investor-chat",
+  },
+  {
+    icon: <TaskIcon />,
+    name: "Vacancies",
+    path: "/vacancies",
   },
 ];
 

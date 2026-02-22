@@ -1,4 +1,5 @@
 import express from 'express';
+import { Brackets } from 'typeorm';
 import { AppDataSource } from '../config/database';
 import { Property } from '../entities/Property';
 import { Country } from '../entities/Country';
@@ -9,12 +10,148 @@ import { Facility } from '../entities/Facility';
 import { Course } from '../entities/Course';
 import { CourseProgress } from '../entities/CourseProgress';
 import { News } from '../entities/News';
+import { Vacancy, VacancyStatus } from '../entities/Vacancy';
+import { VacancyRequest } from '../entities/VacancyRequest';
 import { successResponse, errorResponse } from '../utils/response';
 import { Conversions } from '../utils/conversions';
 import { authenticateApiKeyWithSecret, AuthRequest } from '../middleware/auth';
 import jwt from 'jsonwebtoken';
 
 const router = express.Router();
+
+// Curated list of areas to show in public API
+const ALLOWED_AREAS = [
+  'Al Barari',
+  'Al Barsha 1',
+  'Al Safa',
+  'Arabian Ranches 3',
+  'Arjan',
+  'Barsha South',
+  'Bluewaters Island',
+  'Business Bay',
+  'Cherrywoods',
+  'City of Arabia',
+  'Damac Hills 2',
+  'Damac Lagoons',
+  'Discovery Gardens',
+  'Downtown Dubai',
+  'Dubai Creek Harbour',
+  'Dubai Design District',
+  'Dubai Harbour',
+  'Dubai Healthcare City',
+  'Dubai Hills',
+  'Dubai Industrial City',
+  'Dubai International Financial Centre (DIFC)',
+  'Dubai Internet City',
+  'Dubai Investment Park',
+  'Dubai Marina',
+  'Dubai Maritime City',
+  'Dubai Production City',
+  'Dubai Silicon Oasis',
+  'Dubai Sports City',
+  'Dubai Studio City',
+  'Dubailand',
+  'International City',
+  'Jumeirah Lake Towers (JLT)',
+  'Jumeirah Village Triangle (JVT)',
+  'La Mer',
+  'Madinat Jumeirah Living',
+  'Mina Rashid',
+  'Mirdif Hills',
+  'Mohammed Bin Rashid City (MBR)',
+  'Motor City',
+  'Sobha Hartland',
+  'Tilal Al Ghaf',
+  'Town Square',
+  'Uptown Dubai',
+  'Wadi Al Safa 4'
+];
+
+// Helper function to generate slug from title
+function generateSlug(title: string): string {
+  if (!title) return '';
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters
+    .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+}
+
+const parseSimpleArray = (val: any): string[] => {
+  if (!val) return [];
+  if (Array.isArray(val)) {
+    return val.filter(item => typeof item === 'string' && item.length > 0 && item !== '[]');
+  }
+  if (typeof val === 'string') {
+    let cleaned = val.trim();
+    if (cleaned === '[]' || cleaned === '') return [];
+    if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
+      cleaned = cleaned.slice(1, -1);
+    }
+    return cleaned.split(',').map(s => s.trim().replace(/^"|"$/g, '')).filter(s => s.length > 0 && s !== '[]');
+  }
+  return [];
+};
+
+const transformPhotos = (photos: any) => {
+  const photosArray = parseSimpleArray(photos);
+  return photosArray.map(photo => {
+    let fullUrl = photo;
+    if (photo.startsWith('/storage')) {
+      const domain = process.env.BACKEND_URL || 'https://admin.foryou-realestate.com';
+      fullUrl = `${domain}${photo}`;
+    }
+
+    if (fullUrl.includes('your-objectstorage.com')) {
+      let small = fullUrl;
+      let full = fullUrl;
+      if (fullUrl.includes('_small.jpg')) {
+        full = fullUrl.replace('_small.jpg', '_full.jpg');
+      } else if (fullUrl.includes('_full.jpg')) {
+        small = fullUrl.replace('_full.jpg', '_small.jpg');
+      } else if (fullUrl.includes('_small.webp')) {
+        full = fullUrl.replace('_small.webp', '_full.webp');
+      } else if (fullUrl.includes('_full.webp')) {
+        small = fullUrl.replace('_full.webp', '_small.webp');
+      }
+      return { small, full };
+    }
+    return { small: fullUrl, full: fullUrl };
+  });
+};
+
+// GET /api/public/news/latest - Get 3 most recent news articles
+router.get('/news/latest', authenticateApiKeyWithSecret, async (req, res) => {
+  try {
+    console.log('[Public API] GET /api/public/news/latest request');
+
+    const news = await AppDataSource.getRepository(News)
+      .createQueryBuilder('news')
+      .where('news.isPublished = :isPublished', { isPublished: true })
+      .andWhere('news.publishedAt IS NOT NULL')
+      .andWhere('news.publishedAt <= :now', { now: new Date() })
+      .orderBy('news.publishedAt', 'DESC')
+      .take(3)
+      .getMany();
+
+    const data = news.map(item => ({
+      id: item.id,
+      slug: generateSlug(item.title),
+      title: item.title,
+      titleRu: item.titleRu,
+      description: item.description,
+      descriptionRu: item.descriptionRu,
+      image: item.imageUrl,
+      publishedAt: item.publishedAt,
+    }));
+
+    res.json(successResponse(data));
+  } catch (error: any) {
+    console.error('Error fetching latest news:', error);
+    res.status(500).json(errorResponse('Failed to fetch latest news', error.message));
+  }
+});
 
 // GET /api/public/data - Get all public data (returns ALL properties from ALL areas, no filtering)
 router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
@@ -39,14 +176,8 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
       }
     }
 
-    // Fetch ALL properties without any areaId filtering - this is intentional for client-side filtering
-    const [properties, countries, cities, areasRaw, developers, facilities, courses, progressList] = await Promise.all([
-      AppDataSource.getRepository(Property).find({
-        relations: ['country', 'city', 'area', 'developer', 'facilities', 'units'],
-        order: { isForYouChoice: 'DESC', createdAt: 'DESC' },
-        // No where clause - returns all properties from all areas
-        // Featured properties (isForYouChoice = true) will be first
-      }),
+    // Fetch ALL catalog data (excluding properties to keep payload light)
+    const [countries, cities, areasRaw, developers, facilities, courses, progressList] = await Promise.all([
       AppDataSource.getRepository(Country).find({
         order: { nameEn: 'ASC' },
       }),
@@ -121,99 +252,10 @@ router.get('/data', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
       return area;
     });
 
-    // Transform properties with conversions
-    const transformedProperties = properties.map(p => {
-      // Для off-plan properties: area має бути рядком "areaName, cityName"
-      // Для secondary properties: area залишається об'єктом
-      let areaField: any = null;
-      if (p.area) {
-        if (p.propertyType === 'off-plan') {
-          // Для off-plan: формат "areaName, cityName" (наприклад "JVC, Dubai")
-          const areaName = p.area.nameEn || '';
-          const cityName = p.city?.nameEn || '';
-          areaField = cityName ? `${areaName}, ${cityName}` : areaName;
-        } else {
-          // Для secondary: об'єкт як раніше
-          areaField = {
-            id: p.area.id,
-            nameEn: p.area.nameEn,
-            nameRu: p.area.nameRu,
-            nameAr: p.area.nameAr,
-          };
-        }
-      }
-
-      return {
-        id: p.id,
-        propertyType: p.propertyType,
-        name: p.name,
-        description: p.description,
-        descriptionRu: p.descriptionRu,
-        price: p.price,
-        priceFrom: p.priceFrom,
-        priceAED: p.price ? Conversions.usdToAed(p.price) : null,
-        priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
-        size: p.size,
-        sizeFrom: p.sizeFrom,
-        sizeTo: p.sizeTo,
-        sizeSqft: p.size ? Conversions.sqmToSqft(p.size) : null,
-        sizeFromSqft: p.sizeFrom ? Conversions.sqmToSqft(p.sizeFrom) : null,
-        sizeToSqft: p.sizeTo ? Conversions.sqmToSqft(p.sizeTo) : null,
-        bedrooms: p.bedrooms,
-        bedroomsFrom: p.bedroomsFrom,
-        bedroomsTo: p.bedroomsTo,
-        bathrooms: p.bathrooms,
-        bathroomsFrom: p.bathroomsFrom,
-        bathroomsTo: p.bathroomsTo,
-        paymentPlan: p.paymentPlan,
-        isForYouChoice: p.isForYouChoice || false,
-        latitude: p.latitude,
-        longitude: p.longitude,
-        country: p.country ? {
-          id: p.country.id,
-          nameEn: p.country.nameEn,
-          nameRu: p.country.nameRu,
-          nameAr: p.country.nameAr,
-          code: p.country.code,
-        } : null,
-        city: p.city ? {
-          id: p.city.id,
-          nameEn: p.city.nameEn,
-          nameRu: p.city.nameRu,
-          nameAr: p.city.nameAr,
-        } : null,
-        area: areaField,
-        developer: p.developer ? {
-          id: p.developer.id,
-          name: p.developer.name,
-        } : null,
-        facilities: p.facilities?.map(f => ({
-          id: f.id,
-          nameEn: f.nameEn,
-          nameRu: f.nameRu,
-          nameAr: f.nameAr,
-          iconName: f.iconName,
-        })) || [],
-        units: p.units?.map(u => ({
-          id: u.id,
-          unitId: u.unitId,
-          type: u.type,
-          price: u.price,
-          priceAED: u.price ? Conversions.usdToAed(u.price) : null,
-          totalSize: u.totalSize,
-          totalSizeSqft: u.totalSize ? Conversions.sqmToSqft(u.totalSize) : null,
-          balconySize: u.balconySize,
-          balconySizeSqft: u.balconySize ? Conversions.sqmToSqft(u.balconySize) : null,
-          planImage: u.planImage,
-        })) || [],
-        photos: p.photos || [],
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-      };
-    });
-
-    const secondaryCount = transformedProperties.filter(p => p.propertyType === 'secondary').length;
-    const offPlanCount = transformedProperties.filter(p => p.propertyType === 'off-plan').length;
+    // Properties excluded for performance with 24k+ records
+    const transformedProperties: any[] = [];
+    const secondaryCount = 0;
+    const offPlanCount = 0;
 
     console.log('[Public API] ✅ Response sent:', {
       totalProperties: transformedProperties.length,
@@ -466,57 +508,110 @@ router.get('/courses/:id', authenticateApiKeyWithSecret, async (req, res) => {
   }
 });
 
-// GET /api/public/areas - Get all areas with project counts
-router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+// GET /api/public/featured-areas - Optimized endpoint for popular locations
+router.get('/featured-areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    console.log('[Public API] GET /api/public/areas request:', {
-      hasApiKey: !!req.apiKey,
-      apiKeyName: req.apiKey?.name,
-      cityId: req.query.cityId,
+    console.log('[Public API] GET /api/public/featured-areas request');
+
+    const data = await AppDataSource.getRepository(Area).createQueryBuilder('area')
+      .leftJoin(Property, 'property', 'property.areaId = area.id')
+      .select([
+        'area.id as id',
+        'area.slug as slug',
+        'area.nameEn as "nameEn"',
+        'area.nameRu as "nameRu"',
+        'area.mainImage as "mainImage"',
+        'area.images as images',
+        'area.isFeatured as "isFeatured"',
+        'area.priority as priority'
+      ])
+      .addSelect('COUNT(property.id)::int', 'propertiesCount')
+      .where('area.isactive = :isActive', { isActive: true })
+      .andWhere('area.nameEn IN (:...names)', { names: ALLOWED_AREAS })
+      .groupBy('area.id, area.slug, area.nameEn, area.nameRu, area.mainimage, area.images, area.isfeatured, area.priority')
+      .having('COUNT(property.id) > 0')
+      .orderBy('area.priority', 'DESC')
+      .addOrderBy('COUNT(property.id)', 'DESC')
+      .getRawMany();
+
+    const transformedData = data.map(item => {
+      const imagesArray = parseSimpleArray(item.images);
+      let mainImage = item.mainImage;
+
+      if (!mainImage && imagesArray.length > 0 && imagesArray[0]) {
+        mainImage = imagesArray[0];
+      }
+
+      if (mainImage && (mainImage.startsWith('/storage') || mainImage.startsWith('/uploads'))) {
+        const domain = process.env.BACKEND_URL || 'https://admin.foryou-realestate.com';
+        mainImage = `${domain}${mainImage}`;
+      }
+
+      return {
+        id: item.id,
+        slug: item.slug,
+        nameEn: item.nameEn,
+        nameRu: item.nameRu,
+        mainImage: mainImage,
+        propertiesCount: item.propertiesCount,
+        isFeatured: item.isFeatured,
+        priority: item.priority
+      };
     });
 
-    const { cityId } = req.query;
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(successResponse(transformedData));
+  } catch (error: any) {
+    console.error('Error fetching featured-areas:', error);
+    res.status(500).json(errorResponse('Failed to fetch featured areas', error.message));
+  }
+});
 
-    // Використовуємо query builder з явним вибором тільки основних полів
-    const where: any = {};
-    if (cityId) {
-      where.cityId = cityId;
-    }
+// GET /api/public/areas/featured - Get featured/popular areas for home page
+router.get('/areas/featured', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    console.log('[Public API] GET /api/public/areas/featured request');
 
-    // Використовуємо raw query для безпечного вибору (обходимо TypeORM entity mapping)
+    // Priority list of area names
+    const FEATURED_AREA_NAMES = [
+      'Jumeirah Lake Towers (JLT)',
+      'Downtown Dubai',
+      'Madinat Jumeirah Living',
+      'Damac Hills 2',
+      'Dubai Harbour',
+      'Dubai Marina'
+    ];
+
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
 
     let areas: any[] = [];
     try {
-      let whereClause = '';
-      const whereParams: any[] = [];
-      if (cityId) {
-        whereClause = 'WHERE area."cityId" = $1';
-        whereParams.push(cityId);
-      }
-
-      // Вибираємо всі поля areas, включаючи description, infrastructure, images
+      // Fetch featured areas by the isfeatured flag
       const areasRaw = await queryRunner.query(`
-            SELECT 
-              area.id,
-              area."cityId",
-              area."nameEn",
-              area."nameRu",
-              area."nameAr",
-              area.description,
-              area.infrastructure,
-              area.images
-            FROM areas area
-            ${whereClause}
-            ORDER BY area."nameEn" ASC
-          `, whereParams);
+        SELECT 
+          area.id,
+          area."cityId",
+          area."nameEn",
+          area."nameRu",
+          area."nameAr",
+          area.description,
+          area."descriptionRu",
+          area.images,
+          area.mainimage,
+          area.slug,
+          area.isfeatured,
+          area.priority
+        FROM areas area
+        WHERE area.isactive = true 
+        AND area.isfeatured = true
+        ORDER BY area.priority DESC, area."nameEn" ASC
+      `);
 
-      // Отримуємо повну інформацію про city та country через TypeORM
       const areaIds = areasRaw.map((a: any) => a.id);
-      let areasWithRelations: any[] = [];
+
       if (areaIds.length > 0) {
-        // Використовуємо raw query для city та country, щоб уникнути проблем з entity
+        // Fetch related City and Country data
         const citiesData = await queryRunner.query(`
           SELECT DISTINCT
             city.id,
@@ -542,7 +637,6 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
           WHERE country.id = ANY($1::uuid[])
         `, [countryIds]) : [];
 
-        // Формуємо структуру areas з relations
         const citiesMap = new Map(citiesData.map((c: any) => [c.id, c]));
         const countriesMap = new Map(countriesData.map((c: any) => [c.id, c]));
 
@@ -575,54 +669,32 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
             images: areaRaw.images || null,
           };
         });
-      } else {
-        areas = [];
       }
     } finally {
       await queryRunner.release();
     }
 
-    // Отримуємо підрахунок properties по areas через SQL агрегацію (більш ефективно)
-    const areaIds = areas.map(a => a.id);
-
-    // Підрахунок через SQL запит для кращої продуктивності
-    let countsQuery: any[] = [];
-    if (areaIds.length > 0) {
-      countsQuery = await AppDataSource
-        .getRepository(Property)
-        .createQueryBuilder('property')
-        .select('property.areaId', 'areaId')
-        .addSelect('COUNT(property.id)', 'total')
-        .addSelect(
-          "SUM(CASE WHEN property.propertyType = 'off-plan' THEN 1 ELSE 0 END)",
-          'offPlan'
-        )
-        .addSelect(
-          "SUM(CASE WHEN property.propertyType = 'secondary' THEN 1 ELSE 0 END)",
-          'secondary'
-        )
-        .where('property.areaId IN (:...areaIds)', { areaIds })
-        .groupBy('property.areaId')
-        .getRawMany();
+    if (areas.length === 0) {
+      return res.json(successResponse([]));
     }
 
-    // Створюємо мапу для швидкого доступу
-    const areaPropertyCounts = new Map<string, {
-      total: number;
-      offPlan: number;
-      secondary: number;
-    }>();
+    const areaIds = areas.map(a => a.id);
 
-    // Ініціалізуємо всі areas з нульовими значеннями
-    areas.forEach(area => {
-      areaPropertyCounts.set(area.id, {
-        total: 0,
-        offPlan: 0,
-        secondary: 0,
-      });
-    });
+    // Calculate project counts
+    const countsQuery = await AppDataSource
+      .getRepository(Property)
+      .createQueryBuilder('property')
+      .select('property.areaId', 'areaId')
+      .addSelect('COUNT(property.id)', 'total')
+      .addSelect("SUM(CASE WHEN property.propertyType = 'off-plan' THEN 1 ELSE 0 END)", 'offPlan')
+      .addSelect("SUM(CASE WHEN property.propertyType = 'secondary' THEN 1 ELSE 0 END)", 'secondary')
+      .where('property.areaId IN (:...areaIds)', { areaIds }) // Removed 'off-plan' only filter to get true totals
+      .groupBy('property.areaId')
+      .getRawMany();
 
-    // Заповнюємо мапу з результатів SQL запиту
+    const areaPropertyCounts = new Map<string, { total: number; offPlan: number; secondary: number }>();
+    areas.forEach(a => areaPropertyCounts.set(a.id, { total: 0, offPlan: 0, secondary: 0 }));
+
     countsQuery.forEach((row: any) => {
       areaPropertyCounts.set(row.areaId, {
         total: parseInt(row.total, 10) || 0,
@@ -631,54 +703,222 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
       });
     });
 
-    // Формуємо відповідь з підрахунками
-    const areasWithCounts = areas.map(area => {
-      const counts = areaPropertyCounts.get(area.id) || {
-        total: 0,
-        offPlan: 0,
-        secondary: 0,
+    const processedAreas = areas.map(area => {
+      const counts = areaPropertyCounts.get(area.id)!;
+      return {
+        ...area,
+        projectsCount: counts
       };
+    });
+
+    // Filters:
+    // 1. projectsCount.total > 0
+    // 2. Has images (images array exists and length > 0)
+    const filteredAreas = processedAreas.filter(area => {
+      const hasProjects = area.projectsCount.total > 0;
+
+      let hasImages = false;
+      if (area.images) {
+        if (Array.isArray(area.images) && area.images.length > 0) hasImages = true;
+        else if (typeof area.images === 'string' && area.images.length > 2) hasImages = true; // "{}", "[]" loose check, logic matches main EP parsing 
+      }
+
+      return hasProjects && hasImages;
+    });
+
+    // Formatting images strictly as array (same logic as main endpoint)
+    const formattedAreas = filteredAreas.map(area => {
+      let images: any = area.images;
+      if (typeof images === 'string') {
+        let cleaned = images.trim();
+        if (cleaned.startsWith('{') && cleaned.endsWith('}')) cleaned = cleaned.slice(1, -1).trim();
+        images = cleaned.split(',').map((url: string) => {
+          let urlCleaned = url.trim();
+          if (urlCleaned.startsWith('{') && urlCleaned.endsWith('}')) urlCleaned = urlCleaned.slice(1, -1).trim();
+          return urlCleaned;
+        }).filter((url: string) => url.length > 0);
+      }
+
+      // Ensure we strictly have an array for the response
+      if (!Array.isArray(images)) images = [];
 
       return {
-        id: area.id,
-        nameEn: area.nameEn,
-        nameRu: area.nameRu,
-        nameAr: area.nameAr,
-        cityId: area.cityId,
-        city: area.city ? {
-          id: area.city.id,
-          nameEn: area.city.nameEn,
-          nameRu: area.city.nameRu,
-          nameAr: area.city.nameAr,
-          countryId: area.city.countryId,
-          country: area.city.country ? {
-            id: area.city.country.id,
-            nameEn: area.city.country.nameEn,
-            nameRu: area.city.country.nameRu,
-            nameAr: area.city.country.nameAr,
-            code: area.city.country.code,
-          } : null,
-        } : null,
-        projectsCount: {
-          total: counts.total,
-          offPlan: counts.offPlan,
-          secondary: counts.secondary,
-        },
-        description: (area as any).description || null,
-        infrastructure: (area as any).infrastructure || null,
-        images: (area as any).images || null,
+        ...area,
+        description: area.description || null,
+        infrastructure: area.infrastructure || null,
+        images: images.length > 0 ? images : null
       };
     });
 
-    // Фільтруємо areas без projects (опціонально, можна залишити всі)
-    // const areasWithProjects = areasWithCounts.filter(a => a.projectsCount.total > 0);
+    // Additional check after formatting: ensure images is not null if we strictly require images
+    const finalValidAreas = formattedAreas.filter(a => a.images !== null && a.images.length > 0);
 
-    console.log('[Public API] ✅ Areas response sent:', {
-      totalAreas: areasWithCounts.length,
-      areasWithProjects: areasWithCounts.filter(a => a.projectsCount.total > 0).length,
+    // Sorting: Matches the order in FEATURED_AREA_NAMES
+    finalValidAreas.sort((a, b) => {
+      const indexA = FEATURED_AREA_NAMES.indexOf(a.nameEn);
+      const indexB = FEATURED_AREA_NAMES.indexOf(b.nameEn);
+      return indexA - indexB;
     });
 
-    res.json(successResponse(areasWithCounts));
+    res.json(successResponse(finalValidAreas));
+
+  } catch (error: any) {
+    console.error('Error fetching featured areas:', error);
+    res.status(500).json(errorResponse('Failed to fetch featured areas', error.message));
+  }
+});
+
+// GET /api/public/areas - Get all areas with project counts
+// GET /api/public/areas - Get all areas with project counts
+router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const { cityId, page = 1, limit = 20 } = req.query;
+    const pageNum = parseInt(page as string, 10) || 1;
+    const limitNum = parseInt(limit as string, 10) || 20;
+    const skip = (pageNum - 1) * limitNum;
+
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+
+    try {
+      // Use shared ALLOWED_AREAS constant
+
+      // Base WHERE clause: active AND has properties AND is in allowed list
+      let whereClause = `
+        WHERE area.isactive = true 
+        AND EXISTS (SELECT 1 FROM properties p WHERE p."areaId" = area.id)
+      `;
+
+      const whereParams: any[] = [];
+      let paramIndex = 1;
+
+      // Add filter by allowed names
+      whereClause += ` AND area."nameEn" = ANY($${paramIndex++}::text[])`;
+      whereParams.push(ALLOWED_AREAS);
+
+      if (cityId) {
+        whereClause += ` AND area."cityId" = $${paramIndex++}`;
+        whereParams.push(cityId);
+      }
+
+      // Get count of areas that have active properties
+      const countResult = await queryRunner.query(`
+         SELECT COUNT(*) as total FROM areas area ${whereClause}
+       `, whereParams);
+      const totalItems = parseInt(countResult[0].total, 10);
+
+      // Fetch areas with exactly the requested fields
+      const areasRaw = await queryRunner.query(`
+         SELECT 
+           area.id,
+           area."cityId",
+           area."nameEn",
+           area."nameRu",
+           area.description,
+           area."descriptionRu",
+           area.images,
+           area.mainimage,
+           area.slug,
+           area.isfeatured,
+           area.priority
+         FROM areas area
+         ${whereClause}
+         ORDER BY area.priority DESC, area."nameEn" ASC
+         LIMIT $${paramIndex++} OFFSET $${paramIndex++}
+       `, [...whereParams, limitNum, skip]);
+
+      const areaIds = areasRaw.map((a: any) => a.id);
+      let data: any[] = [];
+
+      if (areaIds.length > 0) {
+        // Fetch cities
+        const citiesData = await queryRunner.query(`
+           SELECT id, "nameEn", "nameRu"
+           FROM cities
+           WHERE id = ANY($1::uuid[])
+         `, [[...new Set(areasRaw.map((a: any) => a.cityId)) as any]]);
+        const citiesMap = new Map(citiesData.map((c: any) => [c.id, c]));
+
+        // Get property stats
+        const statsQuery = await AppDataSource.getRepository(Property)
+          .createQueryBuilder('p')
+          .select('p.areaId', 'areaId')
+          .addSelect('COUNT(p.id)', 'total')
+          .addSelect("SUM(CASE WHEN p.propertyType = 'off-plan' THEN 1 ELSE 0 END)", 'offPlan')
+          .addSelect("SUM(CASE WHEN p.propertyType = 'secondary' THEN 1 ELSE 0 END)", 'secondary')
+          .where('p.areaId IN (:...areaIds)', { areaIds })
+          .groupBy('p.areaId')
+          .getRawMany();
+
+        const statsMap = new Map();
+        statsQuery.forEach(s => {
+          statsMap.set(s.areaId, {
+            totalProperties: parseInt(s.total, 10) || 0,
+            offPlan: parseInt(s.offPlan, 10) || 0,
+            secondary: parseInt(s.secondary, 10) || 0
+          });
+        });
+
+        data = areasRaw.map((area: any) => {
+          const city = citiesMap.get(area.cityId);
+          const stats = statsMap.get(area.id) || { totalProperties: 0, offPlan: 0, secondary: 0 };
+
+          const imagesArray = parseSimpleArray(area.images);
+          let mainImage = area.mainimage; // Fixed from mainImage to mainimage
+
+          if (!mainImage && imagesArray.length > 0 && imagesArray[0]) {
+            mainImage = imagesArray[0];
+          }
+
+          if (typeof mainImage === 'string') {
+            mainImage = mainImage.trim();
+            if (mainImage.startsWith('{')) mainImage = mainImage.substring(1);
+            if (mainImage.endsWith('}')) mainImage = mainImage.substring(0, mainImage.length - 1);
+          }
+
+          if (mainImage && (mainImage.startsWith('/storage') || mainImage.startsWith('/uploads'))) {
+            const domain = process.env.BACKEND_URL || 'https://admin.foryou-realestate.com';
+            mainImage = `${domain}${mainImage}`;
+          }
+
+          return {
+            id: area.id,
+            nameEn: area.nameEn,
+            nameRu: area.nameRu,
+            slug: area.slug || generateSlug(area.nameEn),
+            mainImage,
+            images: imagesArray,
+            descriptionEn: area.description?.description || '',
+            descriptionRu: area.descriptionRu?.description || '',
+            infrastructure: area.infrastructure || null,
+            city: city ? {
+              id: (city as any).id,
+              nameEn: (city as any).nameEn,
+              nameRu: (city as any).nameRu
+            } : null,
+            projectsCount: {
+              total: stats.totalProperties,
+              offPlan: stats.offPlan,
+              secondary: stats.secondary
+            }
+          };
+        });
+      }
+
+      res.json(successResponse({
+        data,
+        meta: {
+          pagination: {
+            page: pageNum,
+            pageSize: limitNum,
+            pageCount: Math.ceil(totalItems / limitNum),
+            total: totalItems
+          }
+        }
+      }));
+    } finally {
+      await queryRunner.release();
+    }
   } catch (error: any) {
     console.error('Error fetching areas:', error);
     res.status(500).json(errorResponse('Failed to fetch areas', error.message));
@@ -686,6 +926,79 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
 });
 
 // GET /api/public/developers - Get all developers with project counts
+// GET /api/public/developers/featured - Get featured developers
+router.get('/developers/featured', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    console.log('[Public API] GET /api/public/developers/featured request');
+
+    const FEATURED_DEVELOPER_NAMES = [
+      'Emaar Properties',
+      'Damac',
+      'Yas Developers',
+      'Danube',
+      'Azizi',
+      'Binghatti',
+      'Imtiaz',
+      'Meraas'
+    ];
+
+    const developers = await AppDataSource.getRepository(Developer).find({
+      where: FEATURED_DEVELOPER_NAMES.map(name => ({ name })),
+    });
+
+    // In case some names didn't match perfectly, try search with ILIKE for the missing ones
+    if (developers.length < FEATURED_DEVELOPER_NAMES.length) {
+      const foundNames = new Set(developers.map(d => d.name));
+      const missingNames = FEATURED_DEVELOPER_NAMES.filter(n => !foundNames.has(n));
+
+      for (const name of missingNames) {
+        const fuzzyMatch = await AppDataSource.getRepository(Developer)
+          .createQueryBuilder('dev')
+          .where('dev.name ILIKE :name', { name: `%${name}%` })
+          .getOne();
+        if (fuzzyMatch && !foundNames.has(fuzzyMatch.name)) {
+          developers.push(fuzzyMatch);
+          foundNames.add(fuzzyMatch.name);
+        }
+      }
+    }
+
+    // Get counts for these developers
+    const developerIds = developers.map(d => d.id);
+    let countsQuery: any[] = [];
+    if (developerIds.length > 0) {
+      countsQuery = await AppDataSource
+        .getRepository(Property)
+        .createQueryBuilder('property')
+        .select('property.developerId', 'developerId')
+        .addSelect('COUNT(property.id)', 'total')
+        .where('property.developerId IN (:...developerIds)', { developerIds })
+        .groupBy('property.developerId')
+        .getRawMany();
+    }
+
+    const countsMap = new Map(countsQuery.map(c => [c.developerId, parseInt(c.total, 10)]));
+
+    const response = developers.map(d => ({
+      id: d.id,
+      name: d.name,
+      logo: d.logo,
+      projectsCount: countsMap.get(d.id) || 0
+    }));
+
+    // Sort according to the priority list
+    response.sort((a, b) => {
+      const indexA = FEATURED_DEVELOPER_NAMES.findIndex(n => a.name.includes(n));
+      const indexB = FEATURED_DEVELOPER_NAMES.findIndex(n => b.name.includes(n));
+      return indexA - indexB;
+    });
+
+    res.json(successResponse(response));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch featured developers', error.message));
+  }
+});
+
 router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
     console.log('[Public API] GET /api/public/developers request:', {
@@ -717,7 +1030,7 @@ router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest,
           "SUM(CASE WHEN property.propertyType = 'secondary' THEN 1 ELSE 0 END)",
           'secondary'
         )
-        .where('property.developerId IN (:...developerIds)', { developerIds })
+        .where('property.developerId IN (:...developerIds) AND property.propertyType = :type', { developerIds, type: 'off-plan' })
         .groupBy('property.developerId')
         .getRawMany();
     }
@@ -883,15 +1196,7 @@ router.get('/developers/:id', authenticateApiKeyWithSecret, async (req: AuthRequ
   }
 });
 
-// Helper function to generate slug from title
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '') // Remove special characters
-    .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
-    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
-}
+
 
 // GET /api/public/news - Get all published news with pagination
 router.get('/news', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
@@ -959,7 +1264,266 @@ router.get('/news', authenticateApiKeyWithSecret, async (req: AuthRequest, res) 
   }
 });
 
-// GET /api/public/news/:slug - Get single news item by slug
+// GET /api/public/projects - Get paginated list of off-plan projects with filtering
+router.get('/projects', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const {
+      page = '1',
+      limit = '10',
+      search,
+      locationId,
+      cityId,
+      minPrice,
+      maxPrice,
+      bedrooms,
+      developerId,
+      isInvestor,
+      isAgent,
+      sortBy,
+      sortOrder
+    } = req.query;
+
+    console.log('[Public API] GET /api/public/projects request:', {
+      page,
+      limit,
+      search,
+      locationId,
+      cityId,
+      isInvestor,
+      isAgent
+    });
+
+    const pageNum = parseInt(page.toString(), 10) || 1;
+    const limitNum = parseInt(limit.toString(), 10) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    const queryBuilder = AppDataSource.getRepository(Property)
+      .createQueryBuilder('property')
+      .leftJoinAndSelect('property.area', 'area')
+      .leftJoinAndSelect('property.city', 'city')
+      .leftJoinAndSelect('property.developer', 'developer')
+      .where('property.propertyType = :type', { type: 'off-plan' });
+
+    // 1. Search by name
+    if (search) {
+      queryBuilder.andWhere('LOWER(property.name) LIKE LOWER(:search)', { search: `%${search}%` });
+    }
+
+    // 2. Location/City filtering
+    if (locationId) {
+      const locationIds = Array.isArray(locationId)
+        ? locationId
+        : locationId.toString().split(',').map(id => id.trim()).filter(id => id !== '');
+      if (locationIds.length > 0) {
+        queryBuilder.andWhere('property.areaId IN (:...locationIds)', { locationIds });
+      }
+    }
+    if (cityId) {
+      const cityIds = Array.isArray(cityId)
+        ? cityId
+        : cityId.toString().split(',').map(id => id.trim()).filter(id => id !== '');
+      if (cityIds.length > 0) {
+        queryBuilder.andWhere('property.cityId IN (:...cityIds)', { cityIds });
+      }
+    }
+
+    // 3. Price filtering
+    if (minPrice) {
+      queryBuilder.andWhere('property.priceFrom >= :minPrice', { minPrice: parseFloat(minPrice.toString()) });
+    }
+    if (maxPrice) {
+      queryBuilder.andWhere('property.priceFrom <= :maxPrice', { maxPrice: parseFloat(maxPrice.toString()) });
+    }
+
+    // 4. Bedrooms filtering (overlap)
+    if (bedrooms) {
+      const bedroomList = bedrooms.toString().split(',').map(b => parseInt(b.trim(), 10));
+      queryBuilder.andWhere(new Brackets(qb => {
+        qb.where('property.bedroomsFrom IN (:...bedroomList)', { bedroomList })
+          .orWhere('property.bedroomsTo IN (:...bedroomList)', { bedroomList })
+          .orWhere('(property.bedroomsFrom <= :minBedroom AND property.bedroomsTo >= :maxBedroom)', {
+            minBedroom: Math.min(...bedroomList),
+            maxBedroom: Math.max(...bedroomList)
+          });
+      }));
+    }
+
+    // 5. Developer filtering
+    if (developerId) {
+      const developerIds = Array.isArray(developerId)
+        ? developerId
+        : developerId.toString().split(',').map(id => id.trim()).filter(id => id !== '');
+      if (developerIds.length > 0) {
+        queryBuilder.andWhere('property.developerId IN (:...developerIds)', { developerIds });
+      }
+    }
+
+    // Sorting
+    // Always prioritize featured projects (isForYouChoice)
+    queryBuilder.orderBy('property.isForYouChoice', 'DESC');
+
+    // Dynamic sorting based on parameters
+    const sortField = sortBy?.toString().toLowerCase() || 'createdAt';
+    const sortDirection = sortOrder?.toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+    // Allowed sort fields for security
+    const allowedSortFields = ['createdAt', 'price'];
+
+    if (sortField === 'price') {
+      // For price sorting, use priceFrom field
+      queryBuilder.addOrderBy('property.priceFrom', sortDirection);
+    } else if (allowedSortFields.includes(sortField)) {
+      // For other allowed fields
+      queryBuilder.addOrderBy(`property.${sortField}`, sortDirection);
+    } else {
+      // Default fallback
+      queryBuilder.addOrderBy('property.createdAt', 'DESC');
+    }
+
+    // Execution
+    const [projects, total] = await queryBuilder
+      .skip(skip)
+      .take(limitNum)
+      .getManyAndCount();
+
+    // Transformation
+    const data = projects.map(p => {
+      const item: any = {
+        id: p.id,
+        name: p.name,
+        photos: (p.photos || []).slice(0, 5),
+        images: transformPhotos(p.photos).slice(0, 5),
+        priceFrom: p.priceFrom,
+        priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
+        area: p.area ? p.area.nameEn : null,
+        city: p.city ? p.city.nameEn : null,
+        bedroomsFrom: p.bedroomsFrom,
+        bedroomsTo: p.bedroomsTo,
+        developer: p.developer ? {
+          id: p.developer.id,
+          name: p.developer.name
+        } : null,
+        plannedCompletionAt: p.plannedCompletionAt,
+      };
+
+      if (isInvestor === 'true') {
+        item.paymentPlan = p.paymentPlan;
+        item.projectedRoi = p.projectedRoi;
+        item.isInvestorFeatured = p.isInvestorFeatured;
+      }
+
+      if (isAgent === 'true') {
+        item.commission = p.commission;
+      }
+
+      return item;
+    });
+
+    res.json(successResponse({
+      data,
+      pagination: {
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      }
+    }));
+  } catch (error: any) {
+    console.error('Error fetching projects:', error);
+    res.status(500).json(errorResponse('Failed to fetch projects', error.message));
+  }
+});
+
+// GET /api/public/projects/search - Autocomplete search for projects and areas
+router.get('/projects/search', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const { q = '', limit = '10' } = req.query;
+    const limitNum = Math.min(parseInt(limit.toString(), 10) || 10, 20);
+
+    console.log('[Public API] GET /api/public/projects/search request:', { q, limit: limitNum });
+
+    if (!q || q.toString().length < 2) {
+      return res.json(successResponse([]));
+    }
+
+    const queryBuilder = AppDataSource.getRepository(Property)
+      .createQueryBuilder('property')
+      .leftJoinAndSelect('property.area', 'area')
+      .where('property.propertyType = :type', { type: 'off-plan' })
+      .andWhere(new Brackets(qb => {
+        qb.where('LOWER(property.name) LIKE LOWER(:q)', { q: `%${q}%` })
+          .orWhere('LOWER(area.nameEn) LIKE LOWER(:q)', { q: `%${q}%` });
+      }))
+      .take(limitNum);
+
+    const projects = await queryBuilder.getMany();
+
+    const results = projects.map(p => ({
+      id: p.id,
+      name: p.name,
+      location: p.area ? p.area.nameEn : 'N/A',
+      photo: p.photos && p.photos.length > 0 ? p.photos[0] : null,
+      type: 'project'
+    }));
+
+    res.json(successResponse(results));
+  } catch (error: any) {
+    console.error('Error in projects search:', error);
+    res.status(500).json(errorResponse('Failed to search projects', error.message));
+  }
+});
+
+// GET /api/public/projects/filter-options - Get metadata for filter options
+router.get('/projects/filter-options', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    console.log('[Public API] GET /api/public/projects/filter-options request');
+
+    // 1. Get areas that have off-plan projects
+    const locations = await AppDataSource.getRepository(Area)
+      .createQueryBuilder('area')
+      .innerJoin('properties', 'property', 'property.areaId = area.id')
+      .where('property.propertyType = :type', { type: 'off-plan' })
+      .select(['area.id', 'area.nameEn'])
+      .distinct(true)
+      .orderBy('area.nameEn', 'ASC')
+      .getRawMany();
+
+    // 2. Get developers that have off-plan projects
+    const developers = await AppDataSource.getRepository(Developer)
+      .createQueryBuilder('developer')
+      .innerJoin('properties', 'property', 'property.developerId = developer.id')
+      .where('property.propertyType = :type', { type: 'off-plan' })
+      .select(['developer.id', 'developer.name'])
+      .distinct(true)
+      .orderBy('developer.name', 'ASC')
+      .getRawMany();
+
+    // 3. Get price range
+    const priceStats = await AppDataSource.getRepository(Property)
+      .createQueryBuilder('property')
+      .select('MIN(property.priceFrom)', 'min')
+      .addSelect('MAX(property.priceFrom)', 'max')
+      .where('property.propertyType = :type', { type: 'off-plan' })
+      .andWhere('property.priceFrom > 0')
+      .getRawOne();
+
+    const response = {
+      locations: locations.map(l => ({ id: l.area_id, name: l.area_nameEn })),
+      developers: developers.map(d => ({ id: d.developer_id, name: d.developer_name })),
+      priceRange: {
+        min: parseFloat(priceStats?.min || '0'),
+        max: parseFloat(priceStats?.max || '0')
+      },
+      bedrooms: ["Studio", "1", "2", "3", "4", "5+"]
+    };
+
+    res.json(successResponse(response));
+  } catch (error: any) {
+    console.error('Error in filter options:', error);
+    res.status(500).json(errorResponse('Failed to fetch filter options', error.message));
+  }
+});
+
 router.get('/news/:slug', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
     const { slug } = req.params;
@@ -1046,9 +1610,10 @@ router.get('/news/:slug', authenticateApiKeyWithSecret, async (req: AuthRequest,
 // GET /api/public/map - Get lightweight property data for map (id, coordinates, price)
 router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    console.log('[Public API] GET /api/public/map request');
+    const { propertyType } = req.query;
+    console.log('[Public API] GET /api/public/map request', { propertyType });
 
-    const properties = await AppDataSource.getRepository(Property)
+    const queryBuilder = AppDataSource.getRepository(Property)
       .createQueryBuilder('property')
       .select([
         'property.id',
@@ -1059,11 +1624,17 @@ router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
         'property.propertyType'
       ])
       .where('property.latitude IS NOT NULL')
-      .andWhere('property.longitude IS NOT NULL')
-      .getMany();
+      .andWhere('property.longitude IS NOT NULL');
+
+    if (propertyType) {
+      queryBuilder.andWhere('property.propertyType = :propertyType', { propertyType });
+    }
+
+    const properties = await queryBuilder.getMany();
 
     const mapPoints = properties.map(p => ({
       id: p.id,
+      name: p.name,
       lat: p.latitude,
       lng: p.longitude,
       priceAED: p.propertyType === 'off-plan'
@@ -1079,12 +1650,22 @@ router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
   }
 });
 
-// GET /api/public/areas-simple - Get minimal area data for filters
+// GET /api/public/areas-simple - Get minimal area data for filters (only areas with active listings)
 router.get('/areas-simple', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
     const areas = await AppDataSource.getRepository(Area)
       .createQueryBuilder('area')
-      .select(['area.id', 'area.nameEn', 'area.nameRu', 'area.nameAr'])
+      .select(['area.id', 'area.nameEn', 'area.nameRu', 'area.cityId'])
+      .where('area.isactive = :isActive', { isActive: true })
+      .andWhere(qb => {
+        const subQuery = qb.subQuery()
+          .select('p.id')
+          .from(Property, 'p')
+          .where('p."areaId" = area.id')
+          .limit(1)
+          .getQuery();
+        return `EXISTS ${subQuery}`;
+      })
       .orderBy('area.nameEn', 'ASC')
       .getMany();
 
@@ -1108,6 +1689,121 @@ router.get('/developers-simple', authenticateApiKeyWithSecret, async (req: AuthR
     res.json(successResponse(developers));
   } catch (error: any) {
     res.status(500).json(errorResponse('Failed to fetch developers', error.message));
+  }
+});
+
+// GET /api/public/properties/:id - Detailed property view
+// GET /api/public/properties/:id/units - Get units for a property
+router.get('/properties/:id/units', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const { id: identifier } = req.params;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(identifier);
+
+    const property = await AppDataSource.getRepository(Property).findOne({
+      where: isUuid ? { id: identifier } : { slug: identifier },
+      relations: ['units'],
+      select: {
+        id: true,
+        units: true
+      }
+    });
+
+    if (!property) {
+      return res.status(404).json(errorResponse('Property not found'));
+    }
+
+    res.json(successResponse(property.units || []));
+  } catch (error: any) {
+    console.error('Error fetching property units:', error);
+    res.status(500).json(errorResponse('Failed to fetch property units', error.message));
+  }
+});
+
+router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const identifier = req.params.id;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
+
+    const property = await AppDataSource.getRepository(Property).findOne({
+      where: isUuid ? { id: identifier } : { slug: identifier },
+      relations: ['country', 'city', 'area', 'developer', 'facilities'], // 'units' removed for performance testing
+    });
+
+    if (!property) {
+      console.warn(`[Public API] 404: Property not found with identifier: ${identifier} (isUuid: ${isUuid})`);
+      return res.status(404).json(errorResponse('Property not found'));
+    }
+
+    const response = {
+      ...property,
+      images: transformPhotos(property.photos),
+      priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
+      priceAED: property.price ? Conversions.usdToAed(property.price) : null,
+      sizeFromSqft: property.sizeFrom ? Conversions.sqmToSqft(property.sizeFrom) : null,
+      sizeToSqft: property.sizeTo ? Conversions.sqmToSqft(property.sizeTo) : null,
+      sizeSqft: property.size ? Conversions.sqmToSqft(property.size) : null,
+    };
+
+    res.json(successResponse(response));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch property', error.message));
+  }
+});
+
+// GET /api/public/areas/:id - Detailed area view (by ID or Slug)
+router.get('/areas/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const { id: identifier } = req.params;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(identifier);
+
+    const area = await AppDataSource.getRepository(Area).findOne({
+      where: isUuid ? { id: identifier } : { slug: identifier },
+      relations: ['city']
+    });
+
+    if (!area) {
+      return res.status(404).json(errorResponse('Area not found'));
+    }
+
+    // Fix mainImage and images
+    const imagesArray = parseSimpleArray(area.images);
+    let mainImage = area.mainImage;
+    if (!mainImage && imagesArray.length > 0) mainImage = imagesArray[0];
+
+    const response = {
+      id: area.id,
+      slug: area.slug,
+      nameEn: area.nameEn,
+      nameRu: area.nameRu,
+      mainImage,
+      images: imagesArray,
+      isActive: area.isActive,
+      isFeatured: area.isFeatured,
+      priority: area.priority,
+      description: area.description,
+      descriptionRu: area.descriptionRu,
+      city: area.city ? {
+        id: area.city.id,
+        nameEn: area.city.nameEn
+      } : null
+    };
+
+    res.json(successResponse(response));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch area detail', error.message));
+  }
+});
+
+// GET /api/public/facilities - Get all facilities
+router.get('/facilities', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const facilities = await AppDataSource.getRepository(Facility).find({
+      order: { nameEn: 'ASC' },
+    });
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+    res.json(successResponse(facilities));
+  } catch (error: any) {
+    res.status(500).json(errorResponse('Failed to fetch facilities', error.message));
   }
 });
 
@@ -1140,6 +1836,10 @@ router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: 
         priceFrom: true,
         photos: true,
         propertyType: true,
+        bedroomsFrom: true,
+        sizeFrom: true,
+        bedrooms: true,
+        size: true,
         area: {
           id: true,
           nameEn: true,
@@ -1164,38 +1864,36 @@ router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: 
       return res.status(404).json(errorResponse('Property not found'));
     }
 
-    const transformPhotos = (photos: string[] | null) => {
-      if (!photos || !Array.isArray(photos)) return [];
-      // Limit to 5 photos for summary as requested
-      return photos.slice(0, 5).map(photo => {
-        if (photo.includes('your-objectstorage.com')) {
-          let small = photo;
-          let full = photo;
-          if (photo.includes('_small.jpg')) {
-            full = photo.replace('_small.jpg', '_full.jpg');
-          } else if (photo.includes('_full.jpg')) {
-            small = photo.replace('_full.jpg', '_small.jpg');
-          }
-          return { small, full };
-        }
-        return { small: photo, full: photo };
-      });
-    };
+    // Generate localized location strings
+    const location = property.area && property.city ? {
+      en: `${property.area.nameEn}, ${property.city.nameEn}`,
+      ru: `${property.area.nameRu}, ${property.city.nameRu}`,
+      ar: `${property.area.nameAr}, ${property.city.nameAr}`,
+    } : null;
 
     const response = {
       id: property.id,
       name: property.name,
       propertyType: property.propertyType,
+      photos: (property.photos || []).slice(0, 5),
+      images: transformPhotos(property.photos).slice(0, 5),
       price: property.price,
       priceFrom: property.priceFrom,
       priceAED: property.price ? Conversions.usdToAed(property.price) : null,
       priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
+      bedrooms: property.propertyType === 'off-plan' ? property.bedroomsFrom : property.bedrooms,
+      size: property.propertyType === 'off-plan' ? property.sizeFrom : property.size,
+      bedroomsFrom: property.propertyType === 'off-plan' ? property.bedroomsFrom : null,
+      sizeFrom: property.propertyType === 'off-plan' ? property.sizeFrom : null,
+      location: location,
       area: property.area ? {
+        id: property.area.id,
         nameEn: property.area.nameEn,
         nameRu: property.area.nameRu,
         nameAr: property.area.nameAr
       } : null,
       city: property.city ? {
+        id: property.city.id,
         nameEn: property.city.nameEn,
         nameRu: property.city.nameRu,
         nameAr: property.city.nameAr
@@ -1204,7 +1902,6 @@ router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: 
         name: property.developer.name,
         logo: property.developer.logo
       } : null,
-      images: transformPhotos(property.photos),
     };
 
     res.setHeader('Cache-Control', 'public, max-age=3600');
@@ -1213,6 +1910,9 @@ router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: 
     res.status(500).json(errorResponse('Failed to fetch property summary', error.message));
   }
 });
+
+// Vacancies are now handled in public-vacancies.routes.ts
+// for better localization support and cleaner code structure.
 
 export default router;
 

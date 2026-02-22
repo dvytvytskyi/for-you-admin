@@ -58,6 +58,8 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
     url: req.url,
     method: req.method,
     ip: req.ip || req.socket.remoteAddress,
+    userAgent: req.headers['user-agent'],
+    allHeaders: Object.keys(req.headers),
   });
   console.log('[API Auth] Headers check:', {
     'x-api-key': !!req.headers['x-api-key'],

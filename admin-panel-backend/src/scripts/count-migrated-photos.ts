@@ -1,29 +1,13 @@
 import 'reflect-metadata';
-import { DataSource } from 'typeorm';
+import { AppDataSource } from '../config/database';
 import { Property } from '../entities/Property';
-import { entities } from '../entities';
-
-const DB_PORT = 5434;
-const DB_USER = 'admin';
-const DB_PASS = 'admin123';
-const DB_NAME = 'admin_panel';
 
 async function countMigrated() {
     try {
-        const customDataSource = new DataSource({
-            type: 'postgres',
-            host: 'localhost',
-            port: DB_PORT,
-            username: DB_USER,
-            password: DB_PASS,
-            database: DB_NAME,
-            entities: entities,
-            synchronize: false,
-            logging: false,
-        });
-
-        await customDataSource.initialize();
-        const propertyRepo = customDataSource.getRepository(Property);
+        if (!AppDataSource.isInitialized) {
+            await AppDataSource.initialize();
+        }
+        const propertyRepo = AppDataSource.getRepository(Property);
 
         const count = await propertyRepo.count();
         console.log(`Total properties in DB: ${count}`);
@@ -45,7 +29,7 @@ async function countMigrated() {
             totalWithPhotos++;
             totalPhotos += prop.photos.length;
 
-            const migratedCount = prop.photos.filter(p => p.includes('your-objectstorage.com')).length;
+            const migratedCount = prop.photos.filter((p: string) => p.includes('your-objectstorage.com')).length;
             migratedPhotos += migratedCount;
 
             if (migratedCount === prop.photos.length) {
@@ -66,7 +50,9 @@ async function countMigrated() {
         console.log(`Total Photos: ${totalPhotos}`);
         console.log(`Migrated Photos: ${migratedPhotos} (${totalPhotos > 0 ? ((migratedPhotos / totalPhotos) * 100).toFixed(2) : 0}%)`);
 
-        await customDataSource.destroy();
+        if (AppDataSource.isInitialized) {
+            await AppDataSource.destroy();
+        }
         process.exit(0);
     } catch (error) {
         console.error(error);

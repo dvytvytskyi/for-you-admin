@@ -16,6 +16,7 @@
     "node_modules",
     "dist",
     "src/scripts/createTestProperties.ts",
-    "src/scripts/import-all-properties.ts"
+    "src/scripts/import-all-properties.ts",
+    "src/scripts/fix-webp-permissions.ts"
   ]
 }

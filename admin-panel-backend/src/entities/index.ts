@@ -33,6 +33,11 @@ export { AmoCrmContact } from './AmoCrmContact';
 export { AmoCrmTask, AmoTaskType } from './AmoCrmTask';
 export { InvestorChatMessage, MessageType } from './InvestorChatMessage';
 export { PortfolioItem, OperationalStatus } from './PortfolioItem';
+export { Vacancy, VacancyStatus } from './Vacancy';
+export { VacancyRequest } from './VacancyRequest';
+export { UserBlock } from './UserBlock';
+export { ChatMessageReport } from './ChatMessageReport';
+
 
 // Array of all entities for TypeORM DataSource
 import { User } from './User';
@@ -69,6 +74,11 @@ import { AmoCrmContact } from './AmoCrmContact';
 import { AmoCrmTask } from './AmoCrmTask';
 import { InvestorChatMessage } from './InvestorChatMessage';
 import { PortfolioItem } from './PortfolioItem';
+import { Vacancy } from './Vacancy';
+import { VacancyRequest } from './VacancyRequest';
+import { UserBlock } from './UserBlock';
+import { ChatMessageReport } from './ChatMessageReport';
+
 
 export const entities = [
   User,
@@ -105,5 +115,10 @@ export const entities = [
   AmoCrmTask,
   InvestorChatMessage,
   PortfolioItem,
+  Vacancy,
+  VacancyRequest,
+  UserBlock,
+  ChatMessageReport,
+
 ];
 

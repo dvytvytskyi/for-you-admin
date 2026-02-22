@@ -1245,6 +1245,9 @@ export class AmoCrmService {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },
+          params: {
+            with: 'contacts'
+          }
         },
       );
 
@@ -1255,8 +1258,16 @@ export class AmoCrmService {
       }
       return response.data._embedded?.leads?.[0];
     } catch (error: any) {
-      console.error('Error getting lead from AMO CRM:', error.response?.data || error.message);
-      throw new Error('Failed to get lead from AMO CRM');
+      console.error('Error getting lead from AMO CRM:', {
+        leadId,
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message
+      });
+      if (error.response?.status === 403) {
+        throw new Error(`AMO CRM Forbidden: ${JSON.stringify(error.response?.data) || 'No rights'}`);
+      }
+      throw new Error(`Failed to get lead from AMO CRM: ${error.message}`);
     }
   }
 
@@ -1458,6 +1469,74 @@ export class AmoCrmService {
     } catch (error: any) {
       console.error(`[AMO CRM] Error getting events for lead ${leadId}:`, error.response?.data || error.message);
       return [];
+    }
+  }
+
+  /**
+   * Отримати завдання по ліду
+   */
+  async getLeadTasks(leadId: number): Promise<any[]> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const response = await axios.get<{ _embedded: { tasks: any[] } }>(
+        `https://${this.domain}/api/v4/tasks`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          params: {
+            'filter[entity_id]': leadId,
+            'filter[entity_type]': 'leads'
+          }
+        },
+      );
+      return response.data._embedded?.tasks || [];
+    } catch (error: any) {
+      console.error(`[AMO CRM] Error getting tasks for lead ${leadId}:`, error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Створити завдання в AmoCRM
+   */
+  async createTask(taskData: any): Promise<number> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const response = await axios.post(
+        `https://${this.domain}/api/v4/tasks`,
+        [taskData],
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      return response.data._embedded?.tasks[0]?.id;
+    } catch (error: any) {
+      console.error('[AMO CRM] Error creating task:', error.response?.data || error.message);
+      throw new Error(`Failed to create task in AmoCRM: ${error.message}`);
+    }
+  }
+
+  /**
+   * Отримати контакт з AmoCRM
+   */
+  async getContact(contactId: number): Promise<AmoContact> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const response = await axios.get<AmoContact>(
+        `https://${this.domain}/api/v4/contacts/${contactId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+      return response.data;
+    } catch (error: any) {
+      console.error(`[AMO CRM] Error getting contact ${contactId}:`, error.response?.data || error.message);
+      throw new Error('Failed to get contact from AmoCRM');
     }
   }
 }

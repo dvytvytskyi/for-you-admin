@@ -4,7 +4,7 @@ import { AppDataSource } from '../config/database';
 import { AmoCrmToken } from '../entities/AmoCrmToken';
 import { AmoCrmUser } from '../entities/AmoCrmUser';
 import { AmoCrmService } from '../services/amo-crm.service';
-import { authenticateJWT, requireAdmin, AuthRequest } from '../middleware/auth';
+import { authenticateJWT, requireAdmin, requireBrokerOrAdmin, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
 
 const router = express.Router();
@@ -642,9 +642,10 @@ router.get(
 router.get(
   '/leads/:id',
   authenticateJWT,
-  requireAdmin,
+  requireBrokerOrAdmin,
   async (req: AuthRequest, res) => {
     try {
+      console.log(`[AMO CRM API] Fetching details for lead ${req.params.id} by user ${req.user?.id} (${req.user?.role})`);
       const { id } = req.params;
       const amoLeadId = parseInt(id);
 
@@ -652,30 +653,91 @@ router.get(
         return res.status(400).json(errorResponse('Invalid Lead ID'));
       }
 
-      // Fetch live data from AmoCRM
-      // We fetch basic lead data, notes (comments), and events (history) in parallel
-      const [lead, notes, events] = await Promise.all([
+      // Fetch live data from AmoCRM in parallel
+      const [lead, notes, events, tasks] = await Promise.all([
         amoCrmService.getLead(amoLeadId).catch(() => null),
         amoCrmService.getLeadNotes(amoLeadId),
-        amoCrmService.getLeadEvents(amoLeadId)
+        amoCrmService.getLeadEvents(amoLeadId),
+        amoCrmService.getLeadTasks(amoLeadId)
       ]);
 
       if (!lead) {
-        // Fallback: Check local DB if live fetch fails or not found? 
-        // User requested "real data", so mostly implies live.
-        // If not in Amo, maybe 404 is correct.
         return res.status(404).json(errorResponse('Lead not found in AmoCRM'));
       }
 
+      // Fetch contacts details
+      const contactIds = lead._embedded?.contacts?.map((c: any) => c.id) || [];
+      const contacts = await Promise.all(
+        contactIds.map(id => amoCrmService.getContact(id).catch(() => null))
+      );
+
       return res.json(successResponse({
-        lead,   // AmoCRM Lead Object (with custom_fields_values, etc.)
-        notes,  // Comments/Notes array
-        events  // Activity/History array
+        lead,     // AmoCRM Lead Object
+        contacts, // Array of Contact Objects
+        notes,    // Comments/Notes array
+        events,   // Activity/History array
+        tasks     // Tasks array
       }));
 
     } catch (error: any) {
       console.error('Error fetching lead details:', error);
       return res.status(500).json(errorResponse(error.message || 'Failed to fetch lead details'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/leads/:id/notes
+ * Додати коментар до ліда
+ */
+router.post(
+  '/leads/:id/notes',
+  authenticateJWT,
+  requireBrokerOrAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { text } = req.body;
+
+      if (!text) {
+        return res.status(400).json(errorResponse('Text is required'));
+      }
+
+      await amoCrmService.addNote(parseInt(id), 'leads', text);
+      return res.json(successResponse(null, 'Comment added successfully'));
+    } catch (error: any) {
+      console.error('Error adding note:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to add comment'));
+    }
+  },
+);
+
+/**
+ * POST /api/amo-crm/leads/:id/tasks
+ * Створити завдання для ліда
+ */
+router.post(
+  '/leads/:id/tasks',
+  authenticateJWT,
+  requireBrokerOrAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { text, complete_till, responsible_user_id } = req.body;
+
+      const taskData = {
+        entity_id: parseInt(id),
+        entity_type: 'leads',
+        text: text || 'Task for lead',
+        complete_till: complete_till || Math.floor(Date.now() / 1000) + 86400, // +1 day by default
+        responsible_user_id: responsible_user_id || undefined
+      };
+
+      const taskId = await amoCrmService.createTask(taskData);
+      return res.json(successResponse({ taskId }, 'Task created successfully'));
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to create task'));
     }
   },
 );

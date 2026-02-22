@@ -29,7 +29,10 @@ import portfolioRoutes from './routes/portfolio.routes';
 import projectsRoutes from './routes/projects.routes';
 import locationsRoutes from './routes/locations.routes';
 import imagesRoutes from './routes/images.routes';
+import vacanciesRoutes from './routes/vacancies.routes';
+import publicVacanciesRoutes from './routes/public-vacancies.routes';
 import { AmoCrmService } from './services/amo-crm.service';
+import { autoRepairDatabase } from './utils/db-auto-repair';
 
 dotenv.config();
 
@@ -60,6 +63,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/public/vacancies', publicVacanciesRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/collections', collectionsRoutes);
 app.use('/api/favorites', favoritesRoutes);
@@ -76,6 +80,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/v1/portfolio', portfolioRoutes);
 app.use('/api/locations', locationsRoutes);
 app.use('/api/images', imagesRoutes);
+app.use('/api/vacancies', vacanciesRoutes);
 
 // Routes з префіксом /v1 для мобільного додатку
 app.use('/api/v1/auth', authRoutes);
@@ -121,8 +126,12 @@ app.get('/health', (req, res) => {
 
 // Initialize database and start server
 AppDataSource.initialize()
-  .then(() => {
+  .then(async () => {
     console.log('✅ Database connected');
+
+    // Auto-repair database structure and missing data
+    await autoRepairDatabase();
+
     console.log('📊 Database entities loaded');
     app.listen(PORT, () => {
       console.log(`🚀 Admin Panel Backend running on http://localhost:${PORT}`);
