@@ -241,8 +241,8 @@ export class AmoCrmService {
       console.log('Local token storage not available, trying Main Backend');
     }
 
-    // Fallback: отримати з Main Backend (тільки якщо не передано userId)
-    if (!userId) {
+    // Fallback: отримати з Main Backend (тільки якщо не передано userId та налаштовано URL)
+    if (!userId && this.mainBackendUrl) {
       try {
         const response = await axios.get(`${this.mainBackendUrl}/integrations/amo-crm/token`, {
           headers: {
@@ -1213,7 +1213,7 @@ export class AmoCrmService {
     try {
       const accessToken = await this.getAccessToken();
 
-      const apiUrl = this.apiDomain || this.domain;
+      const apiUrl = this.domain;
       await axios.patch(
         `https://${apiUrl}/api/v4/leads/${leadId}`,
         leadData,
@@ -1332,7 +1332,7 @@ export class AmoCrmService {
   async addNote(entityId: number, entityType: 'leads' | 'contacts', text: string): Promise<void> {
     try {
       const accessToken = await this.getAccessToken();
-      const apiUrl = this.apiDomain || this.domain;
+      const apiUrl = this.domain;
 
       await axios.post(
         `https://${apiUrl}/api/v4/${entityType}/${entityId}/notes`,
@@ -1363,7 +1363,7 @@ export class AmoCrmService {
   async createContact(contactData: Partial<AmoCrmContact>): Promise<number> {
     try {
       const accessToken = await this.getAccessToken();
-      const apiUrl = this.apiDomain || this.domain;
+      const apiUrl = this.domain;
 
       // Формуємо payload для AMO CRM
       // Примітка: custom_fields_values потребує знання ID полів (Email, Phone)
@@ -1403,7 +1403,7 @@ export class AmoCrmService {
   async linkContactToLead(leadId: number, contactId: number): Promise<void> {
     try {
       const accessToken = await this.getAccessToken();
-      const apiUrl = this.apiDomain || this.domain;
+      const apiUrl = this.domain;
 
       await axios.post(
         `https://${apiUrl}/api/v4/leads/${leadId}/link`,
@@ -1537,6 +1537,77 @@ export class AmoCrmService {
     } catch (error: any) {
       console.error(`[AMO CRM] Error getting contact ${contactId}:`, error.response?.data || error.message);
       throw new Error('Failed to get contact from AmoCRM');
+    }
+  }
+
+  /**
+   * Створити лід та контакт із публічної форми (Enquiry)
+   */
+  async submitEnquiryToAmo(data: {
+    name: string;
+    email: string;
+    phone?: string;
+    message?: string;
+    source: string;
+    price?: number;
+    additionalInfo?: any;
+  }): Promise<number> {
+    try {
+      console.log(`[AMO CRM] Processing enquiry from ${data.source}: ${data.name}`);
+
+      // 1. Створити Lead
+      const leadName = `[WEBSITE] ${data.source} - ${data.name}`;
+      const leadId = await this.createLead({
+        name: leadName,
+        price: data.price || undefined,
+      });
+
+      // 2. Створити/Прив'язати контакт
+      try {
+        const contactId = await this.createContact({
+          name: data.name,
+          customFields: [
+            {
+              field_code: 'PHONE',
+              values: [{ value: data.phone || '' }]
+            },
+            {
+              field_code: 'EMAIL',
+              values: [{ value: data.email || '' }]
+            }
+          ]
+        });
+
+        await this.linkContactToLead(leadId, contactId);
+      } catch (contactError: any) {
+        console.warn(`[AMO CRM] Failed to create/link contact for lead ${leadId}:`, contactError.message);
+      }
+
+      // 3. Додати примітку з деталями
+      let noteText = `Нова заявка з сайту: ${data.source}\n`;
+      noteText += `Імя: ${data.name}\n`;
+      noteText += `Email: ${data.email}\n`;
+      noteText += `Телефон: ${data.phone || 'Не вказано'}\n`;
+
+      if (data.message) {
+        noteText += `\nПовідомлення:\n${data.message}\n`;
+      }
+
+      if (data.additionalInfo) {
+        noteText += `\nДодаткова інформація:\n${JSON.stringify(data.additionalInfo, null, 2)}\n`;
+      }
+
+      try {
+        await this.addNote(leadId, 'leads', noteText);
+      } catch (noteError: any) {
+        console.warn(`[AMO CRM] Failed to add note to lead ${leadId}:`, noteError.message);
+      }
+
+      console.log(`[AMO CRM] Successfully forwarded enquiry to AmoCRM (Lead ID: ${leadId})`);
+      return leadId;
+    } catch (error: any) {
+      console.error(`[AMO CRM] Error forwarding enquiry to AmoCRM:`, error.response?.data || error.message);
+      throw error;
     }
   }
 }

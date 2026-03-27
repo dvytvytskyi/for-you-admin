@@ -32,8 +32,9 @@ router.get('/locations', async (req, res) => {
  */
 router.get('/map', async (req, res) => {
     try {
-        const projects = await pfService.getProjectsForMap();
-        console.log(`[PropertyFinder] Sending ${projects.length} markers for map.`);
+        const { status } = req.query;
+        const projects = await pfService.getProjectsForMap(status as string);
+        console.log(`[PropertyFinder] Sending ${projects.length} markers for map. Status: ${status || 'all'}`);
         res.json({
             success: true,
             data: projects
