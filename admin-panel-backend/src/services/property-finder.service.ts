@@ -611,7 +611,7 @@ export class PropertyFinderService {
                         OR "fullData"->'status'->>'projectStatus' ILIKE '%off-plan%'
                     )
                 `;
-            } else if (status === 'completed') {
+            } else if (status === 'completed' || status === 'secondary') {
                 statusFilter = `
                     AND (
                         "fullData"->'status'->>'completionStatus' ILIKE '%completed%'
