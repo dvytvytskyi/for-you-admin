@@ -30,6 +30,7 @@ export default function NewsDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState<string | null>(null)
   const [uploadingMainImage, setUploadingMainImage] = useState(false)
+  const [authors, setAuthors] = useState<any[]>([])
 
   const [activeLang, setActiveLang] = useState<'en' | 'ru'>('en')
 
@@ -40,6 +41,9 @@ export default function NewsDetailPage() {
     descriptionRu: '',
     imageUrl: '',
     isPublished: false,
+    authorId: '',
+    seoTitle: '',
+    seoDescription: '',
   })
 
   const [contents, setContents] = useState<ContentItem[]>([])
@@ -56,9 +60,20 @@ export default function NewsDetailPage() {
     }
   }, [newsId])
 
+  const loadAuthors = async () => {
+    try {
+      const { data } = await api.get('/authors')
+      setAuthors(data.data || [])
+    } catch (err) {
+      console.error('Error loading authors:', err)
+    }
+  }
+
   const loadNews = async () => {
     setLoading(true)
     try {
+      // Load authors first or in parallel
+      await loadAuthors()
       const { data } = await api.get(`/news/${newsId}`)
       if (data.data) {
         const news = data.data
@@ -69,6 +84,9 @@ export default function NewsDetailPage() {
           descriptionRu: news.descriptionRu || '',
           imageUrl: news.imageUrl || '',
           isPublished: news.isPublished || false,
+          authorId: news.authorId || '',
+          seoTitle: news.seoTitle || '',
+          seoDescription: news.seoDescription || '',
         })
 
         // Map contents
@@ -90,7 +108,17 @@ export default function NewsDetailPage() {
           setContents([])
         }
       } else {
-        setFormData({ title: '', description: '', titleRu: '', descriptionRu: '', imageUrl: '', isPublished: false })
+        setFormData({ 
+          title: '', 
+          description: '', 
+          titleRu: '', 
+          descriptionRu: '', 
+          imageUrl: '', 
+          isPublished: false,
+          authorId: '',
+          seoTitle: '',
+          seoDescription: ''
+        })
         setContents([])
       }
     } catch (error: any) {
@@ -219,6 +247,9 @@ export default function NewsDetailPage() {
           videoUrl: content.videoUrl || null,
           order: index,
         })),
+        authorId: formData.authorId || null,
+        seoTitle: formData.seoTitle || null,
+        seoDescription: formData.seoDescription || null,
       }
 
       await api.patch(`/news/${newsId}`, payload)
@@ -440,6 +471,53 @@ export default function NewsDetailPage() {
                             </label>
                           </div>
                         ) : null}
+                      </div>
+                    </div>
+
+                    {/* Author & SEO */}
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">Expert & SEO</h3>
+                      
+                      <div>
+                        <Label htmlFor="authorId">Author / Expert</Label>
+                        <Select
+                          options={[
+                            { value: '', label: 'No Author' },
+                            ...authors.map(a => ({ value: a.id, label: a.nameEn }))
+                          ]}
+                          defaultValue={formData.authorId}
+                          onChange={(val) => setFormData(prev => ({ ...prev, authorId: val }))}
+                          placeholder="Select an author"
+                          disabled={!isEditMode}
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 pt-2">
+                        <div>
+                          <Label htmlFor="seoTitle">SEO Title (Optional)</Label>
+                          <Input
+                            id="seoTitle"
+                            name="seoTitle"
+                            type="text"
+                            placeholder="Overwrite auto-generated title"
+                            value={formData.seoTitle}
+                            onChange={handleChange}
+                            disabled={!isEditMode}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="seoDescription">SEO Description (Optional)</Label>
+                          <textarea
+                            id="seoDescription"
+                            name="seoDescription"
+                            placeholder="Overwrite auto-generated description"
+                            value={formData.seoDescription}
+                            onChange={handleChange}
+                            disabled={!isEditMode}
+                            rows={2}
+                            className={`h-auto w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 bg-transparent text-gray-800 ${!isEditMode ? 'bg-gray-50 dark:bg-gray-800 cursor-default' : ''}`}
+                          />
+                        </div>
                       </div>
                     </div>
 

@@ -7,7 +7,7 @@ COPY package*.json ./
 COPY package-lock.json* ./
 
 # Встановлюємо залежності
-RUN npm ci
+RUN npm install
 
 # Копіюємо вихідний код
 COPY . .

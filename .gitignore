@@ -68,3 +68,12 @@ src/scripts/.migration_checkpoint*
 *.exp
 *.pdf
 
+# Large files
+dataset_propertyfinder-scraper_*.json
+fresh_dist.tar.gz
+fresh_dist/
+FreshDistBack/
+fresh-dist.tar.gz
+test.tar.gz
+test_package.tar.gz
+

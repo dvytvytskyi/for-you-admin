@@ -30,18 +30,28 @@ import projectsRoutes from './routes/projects.routes';
 import locationsRoutes from './routes/locations.routes';
 import imagesRoutes from './routes/images.routes';
 import vacanciesRoutes from './routes/vacancies.routes';
+import enquiryRoutes from './routes/enquiry.routes';
 import publicVacanciesRoutes from './routes/public-vacancies.routes';
+import userActivityRoutes from './routes/user-activity.routes';
+import propertyFinderRoutes from './routes/property-finder.routes';
+import seoRoutes from './routes/seo.routes';
+import seoSyncRoutes from './routes/seo-sync.routes';
+import landingV2Routes from './routes/landing-v2.routes';
+
 import { AmoCrmService } from './services/amo-crm.service';
+import { PropertyFinderService } from './services/property-finder.service';
 import { autoRepairDatabase } from './utils/db-auto-repair';
 
 dotenv.config();
+
+import authorsRoutes from './routes/authors.routes';
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Middleware
 // CORS для публічних ендпоінтів (дозволяє всі джерела, оскільки захищено через API key)
-app.use('/api/public', cors({
+app.use(['/api/public', '/api/proxy/public'], cors({
   origin: '*', // Дозволяємо всі джерела для публічних API
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['x-api-key', 'x-api-secret', 'Content-Type', 'Authorization'],
@@ -56,6 +66,7 @@ app.use('/uploads', express.static('uploads'));
 // Routes (без префіксу v1 для сумісності з адмін панеллю)
 app.use('/api/auth', authRoutes);
 app.use('/api/properties', propertiesRoutes);
+app.use('/api/authors', authorsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/settings/api-keys', apiKeysRoutes);
 app.use('/api/courses', coursesRoutes);
@@ -81,6 +92,12 @@ app.use('/api/v1/portfolio', portfolioRoutes);
 app.use('/api/locations', locationsRoutes);
 app.use('/api/images', imagesRoutes);
 app.use('/api/vacancies', vacanciesRoutes);
+app.use('/api/user-activity', userActivityRoutes);
+app.use('/api/property-finder', propertyFinderRoutes);
+app.use('/api/seo', seoRoutes);
+app.use('/api/seo-sync', seoSyncRoutes);
+app.use('/api/v2/landing', landingV2Routes);
+
 
 // Routes з префіксом /v1 для мобільного додатку
 app.use('/api/v1/auth', authRoutes);
@@ -100,6 +117,29 @@ app.use('/api/v1/amo-crm', amoCrmRoutes);
 app.use('/api/v1/amo-crm', amoCrmRoutes);
 app.use('/api/v1/projects', projectsRoutes);
 app.use('/api/v1/locations', locationsRoutes);
+app.use('/api/v1/user-activity', userActivityRoutes);
+
+// Додаткові публічні ендпоінти для звернень
+app.use('/api', enquiryRoutes);
+app.use('/api/proxy', enquiryRoutes);
+app.use('/api/v1', enquiryRoutes);
+
+// Add /api/proxy prefix aliases for public access (used by main website)
+app.use('/api/proxy/public', publicRoutes);
+app.use('/api/proxy/user-activity', userActivityRoutes);
+app.use('/api/proxy/properties', propertiesRoutes);
+app.use('/api/proxy/amo-crm', amoCrmRoutes);
+app.use('/api/proxy/news', newsRoutes);
+app.use('/api/proxy/support', supportRoutes);
+app.use('/api/proxy/locations', locationsRoutes);
+app.use('/api/proxy/images', imagesRoutes);
+app.use('/api/proxy/chat', chatRoutes);
+app.use('/api/proxy/property-finder', propertyFinderRoutes);
+app.use('/api/proxy/v1', (req, res, next) => {
+  // Translate /api/proxy/v1/... to /api/v1/... internally ?
+  // Or just use the routers with prefix
+  next();
+});
 
 // Root route
 app.get('/', (req, res) => {
@@ -145,6 +185,29 @@ AppDataSource.initialize()
           console.error('[Background Sync] Error:', error);
         }
       }, 60000);
+
+      // Start background Property Finder sync (every 24 hours)
+      // Initial sync disabled temporarily to avoid blocking Admin Panel
+      /*
+      setTimeout(() => {
+          const pfService = new PropertyFinderService();
+          console.log('[PropertyFinder Sync] Initial periodic sync started');
+          pfService.syncAllProjects()
+              .then(result => console.log('[PropertyFinder Sync] Success:', result))
+              .catch(err => console.error('[PropertyFinder Sync] Failure:', err));
+      }, 10000);
+
+      // Daily interval (24 * 60 * 60 * 1000)
+      setInterval(async () => {
+          try {
+              const pfService = new PropertyFinderService();
+              console.log('[PropertyFinder Sync] Periodic daily sync started');
+              await pfService.syncAllProjects();
+          } catch (error) {
+              console.error('[PropertyFinder Sync Error] Background:', error);
+          }
+      }, 24 * 60 * 60 * 1000);
+      */
     });
   })
   .catch((error) => {

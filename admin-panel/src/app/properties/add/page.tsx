@@ -14,11 +14,16 @@ import Select from '@/components/form/Select'
 import SearchableSelect from '@/components/form/SearchableSelect'
 import Label from '@/components/form/Label'
 import Checkbox from '@/components/form/input/Checkbox'
+import { ChevronDown, ChevronUp, Trash2, Camera, Plus } from 'lucide-react'
 
 // Property Type enum
 enum PropertyType {
+  NEW_LAUNCHES = 'new-launches',
   OFF_PLAN = 'off-plan',
   SECONDARY = 'secondary',
+  RENT = 'rent',
+  EXCLUSIVE_FOR_YOU = 'exclusive-for-you',
+  COMMERCIAL = 'commercial',
 }
 
 // Unit Type enum
@@ -40,8 +45,8 @@ const unitSchema = z.object({
   price: z.string().min(1, 'Price is required'),
 })
 
-const offPlanSchema = z.object({
-  propertyType: z.literal(PropertyType.OFF_PLAN),
+const rangeBasedSchema = z.object({
+  propertyType: z.enum([PropertyType.OFF_PLAN, PropertyType.NEW_LAUNCHES, PropertyType.EXCLUSIVE_FOR_YOU]),
   name: z.string().min(1, 'Name is required'),
   photos: z.array(z.string()).min(1, 'At least one photo is required'),
   countryId: z.string().min(1, 'Country is required'),
@@ -89,10 +94,19 @@ const offPlanSchema = z.object({
   developerId: z.string().optional(),
   paymentPlan: z.string().optional(),
   isForYouChoice: z.boolean().default(false),
+  status: z.string().optional(),
+  saleStatus: z.string().optional(),
+  readiness: z.string().optional(),
+  serviceCharge: z.string().optional(),
+  completionDatetime: z.string().optional(),
+  layoutsPdf: z.string().optional(),
+  brochureUrl: z.string().optional(),
+  depositDescription: z.string().optional(),
+  videoUrl: z.string().optional(),
 })
 
-const secondarySchema = z.object({
-  propertyType: z.literal(PropertyType.SECONDARY),
+const fixedBasedSchema = z.object({
+  propertyType: z.enum([PropertyType.SECONDARY, PropertyType.RENT, PropertyType.COMMERCIAL]),
   name: z.string().min(1, 'Name is required'),
   photos: z.array(z.string()).min(1, 'At least one photo is required'),
   countryId: z.string().min(1, 'Country is required'),
@@ -126,9 +140,24 @@ const secondarySchema = z.object({
   descriptionRu: z.string().optional(),
   developerId: z.string().optional(),
   isForYouChoice: z.boolean().default(false),
+  status: z.string().optional(),
+  saleStatus: z.string().optional(),
+  readiness: z.string().optional(),
+  serviceCharge: z.string().optional(),
+  completionDatetime: z.string().optional(),
+  layoutsPdf: z.string().optional(),
+  brochureUrl: z.string().optional(),
+  depositDescription: z.string().optional(),
+  videoUrl: z.string().optional(),
+  paymentPlansJson: z.string().optional(),
+  masterPlan: z.string().optional(),
+  lobby: z.string().optional(),
+  interior: z.string().optional(),
+  architecture: z.string().optional(),
+  mapPoints: z.string().optional(),
 })
 
-const propertySchema = z.discriminatedUnion('propertyType', [offPlanSchema, secondarySchema])
+const propertySchema = z.discriminatedUnion('propertyType', [rangeBasedSchema, fixedBasedSchema])
 
 type PropertyFormData = z.infer<typeof propertySchema>
 
@@ -175,6 +204,8 @@ interface Unit {
   totalSize: string
   balconySize?: string
   price: string
+  bedrooms?: string
+  floor?: string
 }
 
 // Conversion utilities - return whole numbers only
@@ -201,6 +232,7 @@ export default function AddPropertyPage() {
   const [facilities, setFacilities] = useState<Facility[]>([])
   const [photos, setPhotos] = useState<string[]>([])
   const [units, setUnits] = useState<Unit[]>([])
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
 
   // Track values for real-time conversion display
   const [priceFromValue, setPriceFromValue] = useState<string>('')
@@ -258,12 +290,16 @@ export default function AddPropertyPage() {
     } as PropertyFormData)
     setPhotos([])
     setUnits([])
+    setExpandedGroups({})
     setPriceFromValue('')
     setPriceValue('')
     setSizeFromValue('')
     setSizeToValue('')
     setSizeValue('')
   }, [propertyType, reset])
+
+  const isRangeBased = (type: PropertyType) => 
+    [PropertyType.OFF_PLAN, PropertyType.NEW_LAUNCHES, PropertyType.EXCLUSIVE_FOR_YOU].includes(type)
 
   const loadInitialData = async () => {
     try {
@@ -324,12 +360,7 @@ export default function AddPropertyPage() {
       })
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const { data } = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/upload/images`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      })
+      const { data } = await api.post(`/upload/images`, formData)
 
       const newPhotos = data?.data?.urls || data?.urls || []
       const updatedPhotos = [...photos, ...newPhotos]
@@ -357,6 +388,8 @@ export default function AddPropertyPage() {
         type: UnitType.APARTMENT,
         totalSize: '',
         price: '',
+        bedrooms: '1',
+        floor: ''
       },
     ])
   }
@@ -377,12 +410,7 @@ export default function AddPropertyPage() {
       formData.append('file', file)
 
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const { data } = await axios.post(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'}/upload/image`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      })
+      const { data } = await api.post(`/upload/image`, formData)
 
       const imageUrl = data?.data?.url || data?.url || ''
       updateUnit(index, 'planImage', imageUrl)
@@ -408,18 +436,43 @@ export default function AddPropertyPage() {
         isForYouChoice: data.isForYouChoice || false,
       }
 
-      if (data.propertyType === PropertyType.OFF_PLAN) {
-        payload.priceFrom = parseFloat(data.priceFrom)
-        payload.bedroomsFrom = parseInt(data.bedroomsFrom)
-        payload.bedroomsTo = parseInt(data.bedroomsTo)
-        payload.bathroomsFrom = parseInt(data.bathroomsFrom)
-        payload.bathroomsTo = parseInt(data.bathroomsTo)
-        payload.sizeFrom = parseFloat(data.sizeFrom)
-        payload.sizeTo = parseFloat(data.sizeTo)
-        payload.description = data.description
-        payload.descriptionRu = data.descriptionRu
-        payload.paymentPlan = data.paymentPlan || undefined
-        payload.facilityIds = data.facilityIds || []
+      if (isRangeBased(data.propertyType)) {
+        const d = data as any;
+        payload.priceFrom = parseFloat(d.priceFrom)
+        payload.bedroomsFrom = parseInt(d.bedroomsFrom)
+        payload.bedroomsTo = parseInt(d.bedroomsTo)
+        payload.bathroomsFrom = parseInt(d.bathroomsFrom)
+        payload.bathroomsTo = parseInt(d.bathroomsTo)
+        payload.sizeFrom = parseFloat(d.sizeFrom)
+        payload.sizeTo = parseFloat(d.sizeTo)
+        payload.description = d.description
+        payload.descriptionRu = d.descriptionRu
+        payload.paymentPlan = d.paymentPlan || undefined
+        payload.status = d.status || undefined
+        payload.saleStatus = d.saleStatus || undefined
+        payload.readiness = d.readiness || undefined
+        payload.serviceCharge = d.serviceCharge || undefined
+        payload.completionDatetime = d.completionDatetime || undefined
+        payload.layoutsPdf = d.layoutsPdf || undefined
+        payload.brochureUrl = d.brochureUrl || undefined
+        payload.depositDescription = d.depositDescription || undefined
+        payload.brochureUrl = d.brochureUrl || undefined
+        payload.depositDescription = d.depositDescription || undefined
+        payload.videoUrl = d.videoUrl || undefined
+        
+        const parseJsonField = (val: string | undefined) => {
+          if (!val) return undefined;
+          try { return JSON.parse(val); } catch (e) { return undefined; }
+        }
+        
+        payload.paymentPlansJson = parseJsonField(d.paymentPlansJson)
+        payload.masterPlan = parseJsonField(d.masterPlan)
+        payload.lobby = parseJsonField(d.lobby)
+        payload.interior = parseJsonField(d.interior)
+        payload.architecture = parseJsonField(d.architecture)
+        payload.mapPoints = parseJsonField(d.mapPoints)
+        
+        payload.facilityIds = d.facilityIds || []
         if (units.length > 0) {
           payload.units = units
             .filter((unit) => unit.unitId && unit.totalSize && unit.price)
@@ -433,12 +486,13 @@ export default function AddPropertyPage() {
             }))
         }
       } else {
-        payload.price = parseFloat(data.price)
-        payload.bedrooms = parseInt(data.bedrooms)
-        payload.bathrooms = parseInt(data.bathrooms)
-        payload.size = parseFloat(data.size)
-        payload.description = data.description
-        payload.descriptionRu = data.descriptionRu
+        const d = data as any;
+        payload.price = parseFloat(d.price)
+        payload.bedrooms = parseInt(d.bedrooms)
+        payload.bathrooms = parseInt(d.bathrooms)
+        payload.size = parseFloat(d.size)
+        payload.description = d.description
+        payload.descriptionRu = d.descriptionRu
       }
 
       const response = await api.post('/properties', payload)
@@ -485,6 +539,16 @@ export default function AddPropertyPage() {
         <div className="mt-3 inline-flex rounded-lg border border-gray-200 p-1 dark:border-gray-800 dark:bg-gray-900">
           <button
             type="button"
+            onClick={() => setPropertyType(PropertyType.NEW_LAUNCHES)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === PropertyType.NEW_LAUNCHES
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
+          >
+            New Launches
+          </button>
+          <button
+            type="button"
             onClick={() => setPropertyType(PropertyType.OFF_PLAN)}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === PropertyType.OFF_PLAN
               ? 'bg-brand-500 text-white'
@@ -502,6 +566,36 @@ export default function AddPropertyPage() {
               }`}
           >
             Secondary
+          </button>
+          <button
+            type="button"
+            onClick={() => setPropertyType(PropertyType.RENT)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === PropertyType.RENT
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
+          >
+            Rent
+          </button>
+          <button
+            type="button"
+            onClick={() => setPropertyType(PropertyType.EXCLUSIVE_FOR_YOU)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === PropertyType.EXCLUSIVE_FOR_YOU
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
+          >
+            Exclusive For You
+          </button>
+          <button
+            type="button"
+            onClick={() => setPropertyType(PropertyType.COMMERCIAL)}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === PropertyType.COMMERCIAL
+              ? 'bg-brand-500 text-white'
+              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+              }`}
+          >
+            Commercial
           </button>
         </div>
       </div>
@@ -725,8 +819,8 @@ export default function AddPropertyPage() {
             </div>
           </div>
 
-          {/* Off-Plan Specific Fields */}
-          {propertyType === PropertyType.OFF_PLAN && (
+          {/* Range-based Specific Fields */}
+          {isRangeBased(propertyType) && (
             <>
               <div>
                 <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -927,6 +1021,60 @@ export default function AddPropertyPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                  <div>
+                    <Label htmlFor="status">Status</Label>
+                    <Input id="status" {...register('status')} placeholder="e.g. Under Construction" />
+                  </div>
+                  <div>
+                    <Label htmlFor="saleStatus">Sale Status</Label>
+                    <Input id="saleStatus" {...register('saleStatus')} placeholder="e.g. On Sale" />
+                  </div>
+                  <div>
+                    <Label htmlFor="readiness">Readiness (%)</Label>
+                    <Input id="readiness" {...register('readiness')} placeholder="e.g. 84%" />
+                  </div>
+                  <div>
+                    <Label htmlFor="serviceCharge">Service Charge</Label>
+                    <Input id="serviceCharge" {...register('serviceCharge')} placeholder="e.g. 15 AED / sqft" />
+                  </div>
+                  <div>
+                    <Label htmlFor="completionDatetime">Completion Datetime</Label>
+                    <Input id="completionDatetime" {...register('completionDatetime')} placeholder="e.g. Q4 2025" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  <div>
+                    <Label htmlFor="brochureUrl">Brochure URL</Label>
+                    <Input id="brochureUrl" {...register('brochureUrl')} placeholder="URL to brochure" />
+                  </div>
+                  <div>
+                    <Label htmlFor="layoutsPdf">Layouts PDF (URL)</Label>
+                    <Input id="layoutsPdf" {...register('layoutsPdf')} placeholder="URL to layouts PDF" />
+                  </div>
+                  <div>
+                    <Label htmlFor="videoUrl">Video URL</Label>
+                    <Input id="videoUrl" {...register('videoUrl')} placeholder="URL to Youtube video" />
+                  </div>
+                  <div>
+                    <Label htmlFor="depositDescription">Deposit Description</Label>
+                    <Input id="depositDescription" {...register('depositDescription')} placeholder="e.g. 20% on booking" />
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-6">
+                  <h3 className="text-md font-semibold text-gray-800 dark:text-gray-200">Reelly JSON Data</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><Label>Payment Plans (JSON)</Label><TextArea rows={4} value={watch('paymentPlansJson') || ''} onChange={v => setValue('paymentPlansJson', v)} /></div>
+                    <div><Label>Map Points (JSON)</Label><TextArea rows={4} value={watch('mapPoints') || ''} onChange={v => setValue('mapPoints', v)} /></div>
+                    <div><Label>Master Plan (JSON)</Label><TextArea rows={4} value={watch('masterPlan') || ''} onChange={v => setValue('masterPlan', v)} /></div>
+                    <div><Label>Architecture (JSON)</Label><TextArea rows={4} value={watch('architecture') || ''} onChange={v => setValue('architecture', v)} /></div>
+                    <div><Label>Lobby (JSON)</Label><TextArea rows={4} value={watch('lobby') || ''} onChange={v => setValue('lobby', v)} /></div>
+                    <div><Label>Interior (JSON)</Label><TextArea rows={4} value={watch('interior') || ''} onChange={v => setValue('interior', v)} /></div>
+                  </div>
+                </div>
+
                 {/* Facilities */}
                 <div className="mt-8">
                   <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
@@ -1066,8 +1214,8 @@ export default function AddPropertyPage() {
             </>
           )}
 
-          {/* Secondary Specific Fields */}
-          {propertyType === PropertyType.SECONDARY && (
+          {/* Fixed-based Specific Fields */}
+          {!isRangeBased(propertyType) && (
             <div className="space-y-6">
               <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                 Pricing & Details
@@ -1219,7 +1367,7 @@ export default function AddPropertyPage() {
                 />
               </div>
 
-              {propertyType === PropertyType.OFF_PLAN && (
+              {isRangeBased(propertyType) && (
                 <div>
                   <Label htmlFor="paymentPlan">Payment Plan</Label>
                   <TextArea

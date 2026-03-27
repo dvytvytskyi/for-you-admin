@@ -12,6 +12,7 @@ export { CourseContent } from './CourseContent';
 export { CourseLink } from './CourseLink';
 export { News } from './News';
 export { NewsContent } from './NewsContent';
+export { Author } from './Author';
 export { SupportRequest } from './SupportRequest';
 export { SupportResponse } from './SupportResponse';
 export { ApiKey } from './ApiKey';
@@ -37,6 +38,12 @@ export { Vacancy, VacancyStatus } from './Vacancy';
 export { VacancyRequest } from './VacancyRequest';
 export { UserBlock } from './UserBlock';
 export { ChatMessageReport } from './ChatMessageReport';
+export { UserSession } from './UserSession';
+export { UserActivity } from './UserActivity';
+export { PropertyFinderProject } from './PropertyFinderProject';
+export { DeveloperCommunity } from './DeveloperCommunity';
+export { SeoDeveloper } from './SeoDeveloper';
+export { SeoArea } from './SeoArea';
 
 
 // Array of all entities for TypeORM DataSource
@@ -53,6 +60,7 @@ import { CourseContent } from './CourseContent';
 import { CourseLink } from './CourseLink';
 import { News } from './News';
 import { NewsContent } from './NewsContent';
+import { Author } from './Author';
 import { SupportRequest } from './SupportRequest';
 import { SupportResponse } from './SupportResponse';
 import { ApiKey } from './ApiKey';
@@ -78,6 +86,12 @@ import { Vacancy } from './Vacancy';
 import { VacancyRequest } from './VacancyRequest';
 import { UserBlock } from './UserBlock';
 import { ChatMessageReport } from './ChatMessageReport';
+import { UserSession } from './UserSession';
+import { UserActivity } from './UserActivity';
+import { PropertyFinderProject } from './PropertyFinderProject';
+import { DeveloperCommunity } from './DeveloperCommunity';
+import { SeoDeveloper } from './SeoDeveloper';
+import { SeoArea } from './SeoArea';
 
 
 export const entities = [
@@ -94,6 +108,7 @@ export const entities = [
   CourseLink,
   News,
   NewsContent,
+  Author,
   SupportRequest,
   SupportResponse,
   ApiKey,
@@ -119,6 +134,11 @@ export const entities = [
   VacancyRequest,
   UserBlock,
   ChatMessageReport,
-
+  UserSession,
+  UserActivity,
+  DeveloperCommunity,
+  PropertyFinderProject,
+  SeoDeveloper,
+  SeoArea,
 ];
 

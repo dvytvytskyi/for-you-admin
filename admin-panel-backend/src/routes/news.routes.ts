@@ -14,7 +14,8 @@ router.use((req, res, next) => {
 
 router.get('/', async (req, res) => {
   const news = await AppDataSource.getRepository(News).find({
-    relations: ['contents'],
+    relations: ['contents', 'author'],
+    order: { createdAt: 'DESC' }
   });
   res.json(successResponse(news));
 });
@@ -22,7 +23,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const newsItem = await AppDataSource.getRepository(News).findOne({
     where: { id: req.params.id },
-    relations: ['contents'],
+    relations: ['contents', 'author'],
   });
   res.json(successResponse(newsItem));
 });
@@ -108,7 +109,7 @@ router.patch('/:id', async (req, res) => {
     // Fetch final result
     const savedNews = await newsRepository.findOne({
       where: { id: req.params.id },
-      relations: ['contents'],
+      relations: ['contents', 'author'],
       order: {
         contents: {
           order: 'ASC'

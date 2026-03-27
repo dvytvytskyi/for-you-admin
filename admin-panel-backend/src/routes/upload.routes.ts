@@ -15,7 +15,7 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 50 * 1024 * 1024, // 50MB
   },
   fileFilter: (req, file, cb) => {
     // Allow only images
@@ -31,7 +31,7 @@ const upload = multer({
 const docUpload = multer({
   storage,
   limits: {
-    fileSize: 20 * 1024 * 1024, // 20MB
+    fileSize: 50 * 1024 * 1024, // 50MB
   },
 });
 
@@ -55,9 +55,9 @@ async function uploadFileToS3(buffer: Buffer, key: string, contentType: string) 
 /**
  * Process and upload image (both full and small versions)
  */
-async function processAndUploadImage(file: Express.Multer.File, folder: string) {
-  const fileUuid = uuidv4();
-  const baseKey = `${folder}/${fileUuid}`;
+async function processAndUploadImage(file: Express.Multer.File, folder: string, customName?: string) {
+  const fileName = customName || uuidv4();
+  const baseKey = `${folder}/${fileName}`;
 
   // 1. Full Version (WebP)
   const fullBuffer = await sharp(file.buffer)
@@ -83,13 +83,15 @@ async function processAndUploadImage(file: Express.Multer.File, folder: string) 
 
 // Upload single image to S3
 router.post('/image', upload.single('file'), async (req, res) => {
+  console.log(`[Upload] POST /image - folder: ${req.query.folder}, file: ${req.file?.originalname}`);
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
     const folder = req.query.folder as string || 'properties';
-    const url = await processAndUploadImage(req.file, folder);
+    const customName = req.query.filename as string;
+    const url = await processAndUploadImage(req.file, folder, customName);
 
     res.json(successResponse({ url }));
   } catch (error: any) {
@@ -100,6 +102,7 @@ router.post('/image', upload.single('file'), async (req, res) => {
 
 // Upload multiple images to S3
 router.post('/images', upload.array('files', 20), async (req, res) => {
+  console.log(`[Upload] POST /images - folder: ${req.query.folder}, count: ${req.files instanceof Array ? req.files.length : 0}`);
   try {
     const files = req.files as Express.Multer.File[];
     if (!files || files.length === 0) {
@@ -119,6 +122,7 @@ router.post('/images', upload.array('files', 20), async (req, res) => {
 
 // Upload document (PDF, Excel, etc.) to S3 AND create Document entity
 router.post('/document', docUpload.single('file'), async (req: any, res) => {
+  console.log(`[Upload] POST /document - file: ${req.file?.originalname}`);
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -170,6 +174,7 @@ router.post('/document', docUpload.single('file'), async (req: any, res) => {
 
 // Upload avatar and update user profile
 router.post('/avatar', upload.single('file'), async (req: any, res) => {
+  console.log(`[Upload] POST /avatar - file: ${req.file?.originalname}`);
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });

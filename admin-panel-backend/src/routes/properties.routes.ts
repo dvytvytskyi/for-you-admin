@@ -45,6 +45,7 @@ router.get('/', async (req: AuthRequest, res) => {
       developerId,
       cityId,
       areaId,
+      areaSlug,
       bedrooms,
       sizeFrom,
       sizeTo,
@@ -57,9 +58,11 @@ router.get('/', async (req: AuthRequest, res) => {
       search,
       sortBy,
       sortOrder,
+      seed,
       page,
       limit,
-      summary
+      summary,
+      status
     } = req.query;
 
     const isSummary = summary === 'true' || summary === '1';
@@ -188,6 +191,9 @@ router.get('/', async (req: AuthRequest, res) => {
         queryBuilder.andWhere('property.areaId IN (:...areaIds)', { areaIds });
       }
     }
+    if (areaSlug) {
+      queryBuilder.andWhere('area.slug = :areaSlug', { areaSlug });
+    }
 
     // 3. Bedrooms (Smart Filter)
     if (bedrooms) {
@@ -198,19 +204,19 @@ router.get('/', async (req: AuthRequest, res) => {
           const bed = bedStr.trim().toLowerCase();
 
           if (bed === 'studio') {
-            qb.orWhere('(property.propertyType = \'off-plan\' AND property.bedroomsFrom = 0)')
-              .orWhere('(property.propertyType = \'secondary\' AND property.bedrooms = 0)');
+            qb.orWhere("(property.propertyType IN ('off-plan', 'new-launches', 'exclusive-for-you') AND property.bedroomsFrom = 0)")
+              .orWhere("(property.propertyType IN ('secondary', 'rent', 'commercial') AND property.bedrooms = 0)");
           } else if (bed.includes('+') || bed.includes('>')) {
             const num = parseInt(bed.replace(/[^0-9]/g, ''), 10);
             if (!isNaN(num)) {
-              qb.orWhere(`(property.propertyType = 'off-plan' AND property.bedroomsTo >= :bedPlus${num})`, { [`bedPlus${num}`]: num })
-                .orWhere(`(property.propertyType = 'secondary' AND property.bedrooms >= :bedPlus${num})`, { [`bedPlus${num}`]: num });
+              qb.orWhere(`(property.propertyType IN ('off-plan', 'new-launches', 'exclusive-for-you') AND property.bedroomsTo >= :bedPlus${num})`, { [`bedPlus${num}`]: num })
+                .orWhere(`(property.propertyType IN ('secondary', 'rent', 'commercial') AND property.bedrooms >= :bedPlus${num})`, { [`bedPlus${num}`]: num });
             }
           } else {
             const num = parseInt(bed, 10);
             if (!isNaN(num)) {
-              qb.orWhere(`(property.propertyType = 'off-plan' AND (property.bedroomsFrom <= :bedNum${num} AND property.bedroomsTo >= :bedNum${num}))`, { [`bedNum${num}`]: num })
-                .orWhere(`(property.propertyType = 'secondary' AND property.bedrooms = :bedNum${num})`, { [`bedNum${num}`]: num });
+              qb.orWhere(`(property.propertyType IN ('off-plan', 'new-launches', 'exclusive-for-you') AND (property.bedroomsFrom <= :bedNum${num} AND property.bedroomsTo >= :bedNum${num}))`, { [`bedNum${num}`]: num })
+                .orWhere(`(property.propertyType IN ('secondary', 'rent', 'commercial') AND property.bedrooms = :bedNum${num})`, { [`bedNum${num}`]: num });
             }
           }
         });
@@ -245,16 +251,37 @@ router.get('/', async (req: AuthRequest, res) => {
       if (!isNaN(val)) queryBuilder.andWhere('(property.sizeFrom <= :sizeTo OR property.size <= :sizeTo)', { sizeTo: val });
     }
 
-    // 6. Search (Name/Description/Slug-like)
+    // 5. Status Phase (Off-plan / Completed)
+    if (status && status !== 'all') {
+      if (status === 'off-plan') {
+        queryBuilder.andWhere(new Brackets(qb => {
+          qb.where('property.status ILIKE :offPlanStatus', { offPlanStatus: '%Under Construction%' })
+            .orWhere('property.status ILIKE :offPlanStatus2', { offPlanStatus2: '%Off Plan%' });
+        }));
+      } else if (status === 'completed') {
+        queryBuilder.andWhere('property.status ILIKE :completedStatus', { completedStatus: '%Completed%' });
+      }
+    }
+
+    // 6. Search (Name/Description/Slug-like/Developer/Location)
     if (search) {
       const searchTerm = `%${search.toString().toLowerCase()}%`;
       const slugSearch = `%${search.toString().toLowerCase().replace(/-/g, '%')}%`;
+
+      // Ensure relations are available for search
+      if (isSummary) {
+        queryBuilder.leftJoin('property.developer', 'developer');
+      }
+
       queryBuilder.andWhere(
         new Brackets(qb => {
           qb.where('LOWER(property.name) LIKE :search', { search: searchTerm })
             .orWhere('LOWER(property.description) LIKE :search', { search: searchTerm })
             .orWhere('LOWER(property.descriptionRu) LIKE :search', { search: searchTerm })
-            .orWhere('LOWER(property.name) LIKE :slugSearch', { slugSearch });
+            .orWhere('LOWER(property.name) LIKE :slugSearch', { slugSearch })
+            .orWhere('LOWER(developer.name) LIKE :search', { search: searchTerm })
+            .orWhere('LOWER(city.nameEn) LIKE :search', { search: searchTerm })
+            .orWhere('LOWER(area.nameEn) LIKE :search', { search: searchTerm });
         })
       );
     }
@@ -267,7 +294,14 @@ router.get('/', async (req: AuthRequest, res) => {
     // Дозволені поля для сортування
     const allowedSortFields = ['createdAt', 'name', 'price', 'priceFrom', 'size', 'sizeFrom'];
 
-    if (sortBy && allowedSortFields.includes(sortField)) {
+    if (sortBy === 'random') {
+      const seedValue = seed?.toString() || Math.random().toString();
+      // Use MD5(id + seed) for stable random ordering across pages
+      queryBuilder.orderBy(`MD5(CAST(property.id AS TEXT) || :seed)`, 'ASC');
+      queryBuilder.setParameter('seed', seedValue);
+      // Always add featured first if wanted, or just random
+      queryBuilder.addOrderBy('property.isForYouChoice', 'DESC');
+    } else if (sortBy && allowedSortFields.includes(sortField)) {
       // Якщо користувач явно вказав поле для сортування, використовуємо його як основне
       queryBuilder.addOrderBy(`property.${sortField}`, sortDirection);
       // Featured об'єкти як другий критерій
@@ -284,7 +318,7 @@ router.get('/', async (req: AuthRequest, res) => {
     const limitNum = parseInt(limit?.toString() || '100', 10) || 100;
 
     // Максимальний limit для безпеки (на випадок якщо хтось передасть дуже велике значення)
-    const MAX_LIMIT = 10000;
+    const MAX_LIMIT = 500;
     const finalLimit = Math.min(limitNum, MAX_LIMIT) || 100;
     const skip = ((pageNum - 1) * finalLimit) || 0;
 
@@ -295,8 +329,10 @@ router.get('/', async (req: AuthRequest, res) => {
 
     console.log('[Properties API] Query results:', {
       totalProperties: properties.length,
-      secondaryProperties: properties.filter(p => p.propertyType === 'secondary').length,
-      offPlanProperties: properties.filter(p => p.propertyType === 'off-plan').length,
+      propertyTypes: properties.reduce((acc, p) => {
+        acc[p.propertyType] = (acc[p.propertyType] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
       propertyTypeFilter: propertyType,
     });
 
@@ -346,7 +382,7 @@ router.get('/', async (req: AuthRequest, res) => {
       // Для off-plan properties: area має бути рядком "areaName, cityName"
       // Для secondary properties: area залишається об'єктом
       let areaField: any = p.area;
-      if (p.area && p.propertyType === 'off-plan') {
+      if (p.area && ['off-plan', 'new-launches', 'exclusive-for-you'].includes(p.propertyType)) {
         const areaName = p.area.nameEn || '';
         const cityName = p.city?.nameEn || '';
         areaField = cityName ? `${areaName}, ${cityName}` : areaName;
@@ -362,14 +398,14 @@ router.get('/', async (req: AuthRequest, res) => {
         priceAED: p.price ? Conversions.usdToAed(p.price) : null,
         priceFromAED: p.priceFrom ? Conversions.usdToAed(p.priceFrom) : null,
         propertyType: p.propertyType,
-        bedrooms: p.propertyType === 'off-plan' ? p.bedroomsFrom : p.bedrooms,
+        bedrooms: ['off-plan', 'new-launches', 'exclusive-for-you'].includes(p.propertyType) ? p.bedroomsFrom : p.bedrooms,
         bedroomsFrom: p.bedroomsFrom,
         bedroomsTo: p.bedroomsTo,
-        bathrooms: p.propertyType === 'off-plan' ? p.bathroomsFrom : p.bathrooms,
-        size: p.propertyType === 'off-plan' ? p.sizeFrom : p.size,
+        bathrooms: ['off-plan', 'new-launches', 'exclusive-for-you'].includes(p.propertyType) ? p.bathroomsFrom : p.bathrooms,
+        size: ['off-plan', 'new-launches', 'exclusive-for-you'].includes(p.propertyType) ? p.sizeFrom : p.size,
         sizeFrom: p.sizeFrom,
-        sizeSqft: (p.propertyType === 'off-plan' ? p.sizeFrom : p.size)
-          ? Conversions.sqmToSqft(p.propertyType === 'off-plan' ? p.sizeFrom : p.size)
+        sizeSqft: (['off-plan', 'new-launches', 'exclusive-for-you'].includes(p.propertyType) ? p.sizeFrom : p.size)
+          ? Conversions.sqmToSqft(['off-plan', 'new-launches', 'exclusive-for-you'].includes(p.propertyType) ? p.sizeFrom : p.size)
           : null,
         area: areaField,
         areaId: p.areaId,
@@ -429,19 +465,19 @@ router.get('/stats', async (req: AuthRequest, res) => {
     const propertyRepo = AppDataSource.getRepository(Property);
 
     // Get counts by type using aggregation
-    const [offPlanCount, secondaryCount] = await Promise.all([
-      propertyRepo.count({ where: { propertyType: PropertyType.OFF_PLAN } }),
-      propertyRepo.count({ where: { propertyType: PropertyType.SECONDARY } }),
-    ]);
+    const propertyCounts: Record<string, number> = {};
+    for (const type of Object.values(PropertyType)) {
+      propertyCounts[type] = await propertyRepo.count({ where: { propertyType: type } });
+    }
 
     // Get price statistics using query builder
     const priceStats = await propertyRepo
       .createQueryBuilder('property')
       .select([
-        'MIN(CASE WHEN property.propertyType = \'off-plan\' THEN property.priceFrom ELSE property.price END) as minPrice',
-        'MAX(CASE WHEN property.propertyType = \'off-plan\' THEN property.priceFrom ELSE property.price END) as maxPrice',
+        'MIN(CASE WHEN property.propertyType IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') THEN property.priceFrom ELSE property.price END) as minPrice',
+        'MAX(CASE WHEN property.propertyType IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') THEN property.priceFrom ELSE property.price END) as maxPrice',
       ])
-      .where('(property.propertyType = \'off-plan\' AND property.priceFrom IS NOT NULL) OR (property.propertyType = \'secondary\' AND property.price IS NOT NULL)')
+      .where('(property.propertyType IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') AND property.priceFrom IS NOT NULL) OR (property.propertyType IN (\'secondary\', \'rent\', \'commercial\') AND property.price IS NOT NULL)')
       .getRawOne();
 
     // Get top cities with property counts
@@ -463,7 +499,7 @@ router.get('/stats', async (req: AuthRequest, res) => {
         'property.bedroomsTo',
         'COUNT(property.id) as count',
       ])
-      .where('property.propertyType = :type', { type: PropertyType.OFF_PLAN })
+      .where('property.propertyType IN (:...types)', { types: [PropertyType.OFF_PLAN, PropertyType.NEW_LAUNCHES, PropertyType.EXCLUSIVE_FOR_YOU] })
       .andWhere('(property.bedroomsFrom IS NOT NULL OR property.bedroomsTo IS NOT NULL)')
       .groupBy('property.bedroomsFrom, property.bedroomsTo')
       .getRawMany();
@@ -504,9 +540,10 @@ router.get('/stats', async (req: AuthRequest, res) => {
       });
 
     res.json(successResponse({
-      totalProperties: offPlanCount + secondaryCount,
-      offPlanProperties: offPlanCount,
-      secondaryProperties: secondaryCount,
+      totalProperties: Object.values(propertyCounts).reduce((a, b) => a + b, 0),
+      offPlanProperties: propertyCounts[PropertyType.OFF_PLAN],
+      secondaryProperties: propertyCounts[PropertyType.SECONDARY],
+      propertyCounts, // Add full breakdown
       minPrice: priceStats?.minPrice ? parseFloat(priceStats.minPrice) : 0,
       maxPrice: priceStats?.maxPrice ? parseFloat(priceStats.maxPrice) : 0,
       topCities: topCities.map((city: any) => ({
@@ -548,7 +585,7 @@ router.get('/:id/presentation', async (req, res) => {
     // Prepare data for template (similar to partial conversion logic)
     // We want clean strings for the PDF
     let areaName = property.area?.nameEn || '';
-    if (property.area && property.propertyType === 'off-plan' && property.city) {
+    if (property.area && ['off-plan', 'new-launches', 'exclusive-for-you'].includes(property.propertyType) && property.city) {
       areaName = `${property.area.nameEn}, ${property.city.nameEn}`;
     }
 
@@ -558,7 +595,7 @@ router.get('/:id/presentation', async (req, res) => {
       city: property.city?.nameEn || '',
       developer: property.developer?.name || '',
       type: property.propertyType,
-      completion: property.propertyType === 'secondary' ? 'Ready' : (property.paymentPlan ? property.paymentPlan : 'Off-Plan'),
+      completion: ['secondary', 'rent', 'commercial'].includes(property.propertyType) ? 'Ready' : (property.paymentPlan ? property.paymentPlan : 'Off-Plan'),
       price: property.price ? `$${property.price.toLocaleString()}` : null,
       priceFrom: property.priceFrom ? `$${property.priceFrom.toLocaleString()}` : null,
       size: property.size ? property.size.toLocaleString() : null,
@@ -857,6 +894,7 @@ router.post('/', async (req, res) => {
 
 router.patch('/:id', async (req, res) => {
   try {
+    console.log('[DEBUG] PATCH property request body:', JSON.stringify(req.body, null, 2));
     const propertyRepo = AppDataSource.getRepository(Property);
     const property = await propertyRepo.findOne({
       where: { id: req.params.id },
@@ -878,7 +916,17 @@ router.patch('/:id', async (req, res) => {
       'sizeFrom', 'sizeTo', 'paymentPlan',
       'price', 'bedrooms', 'bathrooms', 'size', 'propertyType',
       'isForYouChoice', 'descriptionRu', 'projectedRoi', 'isInvestorFeatured',
-      'commission', 'plannedCompletionAt'
+      'commission', 'plannedCompletionAt',
+      // Scraper fields
+      'externalId', 'propertyUrl', 'buildingName', 'communityName', 'displayAddress',
+      'addedOn', 'verified', 'reference', 'rera', 'furnishing', 'agentName',
+      'agentPhone', 'agentWhatsapp', 'agentEmail', 'agentInfo', 'brokerName',
+      'brokerLogo', 'brokerInfo', 'priceDuration', 'propertySubType', 'priceCurrency',
+      'type', 'sizeMin',
+      // Reelly fields
+      'status', 'saleStatus', 'readiness', 'serviceCharge', 'completionDatetime',
+      'layoutsPdf', 'brochureUrl', 'depositDescription', 'videoUrl', 'mapPoints',
+      'paymentPlansJson', 'masterPlan', 'lobby', 'interior', 'architecture'
     ];
 
     const updateData: any = {};
@@ -979,6 +1027,7 @@ router.patch('/:id', async (req, res) => {
       success: false,
       message: error.message || 'Failed to update property',
       error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });

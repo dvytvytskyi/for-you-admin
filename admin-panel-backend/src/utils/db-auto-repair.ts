@@ -37,6 +37,17 @@ export async function autoRepairDatabase(): Promise<void> {
       ALTER TABLE properties ADD COLUMN IF NOT EXISTS isinvestorfeatured  BOOLEAN NOT NULL DEFAULT false;
       ALTER TABLE properties ADD COLUMN IF NOT EXISTS plannedcompletionat DATE;
       ALTER TABLE properties ADD COLUMN IF NOT EXISTS commission          CHARACTER VARYING;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS isactive            BOOLEAN NOT NULL DEFAULT true;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS priority            INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "nameEn"            CHARACTER VARYING;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "nameRu"            CHARACTER VARYING;
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS "nameAr"            CHARACTER VARYING;
+    `);
+
+    // Initialize nameEn with name if nameEn is null
+    await queryRunner.query(`
+      UPDATE properties SET "nameEn" = name WHERE "nameEn" IS NULL;
+      UPDATE properties SET "nameRu" = name WHERE "nameRu" IS NULL;
     `);
 
     try {
@@ -62,16 +73,20 @@ export async function autoRepairDatabase(): Promise<void> {
 
     // ─── 4. Generate missing area slugs ──────────────────────────
     console.log('[Auto-Repair] Generating missing area slugs...');
-    await queryRunner.query(`
-      UPDATE areas
-      SET slug = LOWER(
-          REGEXP_REPLACE(
-              REGEXP_REPLACE(TRIM("nameEn"), '[^a-zA-Z0-9 ]', '', 'g'),
-              ' +', '-', 'g'
-          )
-      )
-      WHERE slug IS NULL OR slug = '';
-    `);
+    try {
+      await queryRunner.query(`
+        UPDATE areas
+        SET slug = LOWER(
+            REGEXP_REPLACE(
+                REGEXP_REPLACE(TRIM("nameEn"), '[^a-zA-Z0-9 ]', '', 'g'),
+                ' +', '-', 'g'
+            )
+        ) || '-' || SUBSTR(id::text, 1, 4)
+        WHERE slug IS NULL OR slug = '';
+      `);
+    } catch (e) {
+      console.warn('[Auto-Repair] Warning updating area slugs:', e);
+    }
 
     // ─── 5. Fill missing mainImage for areas ─────────────────────
     console.log('[Auto-Repair] Filling missing area main images...');
@@ -88,39 +103,80 @@ export async function autoRepairDatabase(): Promise<void> {
       WHERE mainimage IS NULL OR mainimage = '';
     `);
 
-    // ─── 6. Mark top-20 areas as featured ────────────────────────
-    console.log('[Auto-Repair] Marking featured areas...');
-    await queryRunner.query(`
-      UPDATE areas
-      SET isfeatured = true,
-          priority   = sub.rnk
-      FROM (
-          SELECT "areaId",
-                 (21 - ROW_NUMBER() OVER (ORDER BY COUNT(*) DESC))::int AS rnk
-          FROM properties
-          GROUP BY "areaId"
-          LIMIT 20
-      ) sub
-      WHERE areas.id = sub."areaId";
-    `);
-
     // ─── 7. Generate missing property slugs ──────────────────────
     console.log('[Auto-Repair] Generating missing property slugs...');
-    await queryRunner.query(`
-      UPDATE properties
-      SET slug = 'new-' ||
-                 LOWER(REGEXP_REPLACE(REGEXP_REPLACE(TRIM(name), '[^a-zA-Z0-9 ]', '', 'g'), ' +', '-', 'g')) ||
-                 '-' || SUBSTR(id::text, 1, 4)
-      WHERE "propertyType" = 'off-plan'
-        AND (slug IS NULL OR slug = '');
+    try {
+      await queryRunner.query(`
+        UPDATE properties
+        SET slug = 'new-' ||
+                   LOWER(REGEXP_REPLACE(REGEXP_REPLACE(TRIM(COALESCE(name, 'property')), '[^a-zA-Z0-9 ]', '', 'g'), ' +', '-', 'g')) ||
+                   '-' || SUBSTR(id::text, 1, 8)
+        WHERE "propertyType" = 'off-plan'
+          AND (slug IS NULL OR slug = '');
 
-      UPDATE properties
-      SET slug = 'used-' ||
-                 LOWER(REGEXP_REPLACE(REGEXP_REPLACE(TRIM(name), '[^a-zA-Z0-9 ]', '', 'g'), ' +', '-', 'g')) ||
-                 '-' || SUBSTR(id::text, 1, 4)
-      WHERE "propertyType" = 'secondary'
-        AND (slug IS NULL OR slug = '');
+        UPDATE properties
+        SET slug = 'used-' ||
+                   LOWER(REGEXP_REPLACE(REGEXP_REPLACE(TRIM(COALESCE(name, 'property')), '[^a-zA-Z0-9 ]', '', 'g'), ' +', '-', 'g')) ||
+                   '-' || SUBSTR(id::text, 1, 8)
+        WHERE "propertyType" = 'secondary'
+          AND (slug IS NULL OR slug = '');
+      `);
+    } catch (e) {
+      console.warn('[Auto-Repair] Warning updating property slugs:', e);
+    }
+
+    // ─── 8. User Activity tables ──────────────────────────────────────────
+    console.log('[Auto-Repair] Checking "user_sessions" and "user_activities" tables...');
+
+    // Create user_sessions table
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "referenceId" character varying NOT NULL,
+        "utmSource" character varying,
+        "utmMedium" character varying,
+        "utmCampaign" character varying,
+        referrer character varying,
+        locale character varying,
+        "userAgent" character varying,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        "updatedAt" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_user_sessions" PRIMARY KEY (id),
+        CONSTRAINT "UQ_user_sessions_referenceId" UNIQUE ("referenceId")
+      );
     `);
+
+    // Create user_activities table
+    await queryRunner.query(`
+      CREATE TABLE IF NOT EXISTS user_activities (
+        id uuid NOT NULL DEFAULT uuid_generate_v4(),
+        "sessionId" uuid NOT NULL,
+        "referenceId" character varying NOT NULL,
+        action character varying NOT NULL,
+        "propertyId" character varying,
+        url character varying,
+        "createdAt" TIMESTAMP NOT NULL DEFAULT now(),
+        CONSTRAINT "PK_user_activities" PRIMARY KEY (id)
+      );
+    `);
+
+    // Add FK to user_activities (ignore if exists)
+    try {
+      await queryRunner.query(`
+        ALTER TABLE user_activities 
+        ADD CONSTRAINT "FK_user_activities_sessionId" 
+        FOREIGN KEY ("sessionId") REFERENCES user_sessions(id) 
+        ON DELETE NO ACTION ON UPDATE NO ACTION;
+      `);
+    } catch (_) { }
+
+    // Add referenceId to investments
+    console.log('[Auto-Repair] Checking "investments" table for referenceId...');
+    try {
+      await queryRunner.query(`
+        ALTER TABLE investments ADD COLUMN IF NOT EXISTS "referenceId" CHARACTER VARYING;
+      `);
+    } catch (_) { }
 
     console.log('[Auto-Repair] ✅ Database schema and seed data verified/repaired successfully.');
   } catch (error) {

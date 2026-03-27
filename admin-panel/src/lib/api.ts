@@ -2,65 +2,52 @@ import axios from 'axios'
 
 // Використовуємо window.location.origin як fallback для production
 const getApiUrl = () => {
-  // ПЕРШИМ ділом перевіряємо поточний домен (найнадійніше)
-  // Це працює в runtime, тому env змінні не можуть перевизначити
+  // If we are in the browser, check if we should use the local proxy
   if (typeof window !== 'undefined') {
-    const origin = window.location.origin
-    console.log('[getApiUrl] Current origin:', origin)
+    const origin = window.location.origin;
     
-    // Якщо це foryou домен, ВИКОРИСТОВУЄМО ЙОГО (незалежно від env змінних)
-    if (origin.includes('admin.foryou-realestate.com') || origin.includes('foryou-realestate.com')) {
-      const url = origin + '/api'
-      console.log('[getApiUrl] Using foryou domain:', url)
-      return url
+    // If the user wants to use the local proxy for all requests (avoids CORS)
+    if (process.env.NEXT_PUBLIC_USE_PROXY === 'true') {
+        return `${origin}/api/proxy?path=`;
     }
-    console.log('[getApiUrl] Domain not recognized, checking env...')
+    
+    // Default logic: use the current origin if it's the foryou domain
+    if (origin.includes('admin.foryou-realestate.com') || origin.includes('foryou-realestate.com')) {
+      return origin + '/api'
+    }
   }
   
-  // Якщо не в браузері або домен не визначено, перевіряємо змінну оточення
-  const envUrl = process.env.NEXT_PUBLIC_API_URL
-  console.log('[getApiUrl] Env URL:', envUrl)
-  
-  if (envUrl) {
-    console.log('[getApiUrl] Using env URL:', envUrl)
-    return envUrl
-  }
-  
-  // Fallback для локальної розробки
-  const fallback = 'http://localhost:4000/api'
-  console.log('[getApiUrl] Using fallback:', fallback)
-  return fallback
+  // Server-side or other domains
+  return process.env.NEXT_PUBLIC_API_URL || 'https://admin.foryou-realestate.com/api'
 }
 
 // Створюємо axios instance
 export const api = axios.create({
   baseURL: getApiUrl(), // Початкове значення
-  headers: {
-    'Content-Type': 'application/json',
-  },
 })
 
 // Request interceptor для оновлення baseURL та додавання JWT токену
 api.interceptors.request.use(
   (config) => {
-    // Оновлюємо baseURL перед кожним запитом (динамічно)
     const apiUrl = getApiUrl()
-    config.baseURL = apiUrl
     
-    // Логування для діагностики (завжди в браузері)
-    if (typeof window !== 'undefined') {
-      console.log('[API] Request to:', apiUrl + (config.url || ''), '| Origin:', window.location.origin)
+    // If using proxy, append the requested path to the 'path' parameter
+    if (apiUrl.includes('/api/proxy?path=')) {
+        const fullUrl = config.url || '';
+        config.url = ''; // baseURL already has /api/proxy?path=
+        config.params = { ...config.params, path: fullUrl };
+    } else {
+        config.baseURL = apiUrl;
     }
     
+    // Add token
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
 // Response interceptor для обробки помилок

@@ -15,6 +15,9 @@ import {
   SettingsIcon,
   IntegrationsIcon,
   TaskIcon,
+  ListIcon,
+  PlugInIcon,
+  PieChartIcon,
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
 
@@ -37,6 +40,11 @@ const navItems: NavItem[] = [
     path: "/properties",
   },
   {
+    icon: <PlugInIcon />,
+    name: "Property Finder",
+    path: "/property-finder",
+  },
+  {
     icon: <UsersIcon />,
     name: "Users",
     path: "/users",
@@ -49,7 +57,10 @@ const navItems: NavItem[] = [
   {
     icon: <NewsIcon />,
     name: "News",
-    path: "/news",
+    subItems: [
+      { name: "Articles", path: "/news" },
+      { name: "Authors & Experts", path: "/news/authors" },
+    ],
   },
   {
     icon: <ChatIcon />,
@@ -60,6 +71,19 @@ const navItems: NavItem[] = [
     icon: <TaskIcon />,
     name: "Vacancies",
     path: "/vacancies",
+  },
+  {
+    icon: <ListIcon />,
+    name: "User Activity",
+    path: "/user-activity",
+  },
+  {
+    icon: <PieChartIcon />,
+    name: "AI SEO",
+    subItems: [
+      { name: "Developers", path: "/seo/developers" },
+      { name: "Areas", path: "/seo/areas" },
+    ],
   },
 ];
 

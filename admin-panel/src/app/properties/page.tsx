@@ -17,7 +17,7 @@ export default function PropertiesPage() {
 
   const [properties, setProperties] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [propertyType, setPropertyType] = useState<'off-plan' | 'secondary'>('off-plan')
+  const [propertyType, setPropertyType] = useState<string>('off-plan')
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(100)
@@ -67,7 +67,7 @@ export default function PropertiesPage() {
       const urlPage = parseInt(params.get('page') || '1', 10)
       const urlSearch = params.get('search') || ''
 
-      if (urlType && (urlType === 'off-plan' || urlType === 'secondary')) {
+      if (urlType) {
         setPropertyType(urlType)
       }
       if (urlPage > 0 && urlPage !== currentPage) {
@@ -322,25 +322,26 @@ export default function PropertiesPage() {
       {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         {/* Property Type Toggle */}
-        <div className="inline-flex rounded-lg border border-gray-200 p-1 dark:border-gray-800 dark:bg-gray-900">
-          <button
-            onClick={() => setPropertyType('off-plan')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === 'off-plan'
-              ? 'bg-brand-500 text-white'
-              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-              }`}
-          >
-            Off-Plan
-          </button>
-          <button
-            onClick={() => setPropertyType('secondary')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === 'secondary'
-              ? 'bg-brand-500 text-white'
-              : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
-              }`}
-          >
-            Secondary
-          </button>
+        <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 p-1 dark:border-gray-800 dark:bg-gray-900">
+          {[
+            { id: 'new-launches', label: 'New Launches' },
+            { id: 'off-plan', label: 'Off-Plan' },
+            { id: 'secondary', label: 'Secondary' },
+            { id: 'rent', label: 'Rent' },
+            { id: 'exclusive-for-you', label: 'Exclusive For You' },
+            { id: 'commercial', label: 'Commercial' },
+          ].map((type) => (
+            <button
+              key={type.id}
+              onClick={() => setPropertyType(type.id)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${propertyType === type.id
+                ? 'bg-brand-500 text-white'
+                : 'text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5'
+                }`}
+            >
+              {type.label}
+            </button>
+          ))}
         </div>
 
         {/* Search */}

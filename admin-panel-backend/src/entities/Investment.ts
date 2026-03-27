@@ -41,6 +41,9 @@ export class Investment {
   @Column('timestamptz')
   date!: Date;
 
+  @Column({ nullable: true })
+  referenceId?: string;
+
   @Column('text', { nullable: true })
   notes?: string;
 

@@ -229,6 +229,43 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
 };
 
 /**
+ * Middleware that allows EITHER JWT OR API Key authentication
+ */
+export const authenticateJWTOrApiKey = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  const apiKey = (req.headers['x-api-key'] || req.headers['X-Api-Key'] || req.headers['X-API-KEY']) as string;
+
+  if (authHeader && (authHeader.startsWith('Bearer ') || (req.query && req.query.token))) {
+    // Try JWT first
+    try {
+      const token = authHeader.startsWith('Bearer ') 
+        ? authHeader.split(' ')[1] 
+        : (req.query.token as string);
+        
+      if (!process.env.ADMIN_JWT_SECRET) {
+        throw new Error('ADMIN_JWT_SECRET not set');
+      }
+      
+      const decoded = jwt.verify(token, process.env.ADMIN_JWT_SECRET);
+      req.user = decoded;
+      return next();
+    } catch (error) {
+      // If JWT fails but there's an API Key, we'll try API Key next
+      if (!apiKey) {
+        return res.status(403).json({ message: 'Invalid token' });
+      }
+    }
+  }
+
+  if (apiKey) {
+    // Try API Key
+    return authenticateApiKeyWithSecret(req, res, next);
+  }
+
+  return res.status(401).json({ message: 'Authentication required (JWT or API Key)' });
+};
+
+/**
  * Middleware для перевірки ролі ADMIN
  */
 export const requireAdmin = async (req: AuthRequest, res: Response, next: NextFunction) => {

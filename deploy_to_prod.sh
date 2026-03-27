@@ -8,6 +8,12 @@ REMOTE_DIR="/root/admin-panel"
 
 # Files to deploy
 FILES=(
+  "admin-panel/Dockerfile"
+  "admin-panel-backend/Dockerfile"
+  "admin-panel/package.json"
+  "admin-panel/package-lock.json"
+  "admin-panel-backend/package.json"
+  "admin-panel-backend/package-lock.json"
   "admin-panel-backend/src/entities/PortfolioItem.ts"
   "admin-panel-backend/src/routes/portfolio.routes.ts"
   "admin-panel-backend/src/routes/projects.routes.ts"
@@ -49,11 +55,15 @@ FILES=(
   "admin-panel-backend/src/entities/NewsContent.ts"
   "admin-panel-backend/src/routes/news.routes.ts"
   "admin-panel-backend/src/entities/Area.ts"
+  "admin-panel-backend/src/entities/Developer.ts"
+  "admin-panel-backend/src/entities/DeveloperCommunity.ts"
   "admin-panel-backend/src/routes/settings.routes.ts"
   "admin-panel/src/app/settings/page.tsx"
+  "admin-panel/src/app/settings/developers/[id]/page.tsx"
   "admin-panel-backend/src/scripts/translate-areas-azure.ts"
   "admin-panel-backend/src/routes/images.routes.ts"
   "admin-panel-backend/src/entities/Property.ts"
+  "admin-panel-backend/src/entities/PropertyUnit.ts"
   "admin-panel/src/components/investor-chat/ProjectSelector.tsx"
   "admin-panel/src/components/form/input/InputField.tsx"
   "admin-panel/src/components/form/input/TextArea.tsx"
@@ -62,6 +72,8 @@ FILES=(
   "admin-panel/src/app/news/[id]/page.tsx"
   "admin-panel/src/app/news/add/page.tsx"
   "admin-panel-backend/src/migrations/013-add-vacancy-localization.sql"
+  "admin-panel-backend/src/entities/Author.ts"
+  "admin-panel-backend/src/routes/authors.routes.ts"
   "admin-panel-backend/src/entities/Vacancy.ts"
   "admin-panel-backend/src/entities/VacancyRequest.ts"
   "admin-panel-backend/src/entities/index.ts"
@@ -72,6 +84,29 @@ FILES=(
   "admin-panel/src/app/vacancies/[id]/page.tsx"
   "admin-panel/src/types/vacancy.ts"
   "admin-panel-backend/src/scripts/convert-s3-to-webp.ts"
+  "admin-panel/src/icons/index.tsx"
+  "admin-panel/src/layout/AppSidebar.tsx"
+  "admin-panel-backend/src/entities/PropertyFinderProject.ts"
+  "admin-panel-backend/src/services/property-finder.service.ts"
+  "admin-panel-backend/src/routes/property-finder.routes.ts"
+  "admin-panel-backend/src/scripts/syncPropertyFinderProjects.ts"
+  "admin-panel/src/components/property-finder/ProjectCard.tsx"
+  "admin-panel/src/components/property-finder/ProjectsList.tsx"
+  "admin-panel/src/app/property-finder/page.tsx"
+  "admin-panel/src/app/property-finder/[id]/page.tsx"
+  "admin-panel-backend/src/migrations/015-add-parent-project-id.sql"
+  "admin-panel-backend/src/migrations/017-add-reelly-detailed-fields.sql"
+  "admin-panel-backend/src/migrations/018-add-unit-plan-images.sql"
+  "admin-panel-backend/src/scripts/migrate-unit-plans.ts"
+  "admin-panel-backend/src/scripts/link-secondary-to-projects.ts"
+  "admin-panel-backend/src/scripts/update-secondary-photos.ts"
+  "admin-panel-backend/src/scripts/delete-unmatched-secondary.ts"
+  "admin-panel-backend/src/routes/landing-v2.routes.ts"
+  "admin-panel-backend/src/scripts/generate-all-articles.ts"
+  "admin-panel-backend/src/migrations/020-generate-property-slugs.sql"
+  "admin-panel-backend/src/migrations/021-add-offering-type-pf-projects.sql"
+  "admin-panel-backend/src/scripts/pf-sync-final.ts"
+  "admin-panel/src/lib/api.ts"
   "docker-compose.prod.yml"
 )
 
@@ -106,12 +141,31 @@ ENV_EOF
     echo "ℹ️  .env already contains AmoCRM config."
   fi
 
+  echo "⚙️  Updating .env with Property Finder config if missing..."
+  if ! grep -q "PROPERTY_FINDER_API_KEY" admin-panel-backend/.env; then
+    cat >> admin-panel-backend/.env << 'ENV_EOF'
+
+# Property Finder API
+PROPERTY_FINDER_API_KEY=IQaFd.ucjN1t7ibTdSheNZv0CATTPSgJoNVIgVOG
+PROPERTY_FINDER_API_SECRET=HQrRxEE5U7O7exhKYhQqJODQi5T5D3i4
+ENV_EOF
+    echo "✅ PF credentials added to .env."
+  fi
+
   echo "🗄  Running Database Migration..."
   DB_CONTAINER=\$(docker ps -q -f name=admin-panel-postgres-prod)
   if [ -n "\$DB_CONTAINER" ]; then
     docker exec -i \$DB_CONTAINER psql -U admin -d foryou_admin_panel < admin-panel-backend/src/migrations/010-add-user-amo-crm-relation.sql
-    echo "🗄  Running Vacancy Localization Migration..."
     docker exec -i \$DB_CONTAINER psql -U admin -d admin_panel < admin-panel-backend/src/migrations/013-add-vacancy-localization.sql
+    echo "🗄  Running Property Parent ID Migration..."
+    docker exec -i \$DB_CONTAINER psql -U admin -d admin_panel < admin-panel-backend/src/migrations/015-add-parent-project-id.sql
+    echo "🗄  Running Reelly Detailed Fields Migration..."
+    docker exec -i \$DB_CONTAINER psql -U admin -d admin_panel < admin-panel-backend/src/migrations/017-add-reelly-detailed-fields.sql
+    echo "🗄  Running Unit Plan Images Migration..."
+    docker exec -i \$DB_CONTAINER psql -U admin -d admin_panel < admin-panel-backend/src/migrations/018-add-unit-plan-images.sql
+    echo "🗄  Running Property Slugs Generation (V2 API)..."
+    docker exec -i \$DB_CONTAINER psql -U admin -d admin_panel < admin-panel-backend/src/migrations/020-generate-property-slugs.sql
+    docker exec -i \$DB_CONTAINER psql -U admin -d admin_panel < admin-panel-backend/src/migrations/021-add-offering-type-pf-projects.sql
   else
     echo "⚠️  Postgres container not found, skipping migration."
   fi
@@ -134,14 +188,16 @@ ENV_EOF
   echo "🌍 Running Area Translation Script..."
   BACKEND_CONTAINER=\$(docker ps -q -f name=admin-panel-backend-prod)
   if [ -n "\$BACKEND_CONTAINER" ]; then
-    # Ensure script is compiled (if backend does it on startup) or run with ts-node/node
-    # Assuming backend runs dist/server.js so we run dist/scripts/...
-    # But wait, does build compile scripts? Just in case, try ts-node if installed or node dist/
-    # We will try node dist/scripts/translate-areas-azure.js assuming build process includes it.
-    # If not, we might need to compile specific file or assume it's there.
-    # Given we uploaded it to src/scripts, and assuming build command compiles src/** to dist/**
+    docker exec \$BACKEND_CONTAINER node dist/scripts/translate-areas-azure.js || echo "⚠️ Translation script failed"
     
-    docker exec \$BACKEND_CONTAINER node dist/scripts/translate-areas-azure.js || echo "⚠️ Translation script failed (maybe not compiled?)"
+    echo "🔗 Linking secondary properties to projects..."
+    docker exec \$BACKEND_CONTAINER node dist/scripts/link-secondary-to-projects.js || echo "⚠️ Linking script failed"
+    
+    echo "📸 Updating property galleries..."
+    docker exec \$BACKEND_CONTAINER node dist/scripts/update-secondary-photos.js || echo "⚠️ Photos update script failed"
+    
+    echo "🧹 Deleting unmatched secondary properties..."
+    docker exec \$BACKEND_CONTAINER node dist/scripts/delete-unmatched-secondary.js || echo "⚠️ Cleanup script failed"
   else
     echo "⚠️ Backend container not found"
   fi

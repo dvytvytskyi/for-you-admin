@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import Form from '@/components/form/Form'
@@ -35,7 +35,24 @@ export default function AddNewsPage() {
     descriptionRu: '',
     imageUrl: '',
     isPublished: false,
+    authorId: '',
+    seoTitle: '',
+    seoDescription: '',
   })
+  const [authors, setAuthors] = useState<any[]>([])
+
+  useEffect(() => {
+    loadAuthors()
+  }, [])
+
+  const loadAuthors = async () => {
+    try {
+      const { data } = await api.get('/authors')
+      setAuthors(data.data || [])
+    } catch (err) {
+      console.error('Error loading authors:', err)
+    }
+  }
 
   const [contents, setContents] = useState<ContentItem[]>([])
 
@@ -84,11 +101,7 @@ export default function AddNewsPage() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const { data } = await api.post('/upload/image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      const { data } = await api.post('/upload/image', formData)
 
       if (data.data?.url) {
         handleUpdateContent(contentId, 'imageUrl', data.data.url)
@@ -155,6 +168,9 @@ export default function AddNewsPage() {
           videoUrl: content.videoUrl || null,
           order: index,
         })),
+        authorId: formData.authorId || null,
+        seoTitle: formData.seoTitle || null,
+        seoDescription: formData.seoDescription || null,
       }
 
       await api.post('/news', payload)
@@ -330,6 +346,50 @@ export default function AddNewsPage() {
                             </label>
                           </div>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Author & SEO */}
+                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800 space-y-4">
+                      <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500">Expert & SEO</h3>
+                      
+                      <div>
+                        <Label htmlFor="authorId">Author / Expert</Label>
+                        <Select
+                          options={[
+                            { value: '', label: 'No Author' },
+                            ...authors.map(a => ({ value: a.id, label: a.nameEn }))
+                          ]}
+                          defaultValue={formData.authorId}
+                          onChange={(val) => setFormData(prev => ({ ...prev, authorId: val }))}
+                          placeholder="Select an author"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 pt-2">
+                        <div>
+                          <Label htmlFor="seoTitle">SEO Title (Optional)</Label>
+                          <Input
+                            id="seoTitle"
+                            name="seoTitle"
+                            type="text"
+                            placeholder="Overwrite auto-generated title"
+                            value={formData.seoTitle}
+                            onChange={handleChange}
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="seoDescription">SEO Description (Optional)</Label>
+                          <textarea
+                            id="seoDescription"
+                            name="seoDescription"
+                            placeholder="Overwrite auto-generated description"
+                            value={formData.seoDescription}
+                            onChange={handleChange}
+                            rows={2}
+                            className="h-auto w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 bg-transparent text-gray-800"
+                          />
+                        </div>
                       </div>
                     </div>
 

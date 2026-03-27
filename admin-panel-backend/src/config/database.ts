@@ -1,4 +1,4 @@
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import dotenv from 'dotenv';
 import { entities } from '../entities';
 
@@ -16,9 +16,8 @@ const finalDatabaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: finalDatabaseUrl,
-  synchronize: !isProduction, // Disable synchronization in production for stability
+  synchronize: true, // TODO: false for prod',
   logging: process.env.NODE_ENV === 'development',
   entities: entities,
   migrations: migrationsPath,
 });
-
