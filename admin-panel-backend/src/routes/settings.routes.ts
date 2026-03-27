@@ -5,6 +5,7 @@ import { City } from '../entities/City';
 import { Area } from '../entities/Area';
 import { Facility } from '../entities/Facility';
 import { Developer } from '../entities/Developer';
+import { DeveloperCommunity } from '../entities/DeveloperCommunity';
 import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
 import { successResponse } from '../utils/response';
 
@@ -476,32 +477,112 @@ router.post('/developers', async (req, res) => {
   }
 });
 
-router.put('/developers/:id', async (req, res) => {
+// GET /settings/developers/:id - Get single developer with details
+router.get('/developers/:id', async (req, res) => {
   try {
-    const { name, logo, description, images } = req.body;
-
     const developer = await AppDataSource.getRepository(Developer).findOne({
       where: { id: req.params.id },
+      relations: ['areas', 'communities', 'communities.area']
     });
 
     if (!developer) {
       return res.status(404).json({ success: false, message: 'Developer not found' });
     }
 
-    // Update only provided fields
-    if (name !== undefined) developer.name = name.trim();
-    if (logo !== undefined) developer.logo = logo || '';
-    if (description !== undefined) developer.description = description || '';
-    if (images !== undefined) {
-      // Validate images array
-      if (Array.isArray(images)) {
-        developer.images = images;
-      } else {
-        developer.images = undefined;
-      }
+    res.json(successResponse(developer));
+  } catch (error: any) {
+    console.error('Error loading developer:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to load developer' });
+  }
+});
+
+router.put('/developers/:id', async (req, res) => {
+  try {
+    const { 
+      name, 
+      nameRu, 
+      nameAr, 
+      logo, 
+      description, 
+      descriptionRu, 
+      avgPricesDescription, 
+      avgPrices, 
+      areas, 
+      communities, 
+      images 
+    } = req.body;
+
+    const developerRepo = AppDataSource.getRepository(Developer);
+    const developer = await developerRepo.findOne({
+      where: { id: req.params.id },
+      relations: ['areas', 'communities']
+    });
+
+    if (!developer) {
+      return res.status(404).json({ success: false, message: 'Developer not found' });
     }
 
-    const updatedDeveloper = await AppDataSource.getRepository(Developer).save(developer);
+    console.log(`[Settings] Updating developer ${req.params.id}:`, { name, hasCommunities: !!communities, communitiesCount: communities?.length });
+
+    // Validation checks
+    if (description && (description.length < 2500 || description.length > 3500)) {
+      console.warn(`Initial description length: ${description.length}. User requested 2500-3500.`);
+      // Optional: block saving if you want strict enforcement
+      // return res.status(400).json({ success: false, message: 'Description must be between 2500 and 3500 characters' });
+    }
+
+    if (avgPricesDescription && (avgPricesDescription.length < 1000 || avgPricesDescription.length > 2000)) {
+      console.warn(`Average prices description length: ${avgPricesDescription.length}. User requested 1000-2000.`);
+    }
+
+    const slugify = require('slugify');
+    // Update basic fields
+    if (name !== undefined) {
+      developer.name = name.trim();
+      developer.slug = slugify(developer.name, { lower: true, strict: true });
+    }
+    if (nameRu !== undefined) developer.nameRu = nameRu;
+    if (nameAr !== undefined) developer.nameAr = nameAr;
+    if (logo !== undefined) developer.logo = logo || '';
+    if (description !== undefined) developer.description = description || '';
+    if (descriptionRu !== undefined) developer.descriptionRu = descriptionRu || '';
+    if (avgPricesDescription !== undefined) developer.avgPricesDescription = avgPricesDescription || '';
+    if (avgPrices !== undefined) developer.avgPrices = avgPrices;
+    if (images !== undefined) developer.images = images;
+
+    // Handle areas (ManyToMany)
+    if (areas !== undefined && Array.isArray(areas)) {
+      const { In } = require('typeorm');
+      developer.areas = await AppDataSource.getRepository(Area).find({
+        where: { id: In(areas.map(a => typeof a === 'object' ? (a as any).id : a)) }
+      });
+    }
+
+    // Handle communities (OneToMany)
+    if (communities !== undefined && Array.isArray(communities)) {
+      const communityRepo = AppDataSource.getRepository(DeveloperCommunity);
+      
+      developer.communities = (communities as any[]).map(comm => {
+        const commData: any = {
+          ...comm,
+          developer: developer,
+        };
+
+        if (comm.areaId) {
+          commData.area = { id: comm.areaId };
+        }
+
+        const created = communityRepo.create(commData);
+        const newComm = Array.isArray(created) ? created[0] : created;
+        if (comm.id) newComm.id = comm.id;
+        
+        return newComm;
+      });
+      
+      console.log(`[Settings] Mapped ${developer.communities.length} communities for developer ${req.params.id}`);
+    }
+
+    const updatedDeveloper = await developerRepo.save(developer);
     res.json(successResponse(updatedDeveloper));
   } catch (error: any) {
     console.error('Error updating developer:', error);

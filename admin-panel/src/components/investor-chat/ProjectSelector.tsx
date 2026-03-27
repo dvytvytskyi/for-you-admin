@@ -18,8 +18,15 @@ export default function ProjectSelector({ onSelect, onClose }: ProjectSelectorPr
                 // The structure is data.data.data according to properties.routes.ts
                 const { data } = await api.get(`/properties?limit=100&search=${search}`);
                 if (data.success) {
-                    // Fix: data.data is an object { data: properties[], pagination: {} }
-                    setProjects(data.data.data || []);
+                    // Robust handling of response structure: { success: true, data: properties[], pagination: {} } 
+                    // or { success: true, data: { data: properties[], pagination: {} } }
+                    if (Array.isArray(data.data)) {
+                        setProjects(data.data);
+                    } else if (data.data?.data && Array.isArray(data.data.data)) {
+                        setProjects(data.data.data);
+                    } else {
+                        setProjects([]);
+                    }
                 }
             } catch (error) {
                 console.error("Error fetching projects:", error);

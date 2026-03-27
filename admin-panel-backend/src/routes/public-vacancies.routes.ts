@@ -120,6 +120,27 @@ router.post('/:id/apply', async (req, res) => {
 
         const result = await requestRepo.save(vacancyRequest);
 
+        // Forward to AmoCRM
+        try {
+            const { AmoCrmService } = await import('../services/amo-crm.service');
+            const amoCrmService = new AmoCrmService();
+            await amoCrmService.submitEnquiryToAmo({
+                name,
+                email,
+                phone,
+                message,
+                source: `Job Application: ${vacancy.position}`,
+                additionalInfo: {
+                    vacancyId: req.params.id,
+                    position: vacancy.position,
+                    cvUrl,
+                    applicationId: result.id
+                }
+            });
+        } catch (amoError) {
+            console.error('Failed to forward vacancy application to AmoCRM:', amoError);
+        }
+
         // Increment applications count
         vacancy.applicationsCount += 1;
         await vacancyRepo.save(vacancy);

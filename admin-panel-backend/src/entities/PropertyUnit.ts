@@ -29,6 +29,14 @@ export class PropertyUnit {
   @Column({ nullable: true })
   planImage!: string;
 
+  @Column('jsonb', { nullable: true })
+  planImages?: {
+    original: string;
+    large: string;
+    medium: string;
+    small: string;
+  };
+
   @Column('decimal', { precision: 10, scale: 2 })
   totalSize!: number;
 
@@ -37,5 +45,17 @@ export class PropertyUnit {
 
   @Column('decimal', { precision: 15, scale: 2 })
   price!: number;
+
+  @Column('decimal', { precision: 10, scale: 1, nullable: true })
+  bedrooms?: number;
+
+  @Column('integer', { nullable: true })
+  floor?: number;
+
+  @Column('text', { nullable: true })
+  status?: string;
+
+  @Column('text', { nullable: true })
+  externalId?: string;
 }
 

@@ -17,6 +17,7 @@
     "dist",
     "src/scripts/createTestProperties.ts",
     "src/scripts/import-all-properties.ts",
-    "src/scripts/fix-webp-permissions.ts"
+    "src/scripts/fix-webp-permissions.ts",
+    "test_db_load.ts"
   ]
 }

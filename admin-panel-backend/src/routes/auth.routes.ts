@@ -235,6 +235,25 @@ router.post('/register', async (req, res) => {
 
     await userRepository.save(user);
 
+    // Forward to AmoCRM
+    try {
+      const { AmoCrmService } = await import('../services/amo-crm.service');
+      const amoCrmService = new AmoCrmService();
+      await amoCrmService.submitEnquiryToAmo({
+        name: `${firstName} ${lastName}`,
+        email,
+        phone,
+        source: `User Registration: ${role}`,
+        additionalInfo: {
+          role,
+          licenseNumber,
+          userId: user.id
+        }
+      });
+    } catch (amoError) {
+      console.error('Failed to forward registration to AmoCRM:', amoError);
+    }
+
     // Generate JWT tokens
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role },
@@ -605,5 +624,10 @@ router.patch('/profile', authenticateJWT, async (req: any, res) => {
   }
 });
 
+router.post('/logout', authenticateJWT, (req, res) => {
+  return res.json(successResponse(null, 'Logged out successfully'));
+});
+
 export default router;
+
 

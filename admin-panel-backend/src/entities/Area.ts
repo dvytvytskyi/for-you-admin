@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, ManyToMany } from 'typeorm';
 import { City } from './City';
+import { Developer } from './Developer';
 
 @Entity('areas')
 export class Area {
@@ -12,6 +13,9 @@ export class Area {
   @ManyToOne(() => City, city => city.areas)
   @JoinColumn({ name: 'cityId' })
   city!: City;
+
+  @ManyToMany(() => Developer, developer => developer.areas)
+  developers!: Developer[];
 
   @Column()
   nameEn!: string;
@@ -40,7 +44,7 @@ export class Area {
     description?: string;
   };
 
-  @Column('simple-array', { nullable: true })
+  @Column('text', { array: true, nullable: true })
   images?: string[]; // Масив URL фото (до 8 штук, 3x4 або 4x3)
 
   @Column({ name: 'isactive', default: true })

@@ -20,7 +20,7 @@ const endpoints: { [key: string]: Endpoint[] } = {
       description: 'Get list of all properties with optional filters',
       auth: 'Both',
       queryParams: [
-        { name: 'propertyType', type: 'string', description: 'Filter by property type: "off-plan" or "secondary"', required: false },
+        { name: 'propertyType', type: 'string', description: 'Filter by property type: "off-plan", "secondary", "new-launches", "rent", "exclusive-for-you", or "commercial"', required: false },
         { name: 'developerId', type: 'string', description: 'Filter by developer ID (UUID)', required: false },
         { name: 'cityId', type: 'string', description: 'Filter by city ID (UUID)', required: false },
       ],
@@ -29,7 +29,7 @@ const endpoints: { [key: string]: Endpoint[] } = {
   "data": [
     {
       "id": "uuid",
-      "propertyType": "off-plan" | "secondary",
+      "propertyType": "new-launches" | "off-plan" | "secondary" | "rent" | "exclusive-for-you" | "commercial",
       "name": "string",
       "description": "string",
       "photos": ["string (URLs)"],

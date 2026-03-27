@@ -138,17 +138,6 @@ function DevelopersTab({ developers, onReload }: any) {
   const [cleaningUp, setCleaningUp] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Developer edit modal state
-  const [showEditDeveloperModal, setShowEditDeveloperModal] = useState(false)
-  const [editingDeveloper, setEditingDeveloper] = useState<any>(null)
-  const [developerDescription, setDeveloperDescription] = useState('')
-  const [developerLogo, setDeveloperLogo] = useState('')
-  const [developerImages, setDeveloperImages] = useState<string[]>([])
-  const [uploadingImage, setUploadingImage] = useState(false)
-  const [savingDeveloper, setSavingDeveloper] = useState(false)
-  const [loadedImages, setLoadedImages] = useState<Set<number>>(new Set())
-  const [failedImages, setFailedImages] = useState<Set<number>>(new Set())
-
   // Helper to check if button should be enabled
   const hasValidInput = newDeveloper && newDeveloper.trim().length > 0
   const isButtonDisabled = addingDeveloper || !hasValidInput
@@ -586,156 +575,6 @@ function DevelopersTab({ developers, onReload }: any) {
     }
   }
 
-  const handleEditDeveloperClick = (developer: any) => {
-    console.log('Opening developer modal with data:', developer)
-    console.log('Developer images raw:', developer.images, 'Type:', typeof developer.images)
-
-    // Ensure images is an array (TypeORM simple-array might return string)
-    let images = developer.images || []
-    if (typeof images === 'string') {
-      // If it's a string (comma-separated), split it
-      if (images.trim()) {
-        images = images.split(',').map((url: string) => url.trim()).filter((url: string) => url.length > 0)
-      } else {
-        images = []
-      }
-    } else if (!Array.isArray(images)) {
-      images = []
-    }
-
-    console.log('Processed images:', images)
-
-    setEditingDeveloper(developer)
-    setDeveloperDescription(developer.description || '')
-    setDeveloperLogo(developer.logo || '')
-    setDeveloperImages(images)
-    setLoadedImages(new Set())
-    setFailedImages(new Set())
-    setShowEditDeveloperModal(true)
-  }
-
-  const handleCloseEditDeveloperModal = () => {
-    setShowEditDeveloperModal(false)
-    setEditingDeveloper(null)
-    setDeveloperDescription('')
-    setDeveloperLogo('')
-    setDeveloperImages([])
-  }
-
-  const handleDeveloperImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
-
-    setUploadingImage(true)
-    try {
-      const formData = new FormData()
-      Array.from(files).forEach((file) => {
-        formData.append('files', file)
-      })
-
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
-      const { data } = await axios.post(`${API_URL}/upload/images`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
-      })
-
-      const newUrls = data?.data?.urls || data?.urls || []
-      setDeveloperImages([...developerImages, ...newUrls])
-    } catch (error: any) {
-      console.error('Error uploading images:', error)
-      alert(error.response?.data?.message || 'Error uploading photos')
-    } finally {
-      setUploadingImage(false)
-      e.target.value = ''
-    }
-  }
-
-  const handleRemoveDeveloperImage = (index: number) => {
-    setDeveloperImages(developerImages.filter((_, i) => i !== index))
-  }
-
-  const handleSaveDeveloper = async () => {
-    if (!editingDeveloper) return
-
-    setSavingDeveloper(true)
-    try {
-      await api.put(`/settings/developers/${editingDeveloper.id}`, {
-        name: editingDeveloper.name,
-        logo: developerLogo,
-        description: developerDescription,
-        images: developerImages,
-      })
-
-      onReload()
-      handleCloseEditDeveloperModal()
-    } catch (error: any) {
-      console.error('Error saving developer:', error)
-      alert(error.response?.data?.message || 'Error saving developer')
-    } finally {
-      setSavingDeveloper(false)
-    }
-  }
-
-  // Auto-load predefined developers on mount if list is empty (only once)
-  useEffect(() => {
-    // Only auto-load if list is empty and we haven't already attempted to load
-    if (developers.length === 0 && !hasAutoLoaded) {
-      setHasAutoLoaded(true)
-      handleLoadPredefined()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // Auto-populate modal fields when editingDeveloper changes
-  useEffect(() => {
-    if (editingDeveloper) {
-      console.log('Auto-populating modal with developer data:', {
-        name: editingDeveloper.name,
-        hasLogo: !!editingDeveloper.logo,
-        hasDescription: !!editingDeveloper.description,
-        hasImages: !!editingDeveloper.images,
-        imagesType: typeof editingDeveloper.images,
-        imagesIsArray: Array.isArray(editingDeveloper.images),
-        imagesValue: editingDeveloper.images
-      })
-
-      // Ensure images is an array (TypeORM simple-array might return string)
-      let images = editingDeveloper.images || []
-      console.log('Raw images from developer:', images, 'Type:', typeof images, 'IsArray:', Array.isArray(images))
-
-      if (typeof images === 'string') {
-        // If it's a string (comma-separated), split it
-        if (images.trim()) {
-          images = images.split(',').map((url: string) => url.trim()).filter((url: string) => url.length > 0)
-          console.log('Parsed images from string:', images)
-        } else {
-          images = []
-        }
-      } else if (Array.isArray(images)) {
-        // Filter out empty strings and null values
-        images = images.filter((url: any) => url && typeof url === 'string' && url.trim().length > 0).map((url: string) => url.trim())
-        console.log('Filtered images array:', images)
-      } else {
-        images = []
-      }
-
-      console.log('Setting modal fields:', {
-        description: editingDeveloper.description || '',
-        logo: editingDeveloper.logo || '',
-        images: images,
-        imagesCount: images.length,
-        imageUrls: images
-      })
-
-      setDeveloperDescription(editingDeveloper.description || '')
-      setDeveloperLogo(editingDeveloper.logo || '')
-      setDeveloperImages(images)
-    }
-  }, [editingDeveloper])
-
   // Filter developers based on search query
   const filteredDevelopers = developers.filter((dev: any) => {
     if (!searchQuery.trim()) return true
@@ -858,29 +697,57 @@ function DevelopersTab({ developers, onReload }: any) {
               {paginatedDevelopers.map((dev: any) => (
                 <div
                   key={dev.id}
-                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
-                  onClick={() => handleEditDeveloperClick(dev)}
+                  className="flex items-center justify-between rounded-lg border border-gray-200 p-4 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
                 >
-                  <span className="text-gray-800 dark:text-white">{dev.name}</span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleDeleteClick(dev)
-                    }}
-                    disabled={deletingId === dev.id}
-                    className="text-error-500 hover:text-error-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {deletingId === dev.id ? (
-                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  <span className="text-gray-800 dark:text-white font-medium">{dev.name}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => window.location.href = `/settings/developers/${dev.id}`}
+                      className="p-2 text-gray-500 hover:text-brand-600 dark:text-gray-400 dark:hover:text-brand-400 transition-colors"
+                      title="Edit"
+                    >
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
                       </svg>
-                    ) : (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M11.3333 2.00004C11.5083 2.00004 11.6763 2.07019 11.8013 2.19526C11.9263 2.32033 11.9963 2.48842 11.9963 2.66344V13.3334C11.9963 13.5084 11.9263 13.6765 11.8013 13.8016C11.6763 13.9267 11.5083 13.9968 11.3333 13.9968H4.66659C4.49157 13.9968 4.32348 13.9267 4.19841 13.8016C4.07334 13.6765 4.00319 13.5084 4.00319 13.3334V2.66344C4.00319 2.48842 4.07334 2.32033 4.19841 2.19526C4.32348 2.07019 4.49157 2.00004 4.66659 2.00004H6.66659L6.66659 1.33337C6.66659 1.15835 6.73674 0.990261 6.86181 0.865189C6.98688 0.740117 7.15497 0.669968 7.32999 0.669968H8.66999C8.84501 0.669968 9.0131 0.740117 9.13817 0.865189C9.26324 0.990261 9.33339 1.15835 9.33339 1.33337V2.00004H11.3333Z" fill="currentColor" />
-                      </svg>
-                    )}
-                  </button>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(dev)}
+                      disabled={deletingId === dev.id}
+                      className="p-2 text-error-500 hover:text-error-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      title="Delete"
+                    >
+                      {deletingId === dev.id ? (
+                        <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               ))}
 
@@ -966,215 +833,6 @@ function DevelopersTab({ developers, onReload }: any) {
         </div>
       </Modal>
 
-      {/* Edit Developer Modal */}
-      <Modal isOpen={showEditDeveloperModal} onClose={handleCloseEditDeveloperModal} className="max-w-4xl m-4 max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-6">
-            Edit Developer: {editingDeveloper?.name || 'Unnamed'}
-          </h2>
-
-          <div className="space-y-6">
-            {/* Name Section */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Developer Name
-                </label>
-                <Input
-                  type="text"
-                  value={editingDeveloper?.name || ''}
-                  onChange={(e) => {
-                    if (editingDeveloper) {
-                      setEditingDeveloper({ ...editingDeveloper, name: e.target.value })
-                    }
-                  }}
-                  placeholder="Enter developer name"
-                />
-              </div>
-            </div>
-
-            {/* Logo Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Logo</h3>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Logo URL
-                </label>
-                <Input
-                  type="text"
-                  value={developerLogo}
-                  onChange={(e) => setDeveloperLogo(e.target.value)}
-                  placeholder="Enter logo URL"
-                />
-              </div>
-              {developerLogo && (
-                <div className="mt-2">
-                  <img
-                    src={developerLogo}
-                    alt="Developer logo"
-                    className="h-20 w-20 object-contain rounded-lg border border-gray-200 dark:border-gray-700"
-                    onError={(e) => {
-                      const img = e.target as HTMLImageElement;
-                      console.error('Logo load error:', developerLogo);
-                      img.style.display = 'none';
-                    }}
-                    onLoad={() => {
-                      console.log('Logo loaded successfully:', developerLogo)
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Description Section */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Description</h3>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <TextArea
-                  value={developerDescription}
-                  onChange={(value) => setDeveloperDescription(value)}
-                  placeholder="Enter developer description"
-                  rows={6}
-                />
-              </div>
-            </div>
-
-            {/* Images Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">Photos</h3>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {developerImages.length} photo{developerImages.length !== 1 ? 's' : ''}
-                </span>
-              </div>
-
-              {developerImages.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {developerImages.map((url, index) => {
-                    // Перевіряємо чи URL валідний
-                    const trimmedUrl = url && typeof url === 'string' ? url.trim() : ''
-                    const isValidUrl = trimmedUrl.length > 0 && (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://') || trimmedUrl.startsWith('/'))
-
-                    if (!isValidUrl) {
-                      console.warn('Invalid developer image URL at index', index, ':', url, 'Type:', typeof url)
-                      return (
-                        <div key={index} className="relative group">
-                          <div className="w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700">
-                            <span className="text-xs text-gray-400 dark:text-gray-500 text-center px-2">Invalid URL</span>
-                          </div>
-                        </div>
-                      )
-                    }
-
-                    return (
-                      <div key={index} className="relative group">
-                        <img
-                          src={trimmedUrl}
-                          alt={`Developer ${index + 1}`}
-                          className="w-full aspect-square object-cover rounded-lg border border-gray-200 dark:border-gray-700"
-                          onError={(e) => {
-                            console.error('Error loading developer image at index', index, ':', trimmedUrl)
-                            const img = e.target as HTMLImageElement
-                            img.style.display = 'none'
-                            // Show placeholder
-                            const parent = img.parentElement
-                            if (parent && !parent.querySelector('.image-error-placeholder')) {
-                              const placeholder = document.createElement('div')
-                              placeholder.className = 'image-error-placeholder w-full aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-700'
-                              const text = document.createElement('span')
-                              text.className = 'text-xs text-gray-400 dark:text-gray-500'
-                              text.textContent = 'Image not found'
-                              placeholder.appendChild(text)
-                              parent.appendChild(placeholder)
-                            }
-                          }}
-                          onLoad={() => {
-                            console.log('Developer image loaded successfully at index', index, ':', trimmedUrl)
-                          }}
-                        />
-                        <button
-                          onClick={() => handleRemoveDeveloperImage(index)}
-                          className="absolute top-2 right-2 bg-error-500 hover:bg-error-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
-                          title="Remove photo"
-                        >
-                          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                          </svg>
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 hover:border-brand-400 dark:hover:border-brand-600 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleDeveloperImageUpload}
-                  disabled={uploadingImage}
-                  className="hidden"
-                  id="developer-image-upload"
-                />
-                <label
-                  htmlFor="developer-image-upload"
-                  className="flex flex-col items-center justify-center cursor-pointer"
-                >
-                  {uploadingImage ? (
-                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
-                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      <span>Uploading...</span>
-                    </div>
-                  ) : (
-                    <>
-                      <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 text-center">
-                        Click to upload photos
-                      </span>
-                    </>
-                  )}
-                </label>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
-              <Button
-                variant="outline"
-                onClick={handleCloseEditDeveloperModal}
-                disabled={savingDeveloper}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveDeveloper}
-                disabled={savingDeveloper}
-              >
-                {savingDeveloper ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Saving...
-                  </>
-                ) : (
-                  'Save'
-                )}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Modal>
     </>
   )
 }

@@ -5,10 +5,12 @@ import { AmoCrmLead } from '../entities/AmoCrmLead';
 import { AmoCrmContact } from '../entities/AmoCrmContact';
 import { AmoCrmStage, LeadStatus } from '../entities/AmoCrmStage';
 import { User, UserRole } from '../entities/User';
-import { authenticateJWT, AuthRequest } from '../middleware/auth';
+import { authenticateJWT, AuthRequest, requireBrokerOrAdmin } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
+import { AmoCrmService } from '../services/amo-crm.service';
 
 const router = express.Router();
+const amoCrmService = new AmoCrmService();
 
 /**
  * Витягнути email та телефон з custom fields або embedded контакту
@@ -416,5 +418,89 @@ router.get(
   },
 );
 
+/**
+ * POST /api/v1/leads
+ * Create lead in AmoCRM
+ */
+router.post(
+  '/',
+  authenticateJWT,
+  requireBrokerOrAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const leadData = req.body;
+      const leadId = await amoCrmService.createLead(leadData);
+
+      // Optionally sync back immediately
+      const amoLead = await amoCrmService.getLead(leadId).catch(() => null);
+      if (amoLead) {
+        await amoCrmService.saveLeadLocally(amoLead);
+      }
+
+      return res.status(201).json(successResponse({ amoLeadId: leadId }, 'Lead created successfully'));
+    } catch (error: any) {
+      console.error('Error creating lead:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to create lead'));
+    }
+  }
+);
+
+/**
+ * POST /api/v1/leads/:id/notes
+ * Add note to lead
+ */
+router.post(
+  '/:id/notes',
+  authenticateJWT,
+  requireBrokerOrAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { text } = req.body;
+
+      if (!text) {
+        return res.status(400).json(errorResponse('Text is required'));
+      }
+
+      await amoCrmService.addNote(parseInt(id), 'leads', text);
+      return res.json(successResponse(null, 'Note added successfully'));
+    } catch (error: any) {
+      console.error('Error adding note:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to add note'));
+    }
+  }
+);
+
+/**
+ * POST /api/v1/leads/:id/tasks
+ * Add task to lead
+ */
+router.post(
+  '/:id/tasks',
+  authenticateJWT,
+  requireBrokerOrAdmin,
+  async (req: AuthRequest, res) => {
+    try {
+      const { id } = req.params;
+      const { text, complete_till, responsible_user_id } = req.body;
+
+      const taskData = {
+        entity_id: parseInt(id),
+        entity_type: 'leads',
+        text: text || 'Task for lead',
+        complete_till: complete_till || Math.floor(Date.now() / 1000) + 86400,
+        responsible_user_id: responsible_user_id || undefined
+      };
+
+      const taskId = await amoCrmService.createTask(taskData);
+      return res.json(successResponse({ taskId }, 'Task created successfully'));
+    } catch (error: any) {
+      console.error('Error creating task:', error);
+      return res.status(500).json(errorResponse(error.message || 'Failed to create task'));
+    }
+  }
+);
+
 export default router;
+
 

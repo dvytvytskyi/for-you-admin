@@ -10,26 +10,38 @@ import * as path from 'path';
 
 interface SecondaryProperty {
   id: string;
+  url: string;
   title: string;
   displayAddress: string;
   buildingName?: string;
   communityName: string;
-  bedrooms: string;
-  bathrooms: string;
+  bedrooms: any;
+  bathrooms: any;
+  addedOn: string;
+  agent: string;
+  agentInfo: any;
+  agentPhone: string;
+  agentWhatsapp: string;
+  agentEmail: string;
+  verified: boolean;
+  reference: string;
+  brokerInfo: any;
+  priceDuration: string;
+  propertyType: string;
   price: number;
+  rera: string;
   priceCurrency: string;
   coordinates: {
     latitude: number;
     longitude: number;
   };
+  type: string;
   size: number;
-  sizeMin?: string;
+  sizeMin?: any;
+  furnishing?: string;
   description: string;
   images: string[];
   features?: string[];
-  brokerInfo?: {
-    name: string;
-  };
 }
 
 const USD_TO_AED = 3.67;
@@ -74,13 +86,18 @@ async function importSecondaryProperties() {
     const areaRepo = AppDataSource.getRepository(Area);
     const facilityRepo = AppDataSource.getRepository(Facility);
 
-    // Читаємо secondary.json
-    const jsonPath = path.resolve(__dirname, '../../secondary.json');
+    // Очислення існуючих secondary властивостей
+    console.log('🗑️  Видалення існуючих secondary властивостей...');
+    await propertyRepo.delete({ propertyType: PropertyType.SECONDARY });
+    console.log('✅ Очищено\n');
+
+    // Читаємо JSON файл
+    const jsonPath = path.resolve(__dirname, '../../../dataset_propertyfinder-scraper_2025-11-03_17-07-17-191.json');
     if (!fs.existsSync(jsonPath)) {
       throw new Error(`Файл не знайдено: ${jsonPath}`);
     }
 
-    console.log('📖 Читання файлу secondary.json...');
+    console.log(`📖 Читання файлу: ${path.basename(jsonPath)}...`);
     const jsonContent = fs.readFileSync(jsonPath, 'utf-8');
     const properties: SecondaryProperty[] = JSON.parse(jsonContent);
     console.log(`   Знайдено ${properties.length} об'єктів\n`);
@@ -193,8 +210,6 @@ async function importSecondaryProperties() {
           continue;
         }
 
-        // Developer не додаємо (за запитом користувача)
-
         // Обробляємо facilities
         const facilities: Facility[] = [];
         if (prop.features && prop.features.length > 0) {
@@ -211,12 +226,11 @@ async function importSecondaryProperties() {
               if (foundFacility) {
                 facility = foundFacility;
               } else {
-                // Створюємо новий facility
                 facility = await facilityRepo.save({
                   nameEn: facilityName,
                   nameRu: facilityName,
                   nameAr: facilityName,
-                  iconName: 'checkmark-circle', // Дефолтна іконка
+                  iconName: 'checkmark-circle',
                 });
               }
 
@@ -229,10 +243,7 @@ async function importSecondaryProperties() {
           }
         }
 
-        // Прибираємо перевірку дублікатів - імпортуємо всі об'єкти
-        // (багато об'єктів мають однакові назви, тому перевірка за назвою не працює)
-
-        // Створюємо об'єкт через query builder для уникнення проблем з типізацією
+        // Створюємо об'єкт через query builder
         const insertResult = await propertyRepo
           .createQueryBuilder()
           .insert()
@@ -248,16 +259,43 @@ async function importSecondaryProperties() {
             longitude: prop.coordinates.longitude,
             description: prop.description || '',
             price: priceUSD,
-            bedrooms: prop.bedrooms ? parseInt(prop.bedrooms) : undefined,
-            bathrooms: prop.bathrooms ? parseInt(prop.bathrooms) : undefined,
+            bedrooms: prop.bedrooms && prop.bedrooms.toString().toLowerCase().includes('studio') 
+              ? 0 
+              : (isNaN(parseInt(prop.bedrooms?.toString())) ? undefined : parseInt(prop.bedrooms.toString())),
+            bathrooms: isNaN(parseInt(prop.bathrooms?.toString())) ? undefined : parseInt(prop.bathrooms.toString()),
             size: sizeSQM || undefined,
+            
+            // Нові поля для повного мапінгу
+            externalId: prop.id,
+            propertyUrl: prop.url,
+            buildingName: prop.buildingName,
+            communityName: prop.communityName,
+            displayAddress: prop.displayAddress,
+            addedOn: prop.addedOn,
+            verified: prop.verified || false,
+            reference: prop.reference,
+            rera: prop.rera,
+            furnishing: prop.furnishing,
+            agentName: prop.agent,
+            agentPhone: prop.agentPhone,
+            agentWhatsapp: prop.agentWhatsapp,
+            agentEmail: prop.agentEmail,
+            agentInfo: prop.agentInfo,
+            brokerName: prop.brokerInfo?.name,
+            brokerLogo: prop.brokerInfo?.logo,
+            brokerInfo: prop.brokerInfo,
+            priceDuration: prop.priceDuration,
+            propertySubType: prop.propertyType,
+            priceCurrency: prop.priceCurrency,
+            type: prop.type,
+            sizeMin: prop.sizeMin?.toString(),
           })
           .returning('id')
           .execute();
 
         const propertyId = insertResult.identifiers[0].id;
 
-        // Додаємо facilities через relation
+        // Додаємо facilities
         if (facilities.length > 0) {
           const facilityIds = facilities.map(f => f.id);
           await propertyRepo
@@ -283,16 +321,11 @@ async function importSecondaryProperties() {
 
     console.log('\n📈 Підсумок імпорту:');
     console.log(`   ✅ Успішно: ${successCount}`);
-    console.log(`   ⊘ Пропущено (вже існують): ${skippedCount}`);
     console.log(`   ❌ Помилок: ${errorCount}`);
 
-    if (errors.length > 0 && errors.length <= 20) {
-      console.log('\n📋 Помилки:');
-      errors.forEach(err => console.log(`   - ${err}`));
-    } else if (errors.length > 20) {
+    if (errors.length > 0) {
       console.log('\n📋 Перші 20 помилок:');
       errors.slice(0, 20).forEach(err => console.log(`   - ${err}`));
-      console.log(`   ... та ще ${errors.length - 20} помилок`);
     }
 
     await AppDataSource.destroy();
@@ -307,6 +340,4 @@ async function importSecondaryProperties() {
   }
 }
 
-// Запуск імпорту
 importSecondaryProperties();
-

@@ -12,7 +12,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({
     totalProperties: 0,
     offPlanProperties: 0,
-    secondaryProperties: 0,
+    propertyCounts: {} as Record<string, number>,
     totalDevelopers: 0,
     totalFacilities: 0,
     totalLocations: {
@@ -62,9 +62,18 @@ export default function DashboardPage() {
       const locations = locationsRes.data.data || {}
 
       // Properties by type
+      const typeLabels: Record<string, string> = {
+        'new-launches': 'New Launches',
+        'off-plan': 'Off-Plan',
+        'secondary': 'Secondary',
+        'rent': 'Rent',
+        'exclusive-for-you': 'Exclusive For You',
+        'commercial': 'Commercial'
+      }
+
       const propertiesByType = {
-        categories: ['Off-Plan', 'Secondary'],
-        series: [propertiesStats.offPlanProperties || 0, propertiesStats.secondaryProperties || 0],
+        categories: Object.keys(propertiesStats.propertyCounts || {}).map(type => typeLabels[type] || type),
+        series: Object.values(propertiesStats.propertyCounts || {}).map(count => Number(count)),
       }
 
       // Properties by city
@@ -88,7 +97,7 @@ export default function DashboardPage() {
       setStats({
         totalProperties: propertiesStats.totalProperties || 0,
         offPlanProperties: propertiesStats.offPlanProperties || 0,
-        secondaryProperties: propertiesStats.secondaryProperties || 0,
+        propertyCounts: propertiesStats.propertyCounts || {},
         totalDevelopers: developers.length,
         totalFacilities: facilities.length,
         totalLocations: {
@@ -250,15 +259,15 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Off-Plan Properties */}
+        {/* Off-Plan / New Launches */}
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Off-Plan Properties
+                Active Projects (Off-Plan+)
               </p>
               <p className="mt-2 text-2xl font-semibold text-gray-800 dark:text-white">
-                {loading ? '...' : stats.offPlanProperties}
+                {loading ? '...' : (stats.offPlanProperties + (stats.propertyCounts?.['new-launches'] || 0) + (stats.propertyCounts?.['exclusive-for-you'] || 0))}
               </p>
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-50 dark:bg-green-500/10">

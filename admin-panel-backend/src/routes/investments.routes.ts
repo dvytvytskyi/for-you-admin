@@ -14,7 +14,7 @@ const requireAuth = authenticateJWT;
 // POST /api/investments/public - Create investment (public, для сайту/додатку)
 router.post('/public', async (req, res) => {
   try {
-    const { propertyId, amount, date, notes, userEmail, userPhone, userFirstName, userLastName } = req.body;
+    const { propertyId, amount, date, notes, userEmail, userPhone, userFirstName, userLastName, referenceId } = req.body;
 
     if (!propertyId || !amount || !date) {
       return res.status(400).json(errorResponse('Property ID, amount, and date are required'));
@@ -34,9 +34,9 @@ router.post('/public', async (req, res) => {
     // Якщо є контактні дані, шукаємо існуючого користувача
     if (userEmail || userPhone) {
       const existingUser = await AppDataSource.getRepository(User).findOne({
-        where: userEmail && userPhone 
+        where: userEmail && userPhone
           ? [{ email: userEmail }, { phone: userPhone }]
-          : userEmail 
+          : userEmail
             ? [{ email: userEmail }]
             : [{ phone: userPhone }],
       });
@@ -55,9 +55,31 @@ router.post('/public', async (req, res) => {
       status: InvestmentStatus.PENDING,
       date: new Date(date),
       notes: notes || `Contact: ${userEmail || ''} ${userPhone || ''} | ${userFirstName || ''} ${userLastName || ''}`,
+      referenceId,
     });
 
     const saved = await AppDataSource.getRepository(Investment).save(investment);
+
+    // Forward to AmoCRM
+    try {
+      const { AmoCrmService } = await import('../services/amo-crm.service');
+      const amoCrmService = new AmoCrmService();
+      await amoCrmService.submitEnquiryToAmo({
+        name: `${userFirstName || ''} ${userLastName || ''}`.trim() || 'Investment Applicant',
+        email: userEmail || '',
+        phone: userPhone || '',
+        message: notes,
+        source: 'Investment Request',
+        price: parseFloat(amount),
+        additionalInfo: {
+          propertyId,
+          referenceId,
+          investmentId: saved.id
+        }
+      });
+    } catch (amoError) {
+      console.error('Failed to forward investment to AmoCRM:', amoError);
+    }
 
     const investmentWithProperty = await AppDataSource.getRepository(Investment).findOne({
       where: { id: saved.id },
@@ -126,7 +148,7 @@ router.post('/', requireAuth, async (req: any, res) => {
       return res.status(403).json(errorResponse('Only investors can create investments'));
     }
 
-    const { propertyId, amount, status, date, notes } = req.body;
+    const { propertyId, amount, status, date, notes, referenceId } = req.body;
 
     if (!propertyId || !amount || !date) {
       return res.status(400).json(errorResponse('Property ID, amount, and date are required'));
@@ -148,6 +170,7 @@ router.post('/', requireAuth, async (req: any, res) => {
       status: status || InvestmentStatus.PENDING,
       date: new Date(date),
       notes,
+      referenceId,
     });
 
     const saved = await AppDataSource.getRepository(Investment).save(investment);

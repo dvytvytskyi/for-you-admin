@@ -7,8 +7,12 @@ import { Facility } from './Facility';
 import { PropertyUnit } from './PropertyUnit';
 
 export enum PropertyType {
+  NEW_LAUNCHES = 'new-launches',
   OFF_PLAN = 'off-plan',
   SECONDARY = 'secondary',
+  RENT = 'rent',
+  EXCLUSIVE_FOR_YOU = 'exclusive-for-you',
+  COMMERCIAL = 'commercial',
 }
 
 @Entity('properties')
@@ -22,7 +26,7 @@ export class Property {
   @Column({ unique: true, nullable: true })
   slug?: string;
 
-  @Column()
+  @Column('text', { nullable: true })
   name!: string;
 
   @Column('simple-array', { nullable: true })
@@ -107,6 +111,13 @@ export class Property {
   @Column({ name: 'isactive', type: 'boolean', default: true })
   isActive!: boolean;
 
+  @Column({ name: 'parent_project_id', type: 'uuid', nullable: true })
+  parentProjectId?: string | null;
+
+  @ManyToOne(() => Property)
+  @JoinColumn({ name: 'parent_project_id' })
+  parentProject?: Property | null;
+
   @Column({ name: 'priority', type: 'integer', default: 0 })
   priority!: number;
 
@@ -139,8 +150,151 @@ export class Property {
   @JoinTable()
   facilities!: Facility[];
 
+  // Scraper/Additional fields
+  @Column('text', { name: 'externalid', nullable: true })
+  externalId?: string;
+
+  @Column({ name: 'propertyurl', type: 'text', nullable: true })
+  propertyUrl?: string;
+
+  @Column('text', { name: 'buildingname', nullable: true })
+  buildingName?: string;
+
+  @Column('text', { name: 'communityname', nullable: true })
+  communityName?: string;
+
+  @Column({ name: 'verified', type: 'boolean', default: false })
+  verified!: boolean;
+
+  @Column('text', { name: 'reference', nullable: true })
+  reference?: string;
+
+  @Column('text', { name: 'rera', nullable: true })
+  rera?: string;
+
+  @Column({ name: 'furnishing', nullable: true })
+  furnishing?: string;
+
+  @Column('text', { name: 'agentname', nullable: true })
+  agentName?: string;
+
+  @Column({ name: 'agentphone', nullable: true })
+  agentPhone?: string;
+
+  @Column({ name: 'agentwhatsapp', nullable: true })
+  agentWhatsapp?: string;
+
+  @Column({ name: 'agentemail', nullable: true })
+  agentEmail?: string;
+
+  @Column({ name: 'agentphoto', nullable: true })
+  agentPhoto?: string;
+
+  @Column('text', { name: 'brokername', nullable: true })
+  brokerName?: string;
+
+  @Column({ name: 'brokerlogo', nullable: true })
+  brokerLogo?: string;
+
+  @Column('text', { name: 'displayaddress', nullable: true })
+  displayAddress?: string;
+
+  @Column({ name: 'addedon', nullable: true })
+  addedOn?: string;
+
+  @Column({ name: 'agentinfo', type: 'jsonb', nullable: true })
+  agentInfo?: any;
+
+  @Column({ name: 'brokerinfo', type: 'jsonb', nullable: true })
+  brokerInfo?: any;
+
+  @Column({ name: 'priceduration', nullable: true })
+  priceDuration?: string;
+
+  @Column({ name: 'propertysubtype', nullable: true })
+  propertySubType?: string;
+
+  @Column({ name: 'pricecurrency', nullable: true })
+  priceCurrency?: string;
+
+  @Column({ name: 'type', nullable: true })
+  type?: string;
+
+  @Column({ name: 'sizemin', nullable: true })
+  sizeMin?: string;
+
+  @Column({ name: 'views', type: 'jsonb', nullable: true })
+  views?: string[];
+
+  @Column('decimal', { name: 'minPrice', precision: 15, scale: 2, nullable: true })
+  minPrice?: number;
+
+  @Column('decimal', { name: 'maxPrice', precision: 15, scale: 2, nullable: true })
+  maxPrice?: number;
+
+  @Column('decimal', { name: 'minPriceAed', precision: 15, scale: 2, nullable: true })
+  minPriceAed?: number;
+
+  @Column('decimal', { name: 'maxPriceAed', precision: 15, scale: 2, nullable: true })
+  maxPriceAed?: number;
+
+  // REELLY SPECIFIC FIELDS
+  @Column({ name: 'status', type: 'text', nullable: true })
+  status?: string;
+
+  @Column({ name: 'saleStatus', type: 'text', nullable: true })
+  saleStatus?: string;
+
+  @Column({ name: 'readiness', type: 'text', nullable: true })
+  readiness?: string;
+
+  @Column({ name: 'serviceCharge', type: 'text', nullable: true })
+  serviceCharge?: string;
+
+  @Column({ name: 'completionDatetime', type: 'text', nullable: true })
+  completionDatetime?: string;
+
+  @Column({ name: 'layoutsPdf', type: 'text', nullable: true })
+  layoutsPdf?: string;
+
+  @Column({ name: 'brochureUrl', type: 'text', nullable: true })
+  brochureUrl?: string;
+
+  @Column({ name: 'depositDescription', type: 'text', nullable: true })
+  depositDescription?: string;
+
+  @Column({ name: 'videoUrl', type: 'text', nullable: true })
+  videoUrl?: string;
+
+  @Column({ name: 'mapPoints', type: 'jsonb', nullable: true })
+  mapPoints?: any;
+
+  @Column({ name: 'paymentPlansJson', type: 'jsonb', nullable: true })
+  paymentPlansJson?: any;
+
+  @Column({ name: 'masterPlan', type: 'jsonb', nullable: true })
+  masterPlan?: any;
+
+  @Column({ name: 'lobby', type: 'jsonb', nullable: true })
+  lobby?: any;    
+
+  @Column({ name: 'interior', type: 'jsonb', nullable: true })
+  interior?: any;
+
+  @Column({ name: 'architecture', type: 'jsonb', nullable: true })
+  architecture?: any;
+
+  @Column({ name: 'unitTypesJson', type: 'jsonb', nullable: true })
+  unitTypesJson?: any;
+
   @CreateDateColumn()
   createdAt!: Date;
+
+  @Column({ name: 'seoTitle', type: 'text', nullable: true })
+  seoTitle?: string;
+
+  @Column({ name: 'seoDescription', type: 'text', nullable: true })
+  seoDescription?: string;
 
   @UpdateDateColumn()
   updatedAt!: Date;
