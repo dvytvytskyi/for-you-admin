@@ -599,7 +599,32 @@ export class PropertyFinderService {
   /**
    * Returns a lightweight list of all projects with coordinates for the map
    */
-    async getProjectsForMap(): Promise<any[]> {
+    async getProjectsForMap(status: string = 'all'): Promise<any[]> {
+        let statusFilter = '';
+        if (status && status !== 'all') {
+            if (status === 'off-plan') {
+                statusFilter = `
+                    AND (
+                        "fullData"->'status'->>'completionStatus' ILIKE '%off_plan%'
+                        OR "fullData"->'status'->>'completionStatus' ILIKE '%off-plan%'
+                        OR "fullData"->'status'->>'projectStatus' ILIKE '%off_plan%'
+                        OR "fullData"->'status'->>'projectStatus' ILIKE '%off-plan%'
+                    )
+                `;
+            } else if (status === 'completed') {
+                statusFilter = `
+                    AND (
+                        "fullData"->'status'->>'completionStatus' ILIKE '%completed%'
+                        OR "fullData"->'status'->>'projectStatus' ILIKE '%completed%'
+                    )
+                `;
+            } else {
+                // Sanitize status to prevent SQL injection if it's dynamic
+                const safeStatus = status.replace(/[';]/g, '');
+                statusFilter = `AND ("fullData"->'status'->>'projectStatus' = '${safeStatus}')`;
+            }
+        }
+
         const query = `
             SELECT 
                 "pfId" as id,
@@ -611,7 +636,8 @@ export class PropertyFinderService {
                 COALESCE("location"->'coordinates'->>'lat', "location"->'coordinates'->>'latitude') as lat,
                 COALESCE("location"->'coordinates'->>'lon', "location"->'coordinates'->>'lng', "location"->'coordinates'->>'longitude') as lng
             FROM property_finder_projects
-            WHERE ("location"->'coordinates'->>'lat' IS NOT NULL OR "location"->'coordinates'->>'latitude' IS NOT NULL);
+            WHERE ("location"->'coordinates'->>'lat' IS NOT NULL OR "location"->'coordinates'->>'latitude' IS NOT NULL)
+            ${statusFilter};
         `;
         try {
             return await AppDataSource.query(query);
