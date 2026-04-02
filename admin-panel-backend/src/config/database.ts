@@ -16,7 +16,7 @@ const finalDatabaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: finalDatabaseUrl,
-  synchronize: true, // TODO: false for prod',
+  synchronize: !isProduction, // Disabled in prod to prevent DB migrations race conditions
   logging: process.env.NODE_ENV === 'development',
   entities: entities,
   migrations: migrationsPath,
