@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
+  # Database
   admin-panel-db:
     image: postgres:15
     container_name: for-you-admin-panel-postgres-prod
     restart: always
-
     ports:
       - '127.0.0.1:5435:5432'
     env_file:
@@ -19,26 +19,29 @@ services:
     networks:
       - admin-network
     healthcheck:
-      test: [ 'CMD-SHELL', 'pg_isready -U admin -d admin_panel' ]
+      test: [ 'CMD-SHELL', 'pg_isready -U admin -d foryou_admin_panel' ]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  admin-panel-backend:
+  # Admin API Engine (CRM Sync, Dashboard)
+  admin-api:
     build:
       context: ./admin-panel-backend
       dockerfile: Dockerfile
-    container_name: for-you-admin-panel-backend-prod
+    container_name: for-you-admin-api-prod
     restart: always
-
+    command: npm run start:admin
     ports:
-      - '127.0.0.1:4000:4000'
+      - '127.0.0.1:4001:4001'
     env_file:
       - ./.env
       - ./admin-panel-backend/.env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://admin:${DB_PASSWORD}@admin-panel-db:5432/admin_panel
+      - PORT=4001
+      - ADMIN_PORT=4001
+      - DATABASE_URL=postgresql://admin:${DB_PASSWORD}@admin-panel-db:5432/foryou_admin_panel
     volumes:
       - ./admin-panel-backend/uploads:/app/uploads
     depends_on:
@@ -47,6 +50,32 @@ services:
     networks:
       - admin-network
 
+  # Public API (Website, Mobile)
+  public-api:
+    build:
+      context: ./admin-panel-backend
+      dockerfile: Dockerfile
+    container_name: for-you-public-api-prod
+    restart: always
+    command: npm run start:public
+    ports:
+      - '127.0.0.1:4000:4000'
+    env_file:
+      - ./.env
+      - ./admin-panel-backend/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATABASE_URL=postgresql://admin:${DB_PASSWORD}@admin-panel-db:5432/foryou_admin_panel
+    volumes:
+      - ./admin-panel-backend/uploads:/app/uploads
+    depends_on:
+      admin-panel-db:
+        condition: service_healthy
+    networks:
+      - admin-network
+
+  # Frontend Admin Panel
   admin-panel-frontend:
     build:
       context: ./admin-panel
@@ -55,7 +84,6 @@ services:
         NEXT_PUBLIC_API_URL: https://admin.foryou-realestate.com/api
     container_name: for-you-admin-panel-frontend-prod
     restart: always
-
     ports:
       - '127.0.0.1:3001:3001'
     env_file:
@@ -64,7 +92,8 @@ services:
       - NODE_ENV=production
       - PORT=3001
     depends_on:
-      - admin-panel-backend
+      - public-api
+      - admin-api
     networks:
       - admin-network
 
