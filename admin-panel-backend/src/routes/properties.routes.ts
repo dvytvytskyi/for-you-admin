@@ -263,6 +263,27 @@ router.get('/', async (req: AuthRequest, res) => {
       }
     }
 
+    // Amenities Filter
+    const amenityIdsParam = req.query.amenities || req.query.amenityIds || req.query.amenity_ids;
+    if (amenityIdsParam) {
+      if (isSummary) {
+        queryBuilder.leftJoin('property.facilities', 'facilities');
+      }
+      const amenityIdsList = Array.isArray(amenityIdsParam)
+        ? amenityIdsParam.map(String)
+        : String(amenityIdsParam).split(',').map(s => s.trim()).filter(Boolean);
+      
+      if (amenityIdsList.length > 0) {
+        queryBuilder.andWhere('facilities.id IN (:...amenityIdsList)', { amenityIdsList });
+      }
+    }
+
+    // Completion Date Filter
+    const compFrom = req.query.completionDateFrom;
+    const compTo = req.query.completionDateTo;
+    if (compFrom) queryBuilder.andWhere('property.plannedCompletionAt >= :compFrom', { compFrom: compFrom.toString() });
+    if (compTo) queryBuilder.andWhere('property.plannedCompletionAt <= :compTo', { compTo: compTo.toString() });
+
     // 6. Search (Name/Description/Slug-like/Developer/Location)
     if (search) {
       const searchTerm = `%${search.toString().toLowerCase()}%`;
