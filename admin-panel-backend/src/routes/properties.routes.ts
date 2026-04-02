@@ -474,10 +474,10 @@ router.get('/stats', async (req: AuthRequest, res) => {
     const priceStats = await propertyRepo
       .createQueryBuilder('property')
       .select([
-        'MIN(CASE WHEN property.propertyType IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') THEN property.priceFrom ELSE property.price END) as minPrice',
-        'MAX(CASE WHEN property.propertyType IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') THEN property.priceFrom ELSE property.price END) as maxPrice',
+        'MIN(CASE WHEN property."propertyType" IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') THEN property."priceFrom" ELSE property.price END) as minPrice',
+        'MAX(CASE WHEN property."propertyType" IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') THEN property."priceFrom" ELSE property.price END) as maxPrice',
       ])
-      .where('(property.propertyType IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') AND property.priceFrom IS NOT NULL) OR (property.propertyType IN (\'secondary\', \'rent\', \'commercial\') AND property.price IS NOT NULL)')
+      .where('(property."propertyType" IN (\'off-plan\', \'new-launches\', \'exclusive-for-you\') AND property."priceFrom" IS NOT NULL) OR (property."propertyType" IN (\'secondary\', \'rent\', \'commercial\') AND property.price IS NOT NULL)')
       .getRawOne();
 
     // Get top cities with property counts

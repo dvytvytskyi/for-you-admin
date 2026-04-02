@@ -1986,10 +1986,10 @@ router.get('/projects/filter-options', authenticateApiKeyWithSecret, async (req:
     // 3. Get price range
     const priceStats = await AppDataSource.getRepository(Property)
       .createQueryBuilder('property')
-      .select('MIN(property.priceFrom)', 'min')
-      .addSelect('MAX(property.priceFrom)', 'max')
+      .select('MIN(property."priceFrom")', 'min')
+      .addSelect('MAX(property."priceFrom")', 'max')
       .where('property.propertyType = :type', { type: 'off-plan' })
-      .andWhere('property.priceFrom > 0')
+      .andWhere('property."priceFrom" > 0')
       .getRawOne();
 
     const response = {
