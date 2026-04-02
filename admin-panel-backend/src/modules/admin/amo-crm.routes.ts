@@ -3,7 +3,7 @@ import { Not, IsNull } from 'typeorm';
 import { AppDataSource } from '../../config/database';
 import { AmoCrmToken } from '../../entities/AmoCrmToken';
 import { AmoCrmUser } from '../../entities/AmoCrmUser';
-import { AmoCrmService } from '../../../services/amo-crm.service';
+import { AmoCrmService } from '../../services/amo-crm.service';
 import { authenticateJWT, requireAdmin, requireBrokerOrAdmin, AuthRequest } from '../../middleware/auth';
 import { successResponse, errorResponse } from '../../utils/response';
 

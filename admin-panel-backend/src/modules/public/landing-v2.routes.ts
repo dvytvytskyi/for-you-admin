@@ -3,7 +3,7 @@ import { AppDataSource } from '../../config/database';
 import { Property } from '../../entities/Property';
 import { PropertyUnit } from '../../entities/PropertyUnit';
 import { successResponse, errorResponse } from '../../utils/response';
-import { AmoCrmService } from '../../../services/amo-crm.service';
+import { AmoCrmService } from '../../services/amo-crm.service';
 
 const router = express.Router();
 const amoCrmService = new AmoCrmService();

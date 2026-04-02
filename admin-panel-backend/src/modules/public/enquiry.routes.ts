@@ -1,5 +1,5 @@
 import express from 'express';
-import { AmoCrmService } from '../../../services/amo-crm.service';
+import { AmoCrmService } from '../../services/amo-crm.service';
 import { successResponse, errorResponse } from '../../utils/response';
 
 const router = express.Router();
