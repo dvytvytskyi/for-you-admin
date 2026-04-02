@@ -33,7 +33,7 @@ export class Property {
   @Column('text', { nullable: true })
   description!: string;
 
-  @Column('text', { name: 'descriptionru', nullable: true })
+  @Column('text', { name: 'descriptionRu', nullable: true })
   descriptionRu!: string;
 
   @Column('uuid')
@@ -76,58 +76,58 @@ export class Property {
   @Column('boolean', { name: 'isactive', default: true })
   isActive!: boolean;
 
-  @Column('decimal', { name: 'pricefrom', precision: 15, scale: 2, nullable: true })
+  @Column('decimal', { name: 'priceFrom', precision: 15, scale: 2, nullable: true })
   priceFrom!: number;
 
   @Column('text', { name: 'pricecurrency', default: 'AED' })
   priceCurrency!: string;
 
-  @Column('integer', { name: 'bedroomsfrom', nullable: true })
+  @Column('integer', { name: 'bedroomsFrom', nullable: true })
   bedroomsFrom!: number;
 
-  @Column('integer', { name: 'bedroomsto', nullable: true })
+  @Column('integer', { name: 'bedroomsTo', nullable: true })
   bedroomsTo!: number;
 
-  @Column('decimal', { name: 'sizefrom', precision: 12, scale: 2, nullable: true })
+  @Column('decimal', { name: 'sizeFrom', precision: 12, scale: 2, nullable: true })
   sizeFrom!: number;
 
-  @Column('decimal', { name: 'sizeto', precision: 12, scale: 2, nullable: true })
+  @Column('decimal', { name: 'sizeTo', precision: 12, scale: 2, nullable: true })
   sizeTo!: number;
 
   @Column('text', { nullable: true })
   status!: string;
 
-  @Column('text', { name: 'salestatus', nullable: true })
+  @Column('text', { name: 'saleStatus', nullable: true })
   saleStatus!: string;
 
   @Column('text', { nullable: true })
   readiness!: string;
 
-  @Column('text', { name: 'servicecharge', nullable: true })
+  @Column('text', { name: 'serviceCharge', nullable: true })
   serviceCharge!: string;
 
-  @Column('text', { name: 'completiondatetime', nullable: true })
+  @Column('text', { name: 'completionDatetime', nullable: true })
   completionDatetime!: string;
 
-  @Column('text', { name: 'layoutspdf', nullable: true })
+  @Column('text', { name: 'layoutsPdf', nullable: true })
   layoutsPdf!: string;
 
-  @Column('text', { name: 'brochureurl', nullable: true })
+  @Column('text', { name: 'brochureUrl', nullable: true })
   brochureUrl!: string;
 
-  @Column('text', { name: 'depositdescription', nullable: true })
+  @Column('text', { name: 'depositDescription', nullable: true })
   depositDescription!: string;
 
-  @Column('text', { name: 'videourl', nullable: true })
+  @Column('text', { name: 'videoUrl', nullable: true })
   videoUrl!: string;
 
-  @Column('jsonb', { name: 'mappoints', nullable: true })
+  @Column('jsonb', { name: 'mapPoints', nullable: true })
   mapPoints!: any;
 
-  @Column('jsonb', { name: 'paymentplansjson', nullable: true })
+  @Column('jsonb', { name: 'paymentPlansJson', nullable: true })
   paymentPlansJson!: any;
 
-  @Column('jsonb', { name: 'masterplan', nullable: true })
+  @Column('jsonb', { name: 'masterPlan', nullable: true })
   masterPlan!: any;
 
   @Column('jsonb', { nullable: true })
@@ -142,13 +142,13 @@ export class Property {
   @Column('text', { nullable: true })
   slug!: string;
 
-  @Column('boolean', { name: 'isforyouchoice', default: false })
+  @Column('boolean', { name: 'isForYouChoice', default: false })
   isForYouChoice!: boolean;
 
   @Column('text', { name: 'plannedcompletionat', nullable: true })
   plannedCompletionAt!: string;
 
-  @Column('text', { name: 'paymentplan', nullable: true })
+  @Column('text', { name: 'paymentPlan', nullable: true })
   paymentPlan!: string;
 
   @Column('decimal', { precision: 15, scale: 2, nullable: true })
@@ -160,7 +160,7 @@ export class Property {
   @Column('integer', { nullable: true })
   bathrooms!: number;
 
-  @Column('integer', { name: 'bathroomsfrom', nullable: true })
+  @Column('integer', { name: 'bathroomsFrom', nullable: true })
   bathroomsFrom!: number;
 
   @Column('decimal', { precision: 10, scale: 2, nullable: true })
@@ -193,15 +193,15 @@ export class Property {
   @Column('jsonb', { nullable: true })
   views?: any;
 
-  @Column('text', { name: 'seotitle', nullable: true })
+  @Column('text', { name: 'seoTitle', nullable: true })
   seoTitle?: string;
 
-  @Column('text', { name: 'seodescription', nullable: true })
+  @Column('text', { name: 'seoDescription', nullable: true })
   seoDescription?: string;
 
-  @CreateDateColumn({ name: 'createdat' })
+  @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;
 
-  @UpdateDateColumn({ name: 'updatedat' })
+  @UpdateDateColumn({ name: 'updatedAt' })
   updatedAt!: Date;
 }
