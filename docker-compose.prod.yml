@@ -99,7 +99,8 @@ services:
 
 volumes:
   foryou_admin_panel_db_data:
-    driver: local
+    external: true
+    name: admin-panel_foryou_admin_panel_db_data
 
 networks:
   admin-network:
