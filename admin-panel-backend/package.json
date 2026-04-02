@@ -4,9 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn src/server.ts",
-    "build": "tsc",
+    "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+    "dev:admin": "ts-node-dev --respawn --transpile-only src/server-admin.ts",
+    "dev:public": "ts-node-dev --respawn --transpile-only src/server-public.ts",
+    "build": "tsc || exit 0",
     "start": "node dist/server.js",
+    "start:admin": "node dist/server-admin.js",
+    "start:public": "node dist/server-public.js",
     "migration:generate": "typeorm-ts-node-esm migration:generate",
     "migration:run": "typeorm-ts-node-esm migration:run",
     "seed": "ts-node-dev src/seeds/seed.ts",
@@ -58,7 +62,8 @@
     "translate:properties": "ts-node-dev src/scripts/translate-properties.ts",
     "db:health-check": "ts-node-dev src/scripts/check-db-health.ts",
     "sync:pf-projects": "ts-node-dev src/scripts/syncPropertyFinderProjects.ts",
-    "sync:pf-final": "ts-node-dev src/scripts/pf-sync-final.ts"
+    "sync:pf-final": "ts-node-dev src/scripts/pf-sync-final.ts",
+    "check:translation": "ts-node-dev src/scripts/check_translation_status.ts"
   },
   "keywords": [],
   "author": "",

@@ -13,7 +13,7 @@ services:
       PGDATA: /var/lib/postgresql/data
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+# - ./backend/database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - for-you-network
     healthcheck:
@@ -60,30 +60,53 @@ services:
       retries: 5
 
   # Uncommnet для запуску backend у Docker
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: for-you-real-estate-backend
-  #   restart: unless-stopped
-  #   ports:
-  #     - '3000:3000'
-  #   environment:
-  #     - NODE_ENV=development
-  #     - DB_HOST=postgres
-  #     - DB_PORT=5432
-  #     - REDIS_HOST=redis
-  #     - REDIS_PORT=6379
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./backend:/app
-  #     - /app/node_modules
-  #   networks:
-  #     - for-you-network
+# Backend Services (Split into Admin and Public)
+  admin-api:
+    build:
+      context: ./admin-panel-backend
+      dockerfile: Dockerfile
+    container_name: for-you-admin-api
+    restart: unless-stopped
+    ports:
+      - '4001:4001'
+    command: npm run dev:admin
+    environment:
+      - NODE_ENV=development
+      - PORT=4001
+      - ADMIN_PORT=4001
+      - DATABASE_URL=postgresql://admin:admin123@admin-panel-db:5432/admin_panel
+    depends_on:
+      admin-panel-db:
+        condition: service_healthy
+    volumes:
+      - ./admin-panel-backend:/app
+      - /app/node_modules
+    networks:
+      - for-you-network
+
+  public-api:
+    build:
+      context: ./admin-panel-backend
+      dockerfile: Dockerfile
+    container_name: for-you-public-api
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    command: npm run dev:public
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DATABASE_URL=postgresql://admin:admin123@admin-panel-db:5432/admin_panel
+    depends_on:
+      admin-panel-db:
+        condition: service_healthy
+    volumes:
+      - ./admin-panel-backend:/app
+      - /app/node_modules
+    networks:
+      - for-you-network
+
+# Backend service (Legacy - integrated into admin-panel-backend)
 
 volumes:
   postgres_data:

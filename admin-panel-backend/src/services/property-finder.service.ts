@@ -544,8 +544,8 @@ export class PropertyFinderService {
               return {
                   ...project,
                   // Compatibility fields for main website
-                  name: project.title?.en || project.title?.en_custom || 'Unnamed Project',
-                  images: project.coverImage ? [project.coverImage] : (media.images ? [media.images[0]?.original?.url] : []),
+                  name: (typeof project.title === 'string' ? project.title : (project.title?.en || project.title?.en_custom)) || 'Unnamed Project',
+                  images: project.coverImage ? [project.coverImage] : (media.images && media.images.length > 0 ? [media.images[0]?.original?.url] : []),
                   price: Number(displayPrice) || 0,
                   priceAED: Number(displayPrice) || 0,
                   developer: project.developer?.name || project.developer || 'Various Developers',
@@ -628,9 +628,12 @@ export class PropertyFinderService {
         const query = `
             SELECT 
                 "pfId" as id,
-                "title"->>'en' as name,
+                CASE 
+                    WHEN jsonb_typeof("title") = 'string' THEN "title"->>0 
+                    ELSE COALESCE("title"->>'en', "title"->>'en_custom', 'Unnamed Project')
+                END as name,
                 "startingPrice" as price,
-                "location"->>'name' as area,
+                COALESCE("location"->>'name', "location"->>'path_name', 'Dubai') as area,
                 "offeringType" as type,
                 "coverImage" as image,
                 COALESCE("location"->'coordinates'->>'lat', "location"->'coordinates'->>'latitude') as lat,

@@ -1,53 +1,50 @@
 #!/bin/bash
 
 # Configuration
-HOST="135.181.201.185"
-USER="root"
-PASS="xTVvPEwrpaF4"
-REMOTE_DIR="/root/admin-panel"
+PROJECT_NAME="for-you-admin"
+DOCKER_COMPOSE_FILE="docker-compose.prod.yml"
 
-echo "🗜 Creating archive..."
-# Package everything but exclude node_modules, .git, .next, etc.
-tar --exclude='node_modules' \
-    --exclude='.git' \
-    --exclude='.next' \
-    --exclude='admin-panel/.next' \
-    --exclude='admin-panel-backend/dist' \
-    --exclude='admin-panel-backend/node_modules' \
-    --exclude='admin-panel/node_modules' \
-    --exclude='.env' \
-    --exclude='admin-panel/.env*' \
-    --exclude='admin-panel-backend/.env*' \
-    --exclude='deploy_package.tar.gz' \
-    --exclude='full_deploy.sh' \
-    -czf deploy_package.tar.gz .
+echo "🚀 Starting Modular Deployment for $PROJECT_NAME..."
 
-echo "🚀 Transferring files to $HOST..."
-sshpass -p "$PASS" scp -o StrictHostKeyChecking=no deploy_package.tar.gz $USER@$HOST:$REMOTE_DIR/
+# Step 1: Optimization and Cleanup (before building)
+echo "🧹 Cleaning up old Docker images and builders..."
+docker system prune -f
 
-echo "🛠 Executing remote commands..."
-sshpass -p "$PASS" ssh -o StrictHostKeyChecking=no $USER@$HOST << EOF
-  cd $REMOTE_DIR
-  
-  echo "📂 Extracting files..."
-  tar -xzf deploy_package.tar.gz
-  rm deploy_package.tar.gz
+# Step 2: Stop and remove existing containers
+echo "🛑 Stopping existing containers..."
+docker compose -f $DOCKER_COMPOSE_FILE down --remove-orphans
 
-  echo "🏗  Rebuilding Services..."
-  docker-compose -f docker-compose.prod.yml build admin-panel-backend
-  docker-compose -f docker-compose.prod.yml build admin-panel-frontend
-  
-  echo "🛑 Stopping and removing containers..."
-  docker-compose -f docker-compose.prod.yml down || true
-  # Force remove if still there
-  docker rm -f for-you-admin-panel-backend-prod for-you-admin-panel-frontend-prod || true
+# Step 3: Build and Pull Images
+echo "🏗 Building images (modularly)..."
+# All services build from the same context but with different commands
+docker compose -f $DOCKER_COMPOSE_FILE build --pull --force-rm
 
-  echo "🚀 Starting containers..."
-  docker-compose -f docker-compose.prod.yml up -d
+# Step 4: Start services in background
+echo "🆙 Starting services..."
+docker compose -f $DOCKER_COMPOSE_FILE up -d
 
-  echo "✅ Deployment Complete!"
-  docker ps | grep for-you-admin-panel
-EOF
+# Step 5: Wait for Database to be ready
+echo "⏳ Waiting for Database (admin-panel-db) to initialize..."
+HEALTH_CHECK_MAX_RETRIES=20
+HEALTH_CHECK_SLEEP=3
+RETRIES=0
 
-echo "🎉 Done!"
-rm deploy_package.tar.gz
+until [ "$(docker inspect -f '{{.State.Health.Status}}' for-you-admin-panel-postgres-prod)" == "healthy" ] || [ $RETRIES -eq $HEALTH_CHECK_MAX_RETRIES ]; do
+    echo "  - Still waiting for DB... ($((RETRIES+1))/$HEALTH_CHECK_MAX_RETRIES)"
+    sleep $HEALTH_CHECK_SLEEP
+    RETRIES=$((RETRIES+1))
+done
+
+# Step 6: Database Migrations
+# Run migrations on BOTH backend services (if needed, usually one is enough as they share DB)
+echo "📦 Running backend database migrations..."
+docker exec for-you-admin-api-prod npm run migration:run
+
+# Step 7: Final Cleanup
+echo "♻️ Finalizing cleanup (removing dangling images)..."
+docker image prune -f
+
+echo "✨ Modular Deployment Complete!"
+echo "📡 Admin Panel accessible at: http://localhost:3001"
+echo "⚙️ Public API: Port 4000 (Forwarded by Proxy)"
+echo "🔐 Admin Engine: Port 4001 (Forwarded by Proxy)"

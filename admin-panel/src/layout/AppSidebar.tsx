@@ -18,6 +18,7 @@ import {
   ListIcon,
   PlugInIcon,
   PieChartIcon,
+  GridIcon,
 } from "../icons/index";
 import SidebarWidget from "./SidebarWidget";
 
@@ -97,6 +98,11 @@ const othersItems: NavItem[] = [
     icon: <IntegrationsIcon />,
     name: "Integrations",
     path: "/integrations",
+  },
+  {
+    icon: <GridIcon />,
+    name: "System Status",
+    path: "/developer/system",
   },
 ];
 

@@ -37,6 +37,7 @@ import propertyFinderRoutes from './modules/admin/property-finder.routes';
 import seoRoutes from './routes/seo.routes';
 import seoSyncRoutes from './modules/admin/seo-sync.routes';
 import landingV2Routes from './modules/public/landing-v2.routes';
+import systemRoutes from './modules/admin/system.routes';
 
 import { AmoCrmService } from './services/amo-crm.service';
 import { PropertyFinderService } from './services/property-finder.service';
@@ -47,7 +48,7 @@ dotenv.config();
 import authorsRoutes from './routes/authors.routes';
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.ADMIN_PORT || 4001;
 
 // Middleware
 // CORS для публічних ендпоінтів (дозволяє всі джерела, оскільки захищено через API key)
@@ -135,6 +136,7 @@ app.use('/api/proxy/locations', locationsRoutes);
 app.use('/api/proxy/images', imagesRoutes);
 app.use('/api/proxy/chat', chatRoutes);
 app.use('/api/proxy/property-finder', propertyFinderRoutes);
+app.use('/api/system', systemRoutes);
 app.use('/api/proxy/v1', (req, res, next) => {
   // Translate /api/proxy/v1/... to /api/v1/... internally ?
   // Or just use the routers with prefix
@@ -174,9 +176,10 @@ AppDataSource.initialize()
 
     console.log('📊 Database entities loaded');
     app.listen(PORT, () => {
-      console.log(`🚀 Admin Panel Backend running on http://localhost:${PORT}`);
+      console.log(`🚀 Admin Engine running on http://localhost:${PORT}`);
 
       // Start background CRM sync (every 60 seconds)
+      /*
       setInterval(async () => {
         try {
           const service = new AmoCrmService();
@@ -185,6 +188,7 @@ AppDataSource.initialize()
           console.error('[Background Sync] Error:', error);
         }
       }, 60000);
+      */
 
       // Start background Property Finder sync (every 24 hours)
       // Initial sync disabled temporarily to avoid blocking Admin Panel

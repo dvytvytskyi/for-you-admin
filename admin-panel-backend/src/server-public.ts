@@ -167,59 +167,17 @@ app.get('/health', (req, res) => {
 // Initialize database and start server
 AppDataSource.initialize()
   .then(async () => {
-    console.log('✅ Database connected');
-
-    // Auto-repair database structure and missing data
-    await autoRepairDatabase();
+    console.log('✅ Database connected (Public API)');
 
     console.log('📊 Database entities loaded');
     app.listen(PORT, () => {
-      console.log(`🚀 Admin Panel Backend running on http://localhost:${PORT}`);
-
-      // Start background CRM sync (every 60 seconds)
-      setInterval(async () => {
-        try {
-          const service = new AmoCrmService();
-          await service.syncRecentLeads(5); // Sync leads updated in last 5 minutes
-        } catch (error) {
-          console.error('[Background Sync] Error:', error);
-        }
-      }, 60000);
-
-      // Start background Property Finder sync (every 24 hours)
-      // Initial sync disabled temporarily to avoid blocking Admin Panel
-      /*
-      setTimeout(() => {
-          const pfService = new PropertyFinderService();
-          console.log('[PropertyFinder Sync] Initial periodic sync started');
-          pfService.syncAllProjects()
-              .then(result => console.log('[PropertyFinder Sync] Success:', result))
-              .catch(err => console.error('[PropertyFinder Sync] Failure:', err));
-      }, 10000);
-
-      // Daily interval (24 * 60 * 60 * 1000)
-      setInterval(async () => {
-          try {
-              const pfService = new PropertyFinderService();
-              console.log('[PropertyFinder Sync] Periodic daily sync started');
-              await pfService.syncAllProjects();
-          } catch (error) {
-              console.error('[PropertyFinder Sync Error] Background:', error);
-          }
-      }, 24 * 60 * 60 * 1000);
-      */
+      console.log(`🚀 Public website API running on http://localhost:${PORT}`);
+      // Background syncs are now handled by server-admin.ts
     });
   })
   .catch((error) => {
-    console.error('❌ Database connection failed:', error);
-    console.error('Error details:', error.message);
-    if (error.stack) {
-      console.error('Stack trace:', error.stack);
-    }
-    // Запускаємо сервер навіть якщо БД не підключилась, щоб бачити помилки
-    app.listen(PORT, () => {
-      console.log(`⚠️  Admin Panel Backend running WITHOUT database on http://localhost:${PORT}`);
-      console.log('⚠️  API will return errors until database is connected');
-    });
+    console.error('❌ Database connection failed (Public API):', error);
+    // Be very careful about failing in production public API
+    process.exit(1);
   });
 

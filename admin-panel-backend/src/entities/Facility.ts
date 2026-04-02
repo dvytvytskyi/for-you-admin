@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToMany } from 'typeorm';
+import { Property } from './Property';
 
 @Entity('facilities')
 export class Facility {
@@ -17,7 +18,9 @@ export class Facility {
   @Column()
   iconName!: string;
 
+  @ManyToMany(() => Property, property => property.facilities)
+  projects!: Property[];
+
   @CreateDateColumn()
   createdAt!: Date;
 }
-
