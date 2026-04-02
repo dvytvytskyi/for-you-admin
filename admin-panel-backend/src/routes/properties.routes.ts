@@ -495,13 +495,13 @@ router.get('/stats', async (req: AuthRequest, res) => {
     const bedroomsStats = await propertyRepo
       .createQueryBuilder('property')
       .select([
-        'property.bedroomsFrom',
-        'property.bedroomsTo',
+        'property."bedroomsFrom"',
+        'property."bedroomsTo"',
         'COUNT(property.id) as count',
       ])
-      .where('property.propertyType IN (:...types)', { types: [PropertyType.OFF_PLAN, PropertyType.NEW_LAUNCHES, PropertyType.EXCLUSIVE_FOR_YOU] })
-      .andWhere('(property.bedroomsFrom IS NOT NULL OR property.bedroomsTo IS NOT NULL)')
-      .groupBy('property.bedroomsFrom, property.bedroomsTo')
+      .where('property."propertyType" IN (:...types)', { types: [PropertyType.OFF_PLAN, PropertyType.NEW_LAUNCHES, PropertyType.EXCLUSIVE_FOR_YOU] })
+      .andWhere('(property."bedroomsFrom" IS NOT NULL OR property."bedroomsTo" IS NOT NULL)')
+      .groupBy('property."bedroomsFrom", property."bedroomsTo"')
       .getRawMany();
 
     // Get unit types distribution

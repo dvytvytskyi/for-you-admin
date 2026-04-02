@@ -10,7 +10,9 @@ import { PropertyFinderProject } from './PropertyFinderProject';
 
 export enum PropertyType {
   OFF_PLAN = 'off-plan',
-  SECONDARY = 'secondary'
+  SECONDARY = 'secondary',
+  NEW_LAUNCHES = 'new-launches',
+  EXCLUSIVE_FOR_YOU = 'exclusive-for-you'
 }
 
 @Entity('properties')
@@ -139,6 +141,9 @@ export class Property {
 
   @Column('text', { nullable: true })
   slug!: string;
+
+  @Column('boolean', { name: 'isforyouchoice', default: false })
+  isForYouChoice!: boolean;
 
   @Column('text', { name: 'plannedcompletionat', nullable: true })
   plannedCompletionAt!: string;
