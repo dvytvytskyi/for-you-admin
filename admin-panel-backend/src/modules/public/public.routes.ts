@@ -1574,13 +1574,22 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
       areaIds,
       areaSlug,
       cityId,
+      priceFrom,
+      priceTo,
+      sizeFrom,
+      sizeTo,
       minPrice,
       maxPrice,
       bedrooms,
       developerId,
       propertyType,
       sortBy,
-      sortOrder
+      sortOrder,
+      amenities,
+      amenityIds,
+      amenity_ids,
+      completionDateFrom,
+      completionDateTo
     } = req.query;
 
     console.log('[Public API] GET /api/public/properties request:', { page, limit, search, developerId, propertyType, areaId, areaIds, areaSlug });
@@ -1626,25 +1635,22 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
       }
     }
 
-    if (req.query.amenityIds) {
-      const amenityIds = parseSimpleArray(req.query.amenityIds);
-      if (amenityIds.length > 0) {
+    const effectiveAmenityIds = amenities || amenityIds || amenity_ids;
+    if (effectiveAmenityIds) {
+      const aIds = parseSimpleArray(effectiveAmenityIds);
+      if (aIds.length > 0) {
         queryBuilder.innerJoin('property.facilities', 'facility')
-          .andWhere('facility.id IN (:...amenityIds)', { amenityIds });
+          .andWhere('facility.id IN (:...aIds)', { aIds });
       }
     }
 
-    if (req.query.completionDateFrom || req.query.completionDateTo) {
-      const from = req.query.completionDateFrom?.toString();
-      const to = req.query.completionDateTo?.toString();
-      
-      if (from) {
-        // Simple string comparison for plannedCompletionAt (e.g. "2025" >= "2024")
-        queryBuilder.andWhere('property.plannedCompletionAt >= :from', { from });
-      }
-      if (to) {
-        queryBuilder.andWhere('property.plannedCompletionAt <= :to', { to });
-      }
+    const cDateFrom = completionDateFrom?.toString();
+    const cDateTo = completionDateTo?.toString();
+    if (cDateFrom) {
+      queryBuilder.andWhere('property.plannedCompletionAt >= :cDateFrom', { cDateFrom });
+    }
+    if (cDateTo) {
+      queryBuilder.andWhere('property.plannedCompletionAt <= :cDateTo', { cDateTo });
     }
 
     if (req.query.status) {
@@ -1681,22 +1687,42 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
       if (developerIds.length > 0) queryBuilder.andWhere('property.developerId IN (:...developerIds)', { developerIds });
     }
 
-    if (minPrice) {
-      const min = parseFloat(minPrice.toString()) / Conversions.USD_TO_AED;
+    if (bedrooms) {
+      const bedList = bedrooms.toString().split(',').map(b => parseInt(b, 10)).filter(b => !isNaN(b));
+      if (bedList.length > 0) {
+        queryBuilder.andWhere(new Brackets(qb => {
+          qb.where('property.bedroomsFrom IN (:...bedList)', { bedList })
+            .orWhere('property.bedrooms IN (:...bedList)', { bedList });
+        }));
+      }
+    }
+
+    // Size filters
+    if (sizeFrom) {
+      const sMin = parseFloat(sizeFrom.toString());
+      if (!isNaN(sMin)) {
+        queryBuilder.andWhere('(property.sizeFrom >= :sMin OR property.size >= :sMin)', { sMin });
+      }
+    }
+    if (sizeTo) {
+      const sMax = parseFloat(sizeTo.toString());
+      if (!isNaN(sMax)) {
+        queryBuilder.andWhere('(property.sizeFrom <= :sMax OR property.size <= :sMax)', { sMax });
+      }
+    }
+
+    // Price filters (handling both minPrice/maxPrice and priceFrom/priceTo aliases)
+    const effectiveMinPrice = priceFrom || minPrice;
+    const effectiveMaxPrice = priceTo || maxPrice;
+
+    if (effectiveMinPrice) {
+      const min = parseFloat(effectiveMinPrice.toString()) / Conversions.USD_TO_AED;
       queryBuilder.andWhere('(property.priceFrom >= :min OR property.price >= :min)', { min });
     }
 
-    if (maxPrice) {
-      const max = parseFloat(maxPrice.toString()) / Conversions.USD_TO_AED;
+    if (effectiveMaxPrice) {
+      const max = parseFloat(effectiveMaxPrice.toString()) / Conversions.USD_TO_AED;
       queryBuilder.andWhere('(property.priceFrom <= :max OR property.price <= :max)', { max });
-    }
-
-    if (bedrooms) {
-      const bedList = bedrooms.toString().split(',').map(b => parseInt(b, 10));
-      queryBuilder.andWhere(new Brackets(qb => {
-        qb.where('property.bedroomsFrom IN (:...bedList)', { bedList })
-          .orWhere('property.bedrooms IN (:...bedList)', { bedList });
-      }));
     }
 
     // Sort
@@ -1714,8 +1740,8 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
     const data = items.map(p => {
       // Фото фолбек для списку
       let finalPhotos = p.photos || [];
-      if (finalPhotos.length === 0 && p.propertyType === PropertyType.SECONDARY && p.parentProject?.photos) {
-        finalPhotos = p.parentProject.photos;
+      if (finalPhotos.length === 0 && p.propertyType === PropertyType.SECONDARY && p.parentProject?.coverImage) {
+        finalPhotos = [p.parentProject.coverImage];
       }
       
       const images = transformPhotos(finalPhotos);
@@ -1738,7 +1764,7 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
         bathrooms: p.propertyType === 'off-plan' ? p.bathroomsFrom : p.bathrooms,
         size: p.propertyType === 'off-plan' ? (p.sizeFrom ? Number(p.sizeFrom) : null) : (p.size ? Number(p.size) : null),
         sizeSqft: (p.propertyType === 'off-plan' && p.sizeFrom) ? Conversions.sqmToSqft(p.sizeFrom) : (p.size ? Conversions.sqmToSqft(p.size) : null),
-        projectName: p.parentProject?.name || null,
+        projectName: p.parentProject ? (p.parentProject.title?.en || p.parentProject.title?.name || (typeof p.parentProject.title === 'string' ? p.parentProject.title : p.name)) : null,
         unitsCount: (p as any).unitsCount || 0
       };
     });
@@ -2470,8 +2496,8 @@ router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequ
 
     // Фото фолбек: якщо у вторинки немає фото, беремо від батьківського проекту
     let finalPhotos = property.photos || [];
-    if (finalPhotos.length === 0 && property.propertyType === PropertyType.SECONDARY && property.parentProject?.photos) {
-      finalPhotos = property.parentProject.photos;
+    if (finalPhotos.length === 0 && property.propertyType === PropertyType.SECONDARY && property.parentProject?.coverImage) {
+      finalPhotos = [property.parentProject.coverImage];
     }
 
     const response = {
@@ -2484,7 +2510,7 @@ router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequ
       sizeToSqft: property.sizeTo ? Conversions.sqmToSqft(property.sizeTo) : null,
       sizeSqft: property.size ? Conversions.sqmToSqft(property.size) : null,
       // Додаємо назву оригінального проекту для зручності
-      projectName: property.parentProject?.name || null,
+      projectName: property.parentProject ? (property.parentProject.title?.en || property.parentProject.title?.name || (typeof property.parentProject.title === 'string' ? property.parentProject.title : property.name)) : null,
       units: (property.units || []).map(transformUnit)
     };
 

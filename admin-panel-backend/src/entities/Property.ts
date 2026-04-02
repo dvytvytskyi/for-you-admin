@@ -199,6 +199,24 @@ export class Property {
   @Column('text', { name: 'seoDescription', nullable: true })
   seoDescription?: string;
 
+  @Column('text', { name: 'projectedroi', nullable: true })
+  projectedRoi?: string;
+
+  @Column('text', { nullable: true })
+  commission?: string;
+
+  @Column('boolean', { name: 'isinvestorfeatured', default: false })
+  isInvestorFeatured!: boolean;
+
+  @Column({ name: 'nameEn', nullable: true })
+  nameEn?: string;
+
+  @Column({ name: 'nameRu', nullable: true })
+  nameRu?: string;
+
+  @Column({ name: 'nameAr', nullable: true })
+  nameAr?: string;
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;
 
