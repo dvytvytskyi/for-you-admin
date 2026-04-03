@@ -40,19 +40,8 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🏗 Running ROBUST SQL mapping in SEPARATE steps..."
-
-# 1. Повне очищення від лого та заглушок
-echo "Step 1: Wiping all secondary photos to empty strings..."
-docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "UPDATE properties SET photos = '' WHERE \"propertyType\" = 'secondary';"
-
-# 2. Мапінг за точною назвою будівлі (LOWER + TRIM)
-echo "Step 2: Mapping by Exact Building Name..."
-docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "UPDATE properties s SET photos = p.photos FROM properties p WHERE s.\"propertyType\" = 'secondary' AND p.\"propertyType\" = 'off-plan' AND LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name));"
-
-# 3. Мапінг за повною назвою всередині опису (Description)
-echo "Step 3: Mapping by Description keywords..."
-docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "UPDATE properties s SET photos = p.photos FROM properties p WHERE s.\"propertyType\" = 'secondary' AND p.\"propertyType\" = 'off-plan' AND (s.photos = '' OR s.photos IS NULL) AND s.description ILIKE '%' || p.name || '%';"
+echo "🚀 Running PRE-CALCULATED SQL mapping (Atomic and Fast)..."
+docker exec -i for-you-admin-panel-postgres-prod psql -U admin -d admin_panel < mapping_updates.sql
 
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
