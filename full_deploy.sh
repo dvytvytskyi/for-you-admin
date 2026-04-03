@@ -52,6 +52,15 @@ FROM properties p
 WHERE s.\"propertyType\" = 'secondary' 
   AND p.\"propertyType\" = 'off-plan' 
   AND LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name));
+
+-- 3. Мапимо за описом (Description ILIKE) для тих, хто ще на лого
+UPDATE properties s
+SET photos = p.photos
+FROM properties p
+WHERE s.\"propertyType\" = 'secondary' 
+  AND p.\"propertyType\" = 'off-plan' 
+  AND s.photos = 'https://foryou-realestate.com/favicons/icon-light.png'
+  AND s.description ILIKE '%' || p.name || '%';
 "
 
 # Step 7: Final Cleanup
