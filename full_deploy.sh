@@ -40,8 +40,8 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🖼 Cleaning up property photos on production..."
-docker exec for-you-admin-api-prod npx ts-node src/scripts/total-wipe-secondary.ts
+echo "🖼 Cleaning up property photos on production (SQL)..."
+docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "UPDATE properties SET photos = 'https://foryou-realestate.com/logo.png' WHERE \"propertyType\" = 'secondary';"
 
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
