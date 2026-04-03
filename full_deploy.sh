@@ -40,8 +40,25 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🚀 Running PRE-CALCULATED SQL mapping (Atomic and Fast)..."
-docker exec -i for-you-admin-panel-postgres-prod psql -U admin -d admin_panel < mapping_updates.sql
+echo "🚀 Running ULTRA-FAST SQL JOIN mapping on production..."
+docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "
+-- 1. Скидаємо все (видаляємо старі лого)
+UPDATE properties SET photos = '' WHERE \"propertyType\" = 'secondary';
+
+-- 2. Масовий мапінг за один крок (через index-match)
+UPDATE properties s
+SET photos = p.photos
+FROM (
+  SELECT name, photos
+  FROM properties 
+  WHERE \"propertyType\" = 'off-plan' AND photos != ''
+) p
+WHERE s.\"propertyType\" = 'secondary' 
+  AND (s.\"buildingName\" = p.name OR s.description ILIKE '%' || p.name || '%');
+
+-- 3. Якщо все одно фото немає — ставимо ЛОГО назад, щоб не було сірих пустих карток
+UPDATE properties SET photos = 'https://foryou-realestate.com/favicons/icon-light.png' WHERE \"propertyType\" = 'secondary' AND photos = '';
+"
 
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
