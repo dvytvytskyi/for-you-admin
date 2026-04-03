@@ -42,8 +42,8 @@ docker exec for-you-admin-api-prod npm run migration:run
 
 echo "🏗 Running ROBUST SQL mapping on production..."
 docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "
--- 1. Скидаємо все на лого (захист від Marriott)
-UPDATE properties SET photos = 'https://foryou-realestate.com/favicons/icon-light.png' WHERE \"propertyType\" = 'secondary';
+-- 1. Очищаємо всі фото для Secondary (видаляємо лого-заглушку)
+UPDATE properties SET photos = '' WHERE \"propertyType\" = 'secondary';
 
 -- 2. Мапимо фото за назвою проекту (Exact Name Match)
 UPDATE properties s
@@ -53,13 +53,13 @@ WHERE s.\"propertyType\" = 'secondary'
   AND p.\"propertyType\" = 'off-plan' 
   AND LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name));
 
--- 3. Мапимо за описом (Description ILIKE) для тих, хто ще на лого
+-- 3. Мапимо за описом (Description ILIKE) для тих, хто ще без фото
 UPDATE properties s
 SET photos = p.photos
 FROM properties p
 WHERE s.\"propertyType\" = 'secondary' 
   AND p.\"propertyType\" = 'off-plan' 
-  AND s.photos = 'https://foryou-realestate.com/favicons/icon-light.png'
+  AND (s.photos = '' OR s.photos IS NULL)
   AND s.description ILIKE '%' || p.name || '%';
 "
 
