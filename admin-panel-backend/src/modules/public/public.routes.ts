@@ -1729,7 +1729,13 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
     const sField = sortBy?.toString() || 'createdAt';
     const sOrder = sortOrder?.toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     const allowedFields = ['createdAt', 'name', 'price', 'priceFrom'];
-    if (allowedFields.includes(sField)) {
+
+    if (sField === 'random') {
+      const seedVal = String(req.query.seed || req.query.random_seed || '0.5');
+      // Using MD5 for stable random order based on seed.
+      // This is efficient enough for 24k records and ensures consistent pagination.
+      queryBuilder.orderBy(`md5(property.id::text || '${seedVal}')`, 'ASC');
+    } else if (allowedFields.includes(sField)) {
       queryBuilder.orderBy(`property.${sField}`, sOrder as any);
     } else {
       queryBuilder.orderBy('property.createdAt', 'DESC');
