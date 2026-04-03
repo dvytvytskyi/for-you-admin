@@ -40,19 +40,26 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🚀 Running LIGHTWEIGHT SQL mapping on production..."
+echo "🚀 Running SMART SQL mapping (ILike + Log)..."
 docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "
--- 1. Скидаємо все (видаляємо заглушки)
+-- 1. Очищаємо всі фото (скелетони)
 UPDATE properties SET photos = '' WHERE \"propertyType\" = 'secondary';
 
--- 2. Мапимо фото за назвою проекту (Exact Name Match only)
--- Пріоритет - тільки ті, де ми на 100% впевнені за назвою будівлі.
+-- 2. Мапимо за назвою (Smarter Match)
 UPDATE properties s
 SET photos = p.photos
 FROM properties p
 WHERE s.\"propertyType\" = 'secondary' 
   AND p.\"propertyType\" = 'off-plan' 
-  AND LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name));
+  AND (
+    LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name))
+    OR p.name ILIKE '%' || s.\"buildingName\" || '%'
+    OR s.\"buildingName\" ILIKE '%' || p.name || '%'
+  )
+  AND p.photos != '';
+
+-- 3. Видимий результат для нас
+SELECT 'Matched objects: ' || count(*) FROM properties WHERE \"propertyType\" = 'secondary' AND photos != '';
 "
 
 # Step 7: Final Cleanup
