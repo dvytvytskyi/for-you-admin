@@ -40,28 +40,19 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🏗 Running ROBUST SQL mapping on production..."
-docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "
--- 1. Очищаємо всі фото для Secondary (видаляємо лого-заглушку)
-UPDATE properties SET photos = '' WHERE \"propertyType\" = 'secondary';
+echo "🏗 Running ROBUST SQL mapping in SEPARATE steps..."
 
--- 2. Мапимо фото за назвою проекту (Exact Name Match)
-UPDATE properties s
-SET photos = p.photos
-FROM properties p
-WHERE s.\"propertyType\" = 'secondary' 
-  AND p.\"propertyType\" = 'off-plan' 
-  AND LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name));
+# 1. Повне очищення від лого та заглушок
+echo "Step 1: Wiping all secondary photos to empty strings..."
+docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "UPDATE properties SET photos = '' WHERE \"propertyType\" = 'secondary';"
 
--- 3. Мапимо за описом (Description ILIKE) для тих, хто ще без фото
-UPDATE properties s
-SET photos = p.photos
-FROM properties p
-WHERE s.\"propertyType\" = 'secondary' 
-  AND p.\"propertyType\" = 'off-plan' 
-  AND (s.photos = '' OR s.photos IS NULL)
-  AND s.description ILIKE '%' || p.name || '%';
-"
+# 2. Мапінг за точною назвою будівлі (LOWER + TRIM)
+echo "Step 2: Mapping by Exact Building Name..."
+docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "UPDATE properties s SET photos = p.photos FROM properties p WHERE s.\"propertyType\" = 'secondary' AND p.\"propertyType\" = 'off-plan' AND LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name));"
+
+# 3. Мапінг за повною назвою всередині опису (Description)
+echo "Step 3: Mapping by Description keywords..."
+docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "UPDATE properties s SET photos = p.photos FROM properties p WHERE s.\"propertyType\" = 'secondary' AND p.\"propertyType\" = 'off-plan' AND (s.photos = '' OR s.photos IS NULL) AND s.description ILIKE '%' || p.name || '%';"
 
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
