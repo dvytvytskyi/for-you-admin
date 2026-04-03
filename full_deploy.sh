@@ -51,7 +51,7 @@ SET photos = p.photos
 FROM properties p
 WHERE s.\"propertyType\" = 'secondary' 
   AND p.\"propertyType\" = 'off-plan' 
-  AND s.\"buildingName\" = p.name;
+  AND LOWER(TRIM(s.\"buildingName\")) = LOWER(TRIM(p.name));
 "
 
 # Step 7: Final Cleanup
