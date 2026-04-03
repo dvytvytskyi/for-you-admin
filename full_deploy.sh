@@ -40,8 +40,19 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🏗 Running SMART photo mapping on production (compiled)..."
-docker exec for-you-admin-api-prod node dist/scripts/apply-final-mapping.js || echo "⚠️ Falling back to ts-node if dist not found..." && docker exec for-you-admin-api-prod npx ts-node src/scripts/apply-final-mapping.ts
+echo "🏗 Running ROBUST SQL mapping on production..."
+docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "
+-- 1. Скидаємо все на лого (захист від Marriott)
+UPDATE properties SET photos = 'https://foryou-realestate.com/favicons/icon-light.png' WHERE \"propertyType\" = 'secondary';
+
+-- 2. Мапимо фото за назвою проекту (Exact Name Match)
+UPDATE properties s
+SET photos = p.photos
+FROM properties p
+WHERE s.\"propertyType\" = 'secondary' 
+  AND p.\"propertyType\" = 'off-plan' 
+  AND s.\"buildingName\" = p.name;
+"
 
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
