@@ -1717,12 +1717,16 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
 
     if (effectiveMinPrice) {
       const min = parseFloat(effectiveMinPrice.toString()) / Conversions.USD_TO_AED;
-      queryBuilder.andWhere('(property.priceFrom >= :min OR property.price >= :min)', { min });
+      if (!isNaN(min)) {
+        queryBuilder.andWhere('(property.priceFrom >= :min OR property.price >= :min)', { min });
+      }
     }
 
     if (effectiveMaxPrice) {
       const max = parseFloat(effectiveMaxPrice.toString()) / Conversions.USD_TO_AED;
-      queryBuilder.andWhere('(property.priceFrom <= :max OR property.price <= :max)', { max });
+      if (!isNaN(max)) {
+        queryBuilder.andWhere('(property.priceFrom <= :max OR property.price <= :max)', { max });
+      }
     }
 
     // Sort
@@ -1733,8 +1737,9 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
     if (sField === 'random') {
       const seedVal = String(req.query.seed || req.query.random_seed || '0.5');
       // Using MD5 for stable random order based on seed.
-      // This is efficient enough for 24k records and ensures consistent pagination.
-      queryBuilder.orderBy(`md5(property.id::text || '${seedVal}')`, 'ASC');
+      // Move logic to addSelect to avoid TypeORM alias scanning in orderBy.
+      queryBuilder.addSelect(`md5(property.id::text || '${seedVal}')`, 'random_sort');
+      queryBuilder.orderBy('random_sort', 'ASC');
     } else if (allowedFields.includes(sField)) {
       queryBuilder.orderBy(`property.${sField}`, sOrder as any);
     } else {

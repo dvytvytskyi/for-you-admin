@@ -177,6 +177,45 @@ export class Property {
   @Column('text', { name: 'propertyurl', nullable: true })
   propertyUrl?: string;
 
+  @Column('text', { name: 'buildingname', nullable: true })
+  buildingName?: string;
+
+  @Column('text', { name: 'communityname', nullable: true })
+  communityName?: string;
+
+  @Column('boolean', { default: false })
+  verified?: boolean;
+
+  @Column('text', { nullable: true })
+  reference?: string;
+
+  @Column('text', { nullable: true })
+  rera?: string;
+
+  @Column('text', { nullable: true })
+  furnishing?: string;
+
+  @Column('text', { name: 'agentname', nullable: true })
+  agentName?: string;
+
+  @Column('text', { name: 'agentphone', nullable: true })
+  agentPhone?: string;
+
+  @Column('text', { name: 'agentwhatsapp', nullable: true })
+  agentWhatsApp?: string;
+
+  @Column('text', { name: 'agentemail', nullable: true })
+  agentEmail?: string;
+
+  @Column('text', { name: 'agentphoto', nullable: true })
+  agentPhoto?: string;
+
+  @Column('text', { name: 'brokername', nullable: true })
+  brokerName?: string;
+
+  @Column('text', { name: 'brokerlogo', nullable: true })
+  brokerLogo?: string;
+
   @OneToMany(() => PropertyUnit, unit => unit.property)
   units!: PropertyUnit[];
 
@@ -216,6 +255,9 @@ export class Property {
 
   @Column({ name: 'nameAr', nullable: true })
   nameAr?: string;
+
+  @Column('jsonb', { name: 'unitTypesJson', nullable: true })
+  unitTypesJson?: any;
 
   @CreateDateColumn({ name: 'createdAt' })
   createdAt!: Date;

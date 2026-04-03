@@ -24,15 +24,23 @@ async function countMigrated() {
         let migratedPhotos = 0;
 
         for (const prop of allProperties) {
-            if (!prop.photos || prop.photos.length === 0) continue;
+            // Correctly parse photos from text/comma-separated or array
+            let photos: string[] = [];
+            if (typeof prop.photos === 'string') {
+                photos = (prop.photos as any).split(',').map((p: any) => p.trim()).filter((p: any) => !!p);
+            } else if (Array.isArray(prop.photos)) {
+                photos = prop.photos;
+            }
+
+            if (photos.length === 0) continue;
 
             totalWithPhotos++;
-            totalPhotos += prop.photos.length;
+            totalPhotos += photos.length;
 
-            const migratedCount = prop.photos.filter((p: string) => p.includes('your-objectstorage.com')).length;
+            const migratedCount = photos.filter((p: string) => p.includes('your-objectstorage.com')).length;
             migratedPhotos += migratedCount;
 
-            if (migratedCount === prop.photos.length) {
+            if (migratedCount === photos.length) {
                 fullyMigrated++;
             } else if (migratedCount > 0) {
                 partiallyMigrated++;

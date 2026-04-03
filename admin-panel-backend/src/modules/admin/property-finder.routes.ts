@@ -2,6 +2,8 @@ import express from 'express';
 import { PropertyFinderService } from '../../services/property-finder.service';
 import { successResponse, errorResponse } from '../../utils/response';
 import { authenticateJWTOrApiKey } from '../../middleware/auth';
+import { AppDataSource } from '../../config/database';
+import { PropertyFinderProject } from '../../entities/PropertyFinderProject';
 
 const router = express.Router();
 const pfService = new PropertyFinderService();
@@ -98,8 +100,6 @@ router.post('/sync', async (req: any, res) => {
 router.get('/projects/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { AppDataSource } = require('../config/database');
-        const { PropertyFinderProject } = require('../entities/PropertyFinderProject');
         const repo = AppDataSource.getRepository(PropertyFinderProject);
         
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);

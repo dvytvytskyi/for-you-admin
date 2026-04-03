@@ -40,6 +40,9 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
+echo "🖼 Cleaning up property photos on production..."
+docker exec for-you-admin-api-prod npx ts-node src/scripts/total-wipe-secondary.ts
+
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
 docker image prune -f
