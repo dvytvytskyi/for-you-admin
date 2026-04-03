@@ -40,8 +40,8 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🖼 Running SMART photo mapping on production (Rotate Mode)..."
-docker exec for-you-admin-api-prod npx ts-node src/scripts/apply-final-mapping.ts
+echo "🏗 Running SMART photo mapping on production (compiled)..."
+docker exec for-you-admin-api-prod node dist/scripts/apply-final-mapping.js || echo "⚠️ Falling back to ts-node if dist not found..." && docker exec for-you-admin-api-prod npx ts-node src/scripts/apply-final-mapping.ts
 
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
