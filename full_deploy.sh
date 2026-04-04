@@ -40,28 +40,9 @@ done
 echo "📦 Running backend database migrations..."
 docker exec for-you-admin-api-prod npm run migration:run
 
-echo "🚀 Running SMART SQL mapping (Lowercase Case-Safe)..."
-docker exec for-you-admin-panel-postgres-prod psql -U admin -d admin_panel -c "
--- 1. Очищаємо всі фото (скелетони)
-UPDATE properties SET photos = '' WHERE propertytype = 'secondary';
-
--- 2. Мапимо за назвою (Lowercase match)
--- Ми використовуємо маленькі літери для колонок, щоб уникнути помилок регістру.
-UPDATE properties s
-SET photos = p.photos
-FROM properties p
-WHERE s.propertytype = 'secondary' 
-  AND p.propertytype = 'off-plan' 
-  AND (
-    LOWER(TRIM(s.buildingname)) = LOWER(TRIM(p.name))
-    OR p.name ILIKE '%' || s.buildingname || '%'
-    OR s.buildingname ILIKE '%' || p.name || '%'
-  )
-  AND p.photos != '';
-
--- 3. Видимий результат
-SELECT 'Matched objects: ' || count(*) FROM properties WHERE propertytype = 'secondary' AND photos != '';
-"
+# Step 6: Strict Mapping
+echo "🚀 Running STRICT Building-Name Mapping..."
+docker exec for-you-admin-api-prod npx ts-node src/scripts/apply-strict-mapping.ts
 
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."

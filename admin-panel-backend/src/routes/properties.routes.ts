@@ -127,7 +127,13 @@ router.get('/', async (req: AuthRequest, res) => {
       }
     }
 
-    // 2. Unit Type (Apartment, Villa, etc.)
+    // 2. Strict Filter for Secondary Market: Show only mapped properties (with photos and project link)
+    queryBuilder.andWhere(new Brackets(qb => {
+      qb.where('property.propertyType != :secondaryType', { secondaryType: PropertyType.SECONDARY })
+        .orWhere('property.parentProjectId IS NOT NULL');
+    }));
+
+    // 3. Unit Type (Apartment, Villa, etc.)
     if (type) {
       queryBuilder.leftJoin('property.units', 'units'); // Always join for filtering
       const unitTypes = (Array.isArray(type)
