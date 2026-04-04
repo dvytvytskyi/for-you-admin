@@ -1607,6 +1607,12 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
       .loadRelationCountAndMap('property.unitsCount', 'property.units')
       .where('property.isActive = :isActive', { isActive: true });
 
+    // Strict Filter for Public Site: Show only mapped secondary properties (ensuring they have photos and project linking)
+    queryBuilder.andWhere(new Brackets(qb => {
+      qb.where('property.propertyType != :secondaryType', { secondaryType: PropertyType.SECONDARY })
+        .orWhere('property.parentProjectId IS NOT NULL');
+    }));
+
     if (propertyType) {
       queryBuilder.andWhere('property.propertyType = :propertyType', { propertyType });
     }
