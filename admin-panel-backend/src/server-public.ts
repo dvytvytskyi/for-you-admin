@@ -37,6 +37,7 @@ import propertyFinderRoutes from './modules/admin/property-finder.routes';
 import seoRoutes from './routes/seo.routes';
 import seoSyncRoutes from './modules/admin/seo-sync.routes';
 import landingV2Routes from './modules/public/landing-v2.routes';
+import presentationsRoutes from './modules/public/presentations.routes';
 
 import { AmoCrmService } from './services/amo-crm.service';
 import { PropertyFinderService } from './services/property-finder.service';
@@ -75,6 +76,7 @@ app.use('/api/support', supportRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/public/vacancies', publicVacanciesRoutes);
+app.use('/api/public/presentations', presentationsRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/collections', collectionsRoutes);
 app.use('/api/favorites', favoritesRoutes);
@@ -107,6 +109,7 @@ app.use('/api/v1/support', supportRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/upload', uploadRoutes);
 app.use('/api/v1/public', publicRoutes);
+app.use('/api/v1/public/presentations', presentationsRoutes);
 app.use('/api/v1/collections', collectionsRoutes);
 app.use('/api/v1/favorites', favoritesRoutes);
 app.use('/api/v1/investments', investmentsRoutes);
@@ -126,6 +129,7 @@ app.use('/api/v1', enquiryRoutes);
 
 // Add /api/proxy prefix aliases for public access (used by main website)
 app.use('/api/proxy/public', publicRoutes);
+app.use('/api/proxy/public/presentations', presentationsRoutes);
 app.use('/api/proxy/user-activity', userActivityRoutes);
 app.use('/api/proxy/properties', propertiesRoutes);
 app.use('/api/proxy/amo-crm', amoCrmRoutes);
