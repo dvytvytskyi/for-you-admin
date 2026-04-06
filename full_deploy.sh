@@ -44,6 +44,10 @@ docker exec for-you-admin-api-prod npm run migration:run
 echo "🚀 Running STRICT Building-Name Mapping..."
 docker exec for-you-admin-api-prod npx ts-node src/scripts/apply-strict-mapping.ts
 
+# Step 7: Fix Project Names from Report
+echo "📝 Fixing project names from reelly_match_report.json..."
+docker exec for-you-admin-api-prod npx ts-node src/scripts/fix-names-from-report.ts
+
 # Step 7: Final Cleanup
 echo "♻️ Finalizing cleanup (removing dangling images)..."
 docker image prune -f
