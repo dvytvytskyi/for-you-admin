@@ -36,6 +36,8 @@ router.get('/', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
       queryBuilder.andWhere('LOWER(property.name) LIKE :searchTerm', { searchTerm });
     }
 
+    const isLite = req.query.mode === 'lite';
+
     const [items, totalCount] = await queryBuilder
       .orderBy('property.createdAt', 'DESC')
       .skip(skip)
@@ -43,6 +45,17 @@ router.get('/', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
       .getManyAndCount();
 
     const data = items.map(p => {
+      // If lite mode requested, return only base fields for quick loading
+      if (isLite) {
+        return {
+          id: p.id,
+          name: p.name,
+          area: p.area?.nameEn,
+          developer: p.developer?.name,
+          thumbnail: p.photos && p.photos.length > 0 ? p.photos[0] : null
+        };
+      }
+
       const photos = p.photos || [];
       const hasPhotos = photos.length > 0;
       
@@ -107,10 +120,84 @@ router.get('/', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
 
   } catch (error: any) {
     console.error('[Presentations API] CRITICAL Error:', error);
-    res.status(500).json(errorResponse('Failed to fetch presentations data', {
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }));
+    res.status(500).json(errorResponse('Failed to fetch presentations data', error.message));
+  }
+});
+
+/**
+ * GET /api/public/presentations/:id
+ * Returns detailed information for a specific presentation/project.
+ */
+router.get('/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+
+    const property = await AppDataSource.getRepository(Property)
+      .createQueryBuilder('property')
+      .leftJoinAndSelect('property.area', 'area')
+      .leftJoinAndSelect('property.city', 'city')
+      .leftJoinAndSelect('property.developer', 'developer')
+      .leftJoinAndSelect('property.units', 'units')
+      .leftJoinAndSelect('property.facilities', 'facilities')
+      .where('property.id = :id', { id })
+      .getOne();
+
+    if (!property) {
+      return res.status(404).json(errorResponse('Project not found'));
+    }
+
+    // Detailed response for specific project
+    const detailedData = {
+      id: property.id,
+      name: property.name,
+      slug: property.slug,
+      description: property.description,
+      descriptionRu: property.descriptionRu,
+      
+      // Location & Developer
+      area: property.area?.nameEn,
+      city: property.city?.nameEn,
+      developer: property.developer?.name,
+      coordinates: {
+        latitude: property.latitude,
+        longitude: property.longitude
+      },
+      
+      // Photos & Media
+      photos: property.photos || [],
+      videoUrl: property.videoUrl,
+      
+      // Payment Plans & Extra Info
+      paymentPlans: property.paymentPlansJson || property.paymentPlan,
+      amenities: (property.facilities || []).map(f => f.nameEn),
+      
+      // Units Info
+      units: (property.units || []).map(u => ({
+        id: u.id,
+        unitId: u.unitId,
+        type: u.type,
+        price: u.price,
+        totalSize: u.totalSize,
+        bedrooms: u.bedrooms,
+        floor: u.floor,
+        status: u.status,
+        planImage: u.planImage || (u.planImages ? u.planImages.large || u.planImages.original : null)
+      })),
+      
+      // Status information
+      status: property.status,
+      readiness: property.readiness,
+      completionDate: property.plannedCompletionAt || property.completionDatetime,
+      isForYouChoice: property.isForYouChoice,
+      createdAt: property.createdAt,
+      updatedAt: property.updatedAt
+    };
+
+    res.json(successResponse(detailedData));
+
+  } catch (error: any) {
+    console.error(`[Presentations API] Error fetching details for project ${req.params.id}:`, error);
+    res.status(500).json(errorResponse('Failed to fetch project details', error.message));
   }
 });
 
