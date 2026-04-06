@@ -52,7 +52,7 @@ const PORT = process.env.PORT || 4000;
 
 // Middleware
 // CORS для публічних ендпоінтів (дозволяє всі джерела, оскільки захищено через API key)
-app.use(['/api/public', '/api/proxy/public'], cors({
+app.use(['/api/public', '/api/proxy/public', '/api/v1/public/presentations', '/api/proxy/public/presentations'], cors({
   origin: '*', // Дозволяємо всі джерела для публічних API
   methods: ['GET', 'OPTIONS'],
   allowedHeaders: ['x-api-key', 'x-api-secret', 'Content-Type', 'Authorization'],
@@ -108,8 +108,8 @@ app.use('/api/v1/settings', settingsRoutes);
 app.use('/api/v1/support', supportRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/upload', uploadRoutes);
-app.use('/api/v1/public', publicRoutes);
 app.use('/api/v1/public/presentations', presentationsRoutes);
+app.use('/api/v1/public', publicRoutes);
 app.use('/api/v1/collections', collectionsRoutes);
 app.use('/api/v1/favorites', favoritesRoutes);
 app.use('/api/v1/investments', investmentsRoutes);
@@ -128,8 +128,8 @@ app.use('/api/proxy', enquiryRoutes);
 app.use('/api/v1', enquiryRoutes);
 
 // Add /api/proxy prefix aliases for public access (used by main website)
-app.use('/api/proxy/public', publicRoutes);
 app.use('/api/proxy/public/presentations', presentationsRoutes);
+app.use('/api/proxy/public', publicRoutes);
 app.use('/api/proxy/user-activity', userActivityRoutes);
 app.use('/api/proxy/properties', propertiesRoutes);
 app.use('/api/proxy/amo-crm', amoCrmRoutes);

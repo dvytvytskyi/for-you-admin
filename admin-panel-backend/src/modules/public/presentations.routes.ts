@@ -13,14 +13,10 @@ const router = express.Router();
  */
 router.get('/', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    const { 
-      page = '1', 
-      limit = '100', // Default higher limit for presentations
-      search 
-    } = req.query;
-
-    const pageNum = parseInt(page.toString(), 10) || 1;
-    const limitNum = parseInt(limit.toString(), 10) || 100;
+    const pageValue = (req.query.page || '1').toString();
+    const limitValue = (req.query.limit || '100').toString();
+    const pageNum = parseInt(pageValue, 10) || 1;
+    const limitNum = parseInt(limitValue, 10) || 100;
     const skip = (pageNum - 1) * limitNum;
 
     const queryBuilder = AppDataSource.getRepository(Property)
@@ -35,8 +31,8 @@ router.get('/', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
       })
       .andWhere('property.isActive = :isActive', { isActive: true });
 
-    if (search) {
-      const searchTerm = `%${search.toString().toLowerCase()}%`;
+    if (req.query.search) {
+      const searchTerm = `%${req.query.search.toString().toLowerCase()}%`;
       queryBuilder.andWhere('LOWER(property.name) LIKE :searchTerm', { searchTerm });
     }
 
@@ -110,8 +106,11 @@ router.get('/', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
     }));
 
   } catch (error: any) {
-    console.error('[Presentations API] Error:', error);
-    res.status(500).json(errorResponse('Failed to fetch presentations data', error.message));
+    console.error('[Presentations API] CRITICAL Error:', error);
+    res.status(500).json(errorResponse('Failed to fetch presentations data', {
+      message: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    }));
   }
 });
 

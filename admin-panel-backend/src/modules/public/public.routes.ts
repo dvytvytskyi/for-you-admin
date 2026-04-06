@@ -1781,7 +1781,9 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
         bathrooms: p.propertyType === 'off-plan' ? p.bathroomsFrom : p.bathrooms,
         size: p.propertyType === 'off-plan' ? (p.sizeFrom ? Number(p.sizeFrom) : null) : (p.size ? Number(p.size) : null),
         sizeSqft: (p.propertyType === 'off-plan' && p.sizeFrom) ? Conversions.sqmToSqft(p.sizeFrom) : (p.size ? Conversions.sqmToSqft(p.size) : null),
-        projectName: p.parentProject ? (p.parentProject.title?.en || p.parentProject.title?.name || (typeof p.parentProject.title === 'string' ? p.parentProject.title : p.name)) : null,
+        projectName: p.propertyType !== PropertyType.SECONDARY 
+          ? p.name 
+          : (p.parentProject ? (p.parentProject.title?.en || p.parentProject.title?.name || (typeof p.parentProject.title === 'string' ? p.parentProject.title : p.name)) : null),
         unitsCount: (p as any).unitsCount || 0
       };
     });
@@ -2527,7 +2529,9 @@ router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequ
       sizeToSqft: property.sizeTo ? Conversions.sqmToSqft(property.sizeTo) : null,
       sizeSqft: property.size ? Conversions.sqmToSqft(property.size) : null,
       // Додаємо назву оригінального проекту для зручності
-      projectName: property.parentProject ? (property.parentProject.title?.en || property.parentProject.title?.name || (typeof property.parentProject.title === 'string' ? property.parentProject.title : property.name)) : null,
+      projectName: property.propertyType !== PropertyType.SECONDARY 
+        ? property.name 
+        : (property.parentProject ? (property.parentProject.title?.en || property.parentProject.title?.name || (typeof property.parentProject.title === 'string' ? property.parentProject.title : property.name)) : null),
       units: (property.units || []).map(transformUnit)
     };
 
