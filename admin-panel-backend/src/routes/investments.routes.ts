@@ -29,11 +29,11 @@ router.post('/public', async (req, res) => {
       return res.status(404).json(errorResponse('Property not found'));
     }
 
-    let userId: string = '00000000-0000-0000-0000-000000000000'; // Temporary UUID для публічних заявок
+    let user = null;
 
-    // Якщо є контактні дані, шукаємо існуючого користувача
+    // Шукаємо або створюємо користувача
     if (userEmail || userPhone) {
-      const existingUser = await AppDataSource.getRepository(User).findOne({
+      user = await AppDataSource.getRepository(User).findOne({
         where: userEmail && userPhone
           ? [{ email: userEmail }, { phone: userPhone }]
           : userEmail
@@ -41,15 +41,26 @@ router.post('/public', async (req, res) => {
             : [{ phone: userPhone }],
       });
 
-      if (existingUser) {
-        userId = existingUser.id;
+      if (!user) {
+        // Створюємо нового користувача (гостьового), якщо не знайшли
+        user = AppDataSource.getRepository(User).create({
+          email: userEmail || `guest_${Date.now()}@foryou.com`,
+          phone: userPhone || '',
+          firstName: userFirstName || 'Guest',
+          lastName: userLastName || 'Investor',
+          role: UserRole.INVESTOR,
+          password: 'TemporaryPassword123!', // Обов'язкове поле
+        });
+        user = await AppDataSource.getRepository(User).save(user);
       }
-      // Якщо користувача не знайдено, використовуємо temporary UUID
-      // Контактні дані збережуться в notes
+    }
+
+    if (!user) {
+       return res.status(400).json(errorResponse('User contact information is required for investment'));
     }
 
     const investment = AppDataSource.getRepository(Investment).create({
-      userId,
+      userId: user.id,
       propertyId,
       amount: parseFloat(amount),
       status: InvestmentStatus.PENDING,
