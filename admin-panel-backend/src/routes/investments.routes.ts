@@ -31,7 +31,7 @@ router.post('/public', async (req, res) => {
 
     let user = null;
 
-    // Шукаємо або створюємо користувача
+    // 1. Спочатку шукаємо реального користувача (якщо він вже є в базі)
     if (userEmail || userPhone) {
       user = await AppDataSource.getRepository(User).findOne({
         where: userEmail && userPhone
@@ -40,29 +40,39 @@ router.post('/public', async (req, res) => {
             ? [{ email: userEmail }]
             : [{ phone: userPhone }],
       });
+    }
 
-      if (!user) {
-        // Створюємо нового користувача (гостьового), якщо не знайшли
-        user = AppDataSource.getRepository(User).create({
-          email: userEmail || `guest_${Date.now()}@foryou.com`,
-          phone: userPhone || '',
-          firstName: userFirstName || 'Guest',
-          lastName: userLastName || 'Investor',
+    // 2. Якщо реального користувача не знайдено, використовуємо ОДНОГО системного гостя
+    if (!user) {
+      const SYSTEM_GUEST_EMAIL = 'public_guest@foryou-realestate.com';
+      
+      const foundUser = await AppDataSource.getRepository(User).findOne({
+        where: { email: SYSTEM_GUEST_EMAIL }
+      });
+
+      if (!foundUser) {
+        // Створюємо ОДНОГО системного гостя назавжди
+        const newUser = AppDataSource.getRepository(User).create({
+          email: SYSTEM_GUEST_EMAIL,
+          phone: 'SYSTEM',
+          firstName: 'Public',
+          lastName: 'Guest',
           role: UserRole.INVESTOR,
-          password: 'TemporaryPassword123!', // Обов'язкове поле
-        });
-        user = await AppDataSource.getRepository(User).save(user);
+          password: 'SystemGuestPassword123!',
+        } as Partial<User>);
+        user = await AppDataSource.getRepository(User).save(newUser);
+      } else {
+        user = foundUser;
       }
     }
 
-    if (!user) {
-       return res.status(400).json(errorResponse('User contact information is required for investment'));
-    }
+    // Чистимо суму від ком та пробілів перед парсингом
+    const cleanAmount = typeof amount === 'string' ? amount.replace(/[^\d.]/g, '') : amount;
 
     const investment = AppDataSource.getRepository(Investment).create({
       userId: user.id,
       propertyId,
-      amount: parseFloat(amount),
+      amount: parseFloat(cleanAmount),
       status: InvestmentStatus.PENDING,
       date: new Date(date),
       notes: notes || `Contact: ${userEmail || ''} ${userPhone || ''} | ${userFirstName || ''} ${userLastName || ''}`,
