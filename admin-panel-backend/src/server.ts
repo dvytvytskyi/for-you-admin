@@ -137,6 +137,7 @@ app.use('/api/proxy/locations', locationsRoutes);
 app.use('/api/proxy/images', imagesRoutes);
 app.use('/api/proxy/chat', chatRoutes);
 app.use('/api/proxy/property-finder', propertyFinderRoutes);
+app.use('/api/proxy/tracking', trackingRoutes);
 app.use('/api/proxy/v1', (req, res, next) => {
   // Translate /api/proxy/v1/... to /api/v1/... internally ?
   // Or just use the routers with prefix
