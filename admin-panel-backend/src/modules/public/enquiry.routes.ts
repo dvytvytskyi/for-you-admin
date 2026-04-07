@@ -11,17 +11,22 @@ const amoCrmService = new AmoCrmService();
  */
 router.post('/callback', async (req, res) => {
   try {
-    const { name, phone, email, message, source = 'Callback Form' } = req.body;
+    const { name, phone, email, message, initialMessage, source = 'Callback Form' } = req.body;
 
     if (!name || (!phone && !email)) {
       return res.status(400).json(errorResponse('Name and (Phone or Email) are required'));
+    }
+
+    let finalMessage = message || '';
+    if (initialMessage) {
+      finalMessage = finalMessage ? `${initialMessage}\n\n${finalMessage}` : initialMessage;
     }
 
     await amoCrmService.submitEnquiryToAmo({
       name,
       phone,
       email,
-      message,
+      message: finalMessage,
       source,
     });
 
@@ -39,18 +44,23 @@ router.post('/callback', async (req, res) => {
  */
 router.post('/meetings', async (req, res) => {
   try {
-    const { name, phone, email, date, time, notes, location = 'Main Office' } = req.body;
+    const { name, phone, email, date, time, notes, initialMessage, location = 'Main Office', source = 'Meeting Request' } = req.body;
 
     if (!name || (!phone && !email)) {
       return res.status(400).json(errorResponse('Name and Contact (Phone/Email) are required'));
+    }
+
+    let finalNotes = notes || '';
+    if (initialMessage) {
+      finalNotes = finalNotes ? `${initialMessage}\n\n${finalNotes}` : initialMessage;
     }
 
     await amoCrmService.submitEnquiryToAmo({
       name,
       phone,
       email,
-      message: notes,
-      source: 'Meeting Request',
+      message: finalNotes,
+      source,
       additionalInfo: {
         date,
         time,

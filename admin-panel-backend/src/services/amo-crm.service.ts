@@ -1564,18 +1564,13 @@ export class AmoCrmService {
 
       // 2. Створити/Прив'язати контакт
       try {
+        const customFields = [];
+        if (data.phone) customFields.push({ field_code: 'PHONE', values: [{ value: data.phone }] });
+        if (data.email) customFields.push({ field_code: 'EMAIL', values: [{ value: data.email }] });
+
         const contactId = await this.createContact({
           name: data.name,
-          customFields: [
-            {
-              field_code: 'PHONE',
-              values: [{ value: data.phone || '' }]
-            },
-            {
-              field_code: 'EMAIL',
-              values: [{ value: data.email || '' }]
-            }
-          ]
+          customFields
         });
 
         await this.linkContactToLead(leadId, contactId);
