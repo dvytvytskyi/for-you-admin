@@ -1461,7 +1461,6 @@ export class AmoCrmService {
           },
           params: {
             'filter[entity]': 'lead',
-            'filter[entity_id]': leadId,
           }
         },
       );
@@ -1553,20 +1552,39 @@ export class AmoCrmService {
     additionalInfo?: any;
   }): Promise<number> {
     try {
-      console.log(`[AMO CRM] Processing enquiry from ${data.source}: ${data.name}`);
+      console.log(`[AMO CRM] Обработка заявки с ${data.source}: ${data.name}`);
 
-      // 1. Створити Lead
-      const leadName = `[WEBSITE] ${data.source} - ${data.name}`;
+      // 1. Создать Lead
+      // Формат: [Web] {Имя} {Фамилия}
+      const leadName = `[WEBSITE] - ${data.name}`;
+      
+      const custom_fields_values: any[] = [
+        {
+          field_id: 703131, // Источник (Select)
+          values: [{ enum_id: 1293361 }]
+        }
+      ];
+
+      // Записываем пользовательское сообщение в поле "Комментарий NEW" (ID 1343875)
+      if (data.message && data.message !== 'Public Investment Request') {
+        custom_fields_values.push({
+          field_id: 1343875,
+          values: [{ value: data.message }]
+        });
+      }
+
       const leadId = await this.createLead({
         name: leadName,
         price: data.price || undefined,
+        custom_fields_values
       });
 
-      // 2. Створити/Прив'язати контакт
+      // 2. Создать/Привязать контакт
       try {
         const customFields = [];
-        if (data.phone) customFields.push({ field_code: 'PHONE', values: [{ value: data.phone }] });
-        if (data.email) customFields.push({ field_code: 'EMAIL', values: [{ value: data.email }] });
+        // В AmoCRM PHONE и EMAIL - это стандартные коды для Раб. тел. и Email раб.
+        if (data.phone) customFields.push({ field_code: 'PHONE', values: [{ value: data.phone, enum_code: 'WORK' }] });
+        if (data.email) customFields.push({ field_code: 'EMAIL', values: [{ value: data.email, enum_code: 'WORK' }] });
 
         const contactId = await this.createContact({
           name: data.name,
@@ -1578,27 +1596,50 @@ export class AmoCrmService {
         console.warn(`[AMO CRM] Failed to create/link contact for lead ${leadId}:`, contactError.message);
       }
 
-      // 3. Додати примітку з деталями
-      let noteText = `Нова заявка з сайту: ${data.source}\n`;
-      noteText += `Імя: ${data.name}\n`;
+      // 3. Добавить примечание с деталями (на русском)
+      let noteText = `Новая заявка с сайта: ${data.source}\n`;
+      noteText += `Имя: ${data.name}\n`;
       noteText += `Email: ${data.email}\n`;
-      noteText += `Телефон: ${data.phone || 'Не вказано'}\n`;
+      noteText += `Телефон: ${data.phone || 'Никакой информации'}\n`;
 
-      if (data.message) {
-        noteText += `\nПовідомлення:\n${data.message}\n`;
+      let projectName = data.additionalInfo?.projectName;
+      let projectSlug = data.additionalInfo?.projectSlug;
+
+      // Если данных нет, но есть propertyId/project_id - пробуем найти
+      const pId = data.additionalInfo?.propertyId || data.additionalInfo?.project_id;
+      if (!projectName && pId) {
+        try {
+          const { Property } = await import('../entities/Property');
+          const { AppDataSource } = await import('../config/database');
+          const property = await AppDataSource.getRepository(Property).findOne({ where: { id: pId } });
+          if (property) {
+            projectName = property.nameEn || property.name;
+            projectSlug = property.slug;
+          }
+        } catch (dbError) {
+          console.warn('[AMO CRM] Failed to fetch property info for note:', dbError);
+        }
       }
 
-      if (data.additionalInfo) {
-        noteText += `\nДодаткова інформація:\n${JSON.stringify(data.additionalInfo, null, 2)}\n`;
+      if (projectName) {
+        const link = projectSlug 
+          ? `https://foryou-realestate.com/ru/projects/${projectSlug}`
+          : 'Ссылка отсутствует';
+        noteText += `Проект: ${projectName}\n`;
+        noteText += `Ссылка: ${link}\n`;
+      }
+
+      if (data.message) {
+        noteText += `\nСообщение:\n${data.message}\n`;
       }
 
       try {
         await this.addNote(leadId, 'leads', noteText);
+        console.log(`[AMO CRM] Successfully forwarded enquiry to AmoCRM (Lead ID: ${leadId})`);
       } catch (noteError: any) {
         console.warn(`[AMO CRM] Failed to add note to lead ${leadId}:`, noteError.message);
       }
 
-      console.log(`[AMO CRM] Successfully forwarded enquiry to AmoCRM (Lead ID: ${leadId})`);
       return leadId;
     } catch (error: any) {
       console.error(`[AMO CRM] Error forwarding enquiry to AmoCRM:`, error.response?.data || error.message);

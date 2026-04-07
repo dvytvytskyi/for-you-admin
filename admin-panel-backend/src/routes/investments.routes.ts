@@ -20,59 +20,17 @@ router.post('/public', async (req, res) => {
       return res.status(400).json(errorResponse('Property ID, amount, and date are required'));
     }
 
-    // Перевірка чи property існує
-    const property = await AppDataSource.getRepository(Property).findOne({
-      where: { id: propertyId },
-    });
-
-    if (!property) {
-      return res.status(404).json(errorResponse('Property not found'));
-    }
-
-    let user = null;
-
-    // 1. Спочатку шукаємо реального користувача (якщо він вже є в базі)
-    if (userEmail || userPhone) {
-      user = await AppDataSource.getRepository(User).findOne({
-        where: userEmail && userPhone
-          ? [{ email: userEmail }, { phone: userPhone }]
-          : userEmail
-            ? [{ email: userEmail }]
-            : [{ phone: userPhone }],
-      });
-    }
-
-    // 2. Якщо реального користувача не знайдено, використовуємо ОДНОГО системного гостя
-    if (!user) {
-      const SYSTEM_GUEST_EMAIL = 'public_guest@foryou-realestate.com';
-      
-      const foundUser = await AppDataSource.getRepository(User).findOne({
-        where: { email: SYSTEM_GUEST_EMAIL }
-      });
-
-      if (!foundUser) {
-        // Створюємо ОДНОГО системного гостя назавжди
-        const newUser = AppDataSource.getRepository(User).create({
-          email: SYSTEM_GUEST_EMAIL,
-          phone: 'SYSTEM',
-          firstName: 'Public',
-          lastName: 'Guest',
-          role: UserRole.INVESTOR,
-          password: 'SystemGuestPassword123!',
-        } as Partial<User>);
-        user = await AppDataSource.getRepository(User).save(newUser);
-      } else {
-        user = foundUser;
-      }
-    }
-
-    // Чистимо суму від ком та пробілів перед парсингом
+    // Clean amount (remove commas, spaces, etc.)
     const cleanAmount = typeof amount === 'string' ? amount.replace(/[^\d.]/g, '') : amount;
+    const parsedAmount = parseFloat(cleanAmount);
+    
+    // Use the verified system guest user UUID
+    const SYSTEM_GUEST_ID = '6d5c7d81-18ee-4373-ab61-3c51ccfeb7c2';
 
     const investment = AppDataSource.getRepository(Investment).create({
-      userId: user.id,
+      userId: SYSTEM_GUEST_ID,
       propertyId,
-      amount: parseFloat(cleanAmount),
+      amount: parsedAmount,
       status: InvestmentStatus.PENDING,
       date: new Date(date),
       notes: notes || `Contact: ${userEmail || ''} ${userPhone || ''} | ${userFirstName || ''} ${userLastName || ''}`,
@@ -81,34 +39,36 @@ router.post('/public', async (req, res) => {
 
     const saved = await AppDataSource.getRepository(Investment).save(investment);
 
-    // Forward to AmoCRM
     try {
+      // Fetch property details for project link
+      const property = await AppDataSource.getRepository(Property).findOne({
+        where: { id: propertyId }
+      });
+
       const { AmoCrmService } = await import('../services/amo-crm.service');
       const amoCrmService = new AmoCrmService();
       await amoCrmService.submitEnquiryToAmo({
         name: `${userFirstName || ''} ${userLastName || ''}`.trim() || 'Investment Applicant',
         email: userEmail || '',
         phone: userPhone || '',
-        message: notes,
+        message: notes || 'Public Investment Request',
         source: 'Investment Request',
-        price: parseFloat(amount),
+        price: parsedAmount,
         additionalInfo: {
           propertyId,
           referenceId,
-          investmentId: saved.id
-        }
+          investmentId: saved.id,
+          projectName: property?.nameEn || property?.name || 'Unknown Project',
+          projectSlug: property?.slug
+        },
       });
     } catch (amoError) {
       console.error('Failed to forward investment to AmoCRM:', amoError);
     }
 
-    const investmentWithProperty = await AppDataSource.getRepository(Investment).findOne({
-      where: { id: saved.id },
-      relations: ['property', 'property.country', 'property.city', 'property.area', 'property.developer'],
-    });
-
-    res.status(201).json(successResponse(investmentWithProperty));
-  } catch (error: any) {
+    // Return saved investment without property relations to avoid schema mismatch on Property.views column
+    res.status(201).json(successResponse(saved));
+  } catch (error) {
     console.error('Error creating public investment:', error);
     res.status(500).json(errorResponse('Failed to create investment'));
   }
