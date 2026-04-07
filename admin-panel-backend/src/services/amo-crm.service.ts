@@ -1575,7 +1575,7 @@ export class AmoCrmService {
 
       const leadId = await this.createLead({
         name: leadName,
-        price: data.price || undefined,
+        price: data.price ? Math.round(data.price * 3.67) : undefined,
         custom_fields_values
       });
 
