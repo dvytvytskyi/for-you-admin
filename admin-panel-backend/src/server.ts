@@ -37,6 +37,7 @@ import propertyFinderRoutes from './modules/admin/property-finder.routes';
 import seoRoutes from './routes/seo.routes';
 import seoSyncRoutes from './modules/admin/seo-sync.routes';
 import landingV2Routes from './modules/public/landing-v2.routes';
+import trackingRoutes from './routes/tracking.routes';
 
 import { AmoCrmService } from './services/amo-crm.service';
 import { PropertyFinderService } from './services/property-finder.service';
@@ -97,6 +98,7 @@ app.use('/api/property-finder', propertyFinderRoutes);
 app.use('/api/seo', seoRoutes);
 app.use('/api/seo-sync', seoSyncRoutes);
 app.use('/api/v2/landing', landingV2Routes);
+app.use('/api/tracking', trackingRoutes);
 
 
 // Routes з префіксом /v1 для мобільного додатку

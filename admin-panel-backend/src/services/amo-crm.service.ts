@@ -1398,6 +1398,29 @@ export class AmoCrmService {
   }
 
   /**
+   * Знайти контакт за технічним коментарем (Visitor ID)
+   */
+  async findContactByTechnicalComment(visitorId: string): Promise<any | null> {
+    try {
+      const accessToken = await this.getAccessToken();
+      const response = await axios.get(
+        `https://${this.domain}/api/v4/contacts`,
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { query: visitorId }
+        }
+      );
+      
+      const contacts = response.data._embedded?.contacts || [];
+      return contacts.length > 0 ? contacts[0] : null;
+    } catch (error: any) {
+      if (error.response?.status === 204) return null; // No content
+      console.error('[AMO CRM] Error finding contact:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
    * Прив'язати контакт до ліда
    */
   async linkContactToLead(leadId: number, contactId: number): Promise<void> {
@@ -1579,12 +1602,23 @@ export class AmoCrmService {
         custom_fields_values
       });
 
+
+
       // 2. Создать/Привязать контакт
       try {
-        const customFields = [];
+        const customFields: any[] = [];
         // В AmoCRM PHONE и EMAIL - это стандартные коды для Раб. тел. и Email раб.
         if (data.phone) customFields.push({ field_code: 'PHONE', values: [{ value: data.phone, enum_code: 'WORK' }] });
         if (data.email) customFields.push({ field_code: 'EMAIL', values: [{ value: data.email, enum_code: 'WORK' }] });
+
+        // Додаємо visitor_id (referenceId) у технічний коментар (field_id: 1439787)
+        const referenceId = data.additionalInfo?.referenceId;
+        if (referenceId) {
+          customFields.push({
+            field_id: 1439787,
+            values: [{ value: referenceId }]
+          });
+        }
 
         const contactId = await this.createContact({
           name: data.name,
