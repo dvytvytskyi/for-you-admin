@@ -1623,7 +1623,7 @@ export class AmoCrmService {
 
       if (projectName) {
         const link = projectSlug 
-          ? `https://foryou-realestate.com/ru/projects/${projectSlug}`
+          ? `https://www.foryou-realestate.com/ru/properties/${projectSlug}`
           : 'Ссылка отсутствует';
         noteText += `Проект: ${projectName}\n`;
         noteText += `Ссылка: ${link}\n`;
