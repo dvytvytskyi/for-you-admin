@@ -8,6 +8,7 @@ import { Developer } from '../entities/Developer';
 import { DeveloperCommunity } from '../entities/DeveloperCommunity';
 import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
 import { successResponse } from '../utils/response';
+import { getFacilityTranslations } from '../utils/facilityTranslations';
 
 const router = express.Router();
 
@@ -406,10 +407,11 @@ router.post('/facilities', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Facility name (nameEn) is required' });
     }
 
+    const translations = getFacilityTranslations(nameEn.trim());
     const facility = await AppDataSource.getRepository(Facility).save({
       nameEn: nameEn.trim(),
-      nameRu: nameRu || nameEn.trim(),
-      nameAr: nameAr || nameEn.trim(),
+      nameRu: nameRu || translations.nameRu,
+      nameAr: nameAr || translations.nameAr,
       iconName: iconName || nameEn.toLowerCase().replace(/\s+/g, '-'),
     });
 

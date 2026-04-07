@@ -15,7 +15,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-admin123}
       POSTGRES_DB: admin_panel
     volumes:
-      - foryou_admin_panel_db_data:/var/lib/postgresql/data
+      - admin-panel-db-data:/var/lib/postgresql/data
     networks:
       - admin-network
     healthcheck:
@@ -98,9 +98,12 @@ services:
       - admin-network
 
 volumes:
-  foryou_admin_panel_db_data:
-    external: true
-    name: admin-panel_foryou_admin_panel_db_data
+  admin-panel-db-data:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '${PWD}/docker-data/admin-panel-db'
 
 networks:
   admin-network:

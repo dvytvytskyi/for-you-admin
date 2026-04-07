@@ -99,7 +99,13 @@ router.get('/', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
         })),
         
         // Amenities
-        facilities: (p.facilities || []).map(f => f.nameEn),
+        facilities: (p.facilities || []).map(f => ({
+          id: f.id,
+          nameEn: f.nameEn,
+          nameRu: f.nameRu,
+          nameAr: f.nameAr,
+          iconName: f.iconName,
+        })),
         
         // Extra info requested for presentations
         isForYouChoice: p.isForYouChoice,
@@ -169,7 +175,13 @@ router.get('/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
       
       // Payment Plans & Extra Info
       paymentPlans: property.paymentPlansJson || property.paymentPlan,
-      amenities: (property.facilities || []).map(f => f.nameEn),
+      amenities: (property.facilities || []).map(f => ({
+        id: f.id,
+        nameEn: f.nameEn,
+        nameRu: f.nameRu,
+        nameAr: f.nameAr,
+        iconName: f.iconName,
+      })),
       
       // Units Info
       units: (property.units || []).map(u => ({

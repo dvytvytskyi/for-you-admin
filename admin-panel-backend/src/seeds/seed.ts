@@ -4,6 +4,7 @@ import { Country } from '../entities/Country';
 import { City } from '../entities/City';
 import { Area } from '../entities/Area';
 import { Facility } from '../entities/Facility';
+import { getFacilityTranslations } from '../utils/facilityTranslations';
 
 async function seed() {
   try {
@@ -83,10 +84,11 @@ async function seed() {
     for (const facility of facilities) {
       const existing = await facilityRepo.findOne({ where: { nameEn: facility.nameEn } });
       if (!existing) {
+        const translations = getFacilityTranslations(facility.nameEn);
         await facilityRepo.save({
           ...facility,
-          nameRu: facility.nameEn,
-          nameAr: facility.nameEn,
+          nameRu: translations.nameRu,
+          nameAr: translations.nameAr,
         });
         console.log(`✅ Created facility: ${facility.nameEn}`);
       }

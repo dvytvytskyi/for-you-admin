@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../config/database';
 import { Facility } from '../entities/Facility';
+import { getFacilityTranslations } from '../utils/facilityTranslations';
 
 interface AmenityData {
   ru: string;
@@ -65,11 +66,13 @@ async function importFacilities() {
           .replace(/-+/g, '-')
           .trim();
 
+        const translations = getFacilityTranslations(amenity.en.trim());
+
         // Create new facility
         const facility = facilityRepository.create({
           nameEn: amenity.en.trim(),
-          nameRu: amenity.ru.trim(),
-          nameAr: amenity.ar.trim(),
+          nameRu: amenity.ru.trim() || translations.nameRu,
+          nameAr: amenity.ar.trim() || translations.nameAr,
           iconName: iconName,
         });
         

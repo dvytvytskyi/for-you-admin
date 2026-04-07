@@ -16,7 +16,7 @@ export default function ProjectSelector({ onSelect, onClose }: ProjectSelectorPr
             setLoading(true);
             try {
                 // The structure is data.data.data according to properties.routes.ts
-                const { data } = await api.get(`/properties?limit=100&search=${search}`);
+                const { data } = await api.get(`/property-finder/projects?limit=100&search=${search}`);
                 if (data.success) {
                     // Robust handling of response structure: { success: true, data: properties[], pagination: {} } 
                     // or { success: true, data: { data: properties[], pagination: {} } }

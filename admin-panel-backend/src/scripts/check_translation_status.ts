@@ -1,6 +1,6 @@
 
-import { AppDataSource } from './src/config/database';
-import { Property, PropertyType } from './src/entities/Property';
+import { AppDataSource } from '../config/database';
+import { Property, PropertyType } from '../entities/Property';
 import 'reflect-metadata';
 
 async function checkStatus() {

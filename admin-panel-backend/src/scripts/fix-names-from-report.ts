@@ -7,16 +7,34 @@ import * as path from 'path';
 async function run() {
     try {
         console.log('🔄 Connecting to DB...');
-        await AppDataSource.initialize();
+        if (!AppDataSource.isInitialized) {
+            await AppDataSource.initialize();
+        }
         console.log('✅ Connected.');
 
-        const reportPath = path.resolve(__dirname, '../../../reelly_match_report.json');
-        if (!fs.existsSync(reportPath)) {
-            console.error(`❌ Report file not found: ${reportPath}`);
+        // Smart path finding for the JSON report
+        const possiblePaths = [
+            path.resolve(__dirname, '../../../reelly_match_report.json'),
+            path.resolve(__dirname, '../../reelly_match_report.json'),
+            path.resolve(__dirname, '../reelly_match_report.json'),
+            path.resolve(process.cwd(), 'reelly_match_report.json'),
+            path.resolve(process.cwd(), '../reelly_match_report.json'),
+        ];
+        
+        let reportPath = '';
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                reportPath = p;
+                break;
+            }
+        }
+
+        if (!reportPath) {
+            console.error(`❌ Report file reelly_match_report.json not found in any of:`, possiblePaths);
             return;
         }
 
-        console.log('📖 Reading match report...');
+        console.log(`📖 Using match report: ${reportPath}`);
         const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
         const matchedItems = report.matched || [];
         
@@ -26,10 +44,16 @@ async function run() {
         let updatedCount = 0;
         let skippedCount = 0;
 
+        // Keywords that usually start a description instead of a name
+        const descriptionMarkers = [
+            'welcome to', 'experience', 'discover', 'embodies', 'located in', 
+            'presents', 'exclusive', 'sophistication', 'luxury', 'nestled'
+        ];
+
         for (const item of matchedItems) {
             const { dbId, reellyName, score } = item;
             
-            // Only update if score is high enough (0.8+) to be sure
+            // Score 0.8+ is reliable enough for names
             if (score < 0.8) {
                 skippedCount++;
                 continue;
@@ -39,22 +63,30 @@ async function run() {
                 const property = await propertyRepo.findOne({ where: { id: dbId } });
                 
                 if (property) {
-                    // Check if name is actually different or currently a description (long)
-                    const isLongName = property.name && property.name.length > 100;
-                    const isDifferent = property.name !== reellyName;
+                    const currentName = property.name || '';
+                    const lowerName = currentName.toLowerCase();
                     
-                    if (isDifferent || isLongName) {
-                        const oldName = property.name;
+                    // Logic to determine if current name is actually a description
+                    const isTooLong = currentName.length > 70;
+                    const looksLikeSentence = currentName.includes('. ') || currentName.includes(', ');
+                    const startsWithMarker = descriptionMarkers.some(m => lowerName.startsWith(m));
+                    const containsMarker = descriptionMarkers.slice(0, 5).some(m => lowerName.includes(m));
+
+                    const isBrokenName = isTooLong || looksLikeSentence || startsWithMarker || containsMarker;
+                    const isDifferent = currentName !== reellyName;
+                    
+                    if (isDifferent && (isBrokenName || currentName === 'Unknown Project' || !currentName)) {
+                        const oldName = currentName;
                         property.name = reellyName;
                         
-                        // Also update localized names if they look like they need it
-                        if (!property.nameEn || property.nameEn.length > 100 || property.nameEn === oldName) {
+                        // Always clean localized names if they are broken
+                        if (!property.nameEn || property.nameEn.length > 70 || property.nameEn === oldName || property.nameEn.includes('. ')) {
                             property.nameEn = reellyName;
                         }
                         
-                        // We keep Ru/Ar as is unless they are identical to the old broken name
-                        if (property.nameRu === oldName) property.nameRu = reellyName;
-                        if (property.nameAr === oldName) property.nameAr = reellyName;
+                        // Sync others if they look suspicious
+                        if (property.nameRu === oldName || !property.nameRu || property.nameRu.length > 100) property.nameRu = reellyName;
+                        if (property.nameAr === oldName || !property.nameAr || property.nameAr.length > 100) property.nameAr = reellyName;
 
                         await propertyRepo.save(property);
                         updatedCount++;
@@ -74,8 +106,8 @@ async function run() {
         }
 
         console.log(`\n✅ Finished!`);
-        console.log(`✨ Updated: ${updatedCount}`);
-        console.log(`⏭️  Skipped: ${skippedCount}`);
+        console.log(`✨ Aggressively Updated: ${updatedCount}`);
+        console.log(`⏭️  Skipped (already clean): ${skippedCount}`);
 
     } catch (e: any) {
         console.error('CRITICAL ERROR:', e);

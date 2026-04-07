@@ -1818,11 +1818,12 @@ router.get('/amenities-list', authenticateApiKeyWithSecret, async (req, res) => 
         'facility.id as id',
         'facility.nameEn as "nameEn"',
         'facility.nameRu as "nameRu"',
+        'facility.nameAr as "nameAr"',
         'facility.iconName as "iconName"'
       ])
       .addSelect('COUNT(property.id)::int', 'projectsCount')
       .where('property.isActive = :isActive', { isActive: true })
-      .groupBy('facility.id, facility.nameEn, facility.nameRu, facility.iconName')
+      .groupBy('facility.id, facility.nameEn, facility.nameRu, facility.nameAr, facility.iconName')
       .orderBy('"projectsCount"', 'DESC')
       .addOrderBy('facility.nameEn', 'ASC');
 

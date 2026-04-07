@@ -823,10 +823,11 @@ async function importAllProperties() {
                 facility = foundFacility;
               } else {
                 const iconName = generateIconName(facilityData.name);
+                const translations = getFacilityTranslations(facilityData.name);
                 const newFacility = facilityRepository.create({
                   nameEn: facilityData.name,
-                  nameRu: facilityData.name,
-                  nameAr: facilityData.name,
+                  nameRu: translations.nameRu,
+                  nameAr: translations.nameAr,
                   iconName,
                 });
                 facility = await facilityRepository.save(newFacility);

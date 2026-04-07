@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../../utils/response';
 import { authenticateJWTOrApiKey } from '../../middleware/auth';
 import { AppDataSource } from '../../config/database';
 import { PropertyFinderProject } from '../../entities/PropertyFinderProject';
+import { getFacilityTranslations } from '../../utils/facilityTranslations';
 
 const router = express.Router();
 const pfService = new PropertyFinderService();
@@ -163,7 +164,14 @@ router.get('/projects/:id', async (req, res) => {
                 age: fd.age || '',
                 availableFrom: fd.availableFrom || ''
             },
-            amenities: fd.amenities || [],
+            amenities: (fd.amenities || []).map((name: string) => {
+                const translation = getFacilityTranslations(name);
+                return {
+                    nameEn: name,
+                    nameRu: translation.nameRu,
+                    nameAr: translation.nameAr,
+                };
+            }),
             legal_compliance: fd.legal_compliance || {
                 type: fd.compliance?.type || 'rera',
                 reference: fd.reference || '',

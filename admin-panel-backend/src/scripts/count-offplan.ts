@@ -1,6 +1,6 @@
-import { AppDataSource } from './src/config/database';
-import { Property, PropertyType } from './src/entities/Property';
-import { PropertyFinderProject } from './src/entities/PropertyFinderProject';
+import { AppDataSource } from '../config/database';
+import { Property, PropertyType } from '../entities/Property';
+import { PropertyFinderProject } from '../entities/PropertyFinderProject';
 
 async function count() {
   console.log('--- DB COUNT START ---');

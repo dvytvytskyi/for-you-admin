@@ -1,0 +1,640 @@
+[dotenv@17.2.3] injecting env (18) from .env -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+Database connected.
+
+--- RANDOM OFF-PLAN PROPERTY ---
+{
+  "id": "3c6c47df-d768-43d3-aca4-c1a91e252446",
+  "propertyType": "off-plan",
+  "slug": "new-plagette-32-3c6c47df",
+  "name": "Plagette 32",
+  "photos": [
+    "https://api.reelly.io/vault/ZZLvFZFt/GwYFXe8Dm17L11Xm9X6xIkZfYkU/OMtSgQ../380.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/fKnL1ZtwFNMHO0jQfTgqP_OSFVY/DXrAiw../383.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/koJi3eNHF1Bm9BWBnPuFIfVOaFQ/9Cusgw../388.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/4OFhq8fb83L1ifBuJW-_8aVtIA0/pJTJNw../390.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/EvFALinIVFYSG7x-VNioSaEh5P4/J0yl2w../646.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/JjNhSWlfpM3LMd9COuV8ln_GTbw/fKc5GQ../647.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/FHLP0UGuVu5L6dlubWFUP_oefM4/JQ9PIQ../648.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/5bKDcgkDMDwEOQeEdXBNhnV517c/xSgNJQ../649.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/_qrULKcAhbkZ9c4eP1MaC8Jny6w/uLxHug../292.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/K9Svk8gXLWrccSDb6auIScOIEyI/5GaX5w../380.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/dTKmOmQfcyYeGqUB8YCWB0nEAUI/HJcoxQ../381.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/nM1nnFoliLtdAzv59gBoADdO4N8/Fqd1ng../382.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/CGcnQu44ud6l1C42s6PNXes5vVo/tzJybw../403.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/8TR25-ich42YlFeLmzXEnz9t3G8/8-PV1Q../404.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/3CE7Ms1eVy1rIUZFS_06ODt_hiY/8jgRxg../405.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/XrgU--iobpfVKsLnbpHbldVjBD4/t4DlvQ../659.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/ZcFpedOJxRXDC_xjEAOlcqKEqRI/fmTScg../660.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/XMQsKNc2g-um3jEk8_Or2VM7AFQ/ZNNC6Q../661.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/FrYG0ely_byp4g7CgCYLiOtTOo0/QEnSlA../662.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/n6twwEBF2TYqlYcWzVJiuAZP8bo/miFo6Q../663.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/jcIS-VwVMOcmprngLBVTCSx_fW4/9l9TKA../664.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/VJJrNZtU2cULrNSs4FvO0SEkA5k/Z_438w../665.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/kh_tpFZBplFWIn3Bpl_wrbhre88/NbHL2w../666.png",
+    "https://api.reelly.io/vault/ZZLvFZFt/NdYtw_ohvF5fNgp-NTR-EyaDQUs/XLNVng../667.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/ukkSR6MBKGnpNqjvjbRbhz9PIW4/kqDFvA../668.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/JrWTmCL2ps0CGX1VGtEAliNOuZY/8KHzEw../384.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/z-f3Pmm-LVX67Bk9KENRGob2VlU/5ZwYvg../385.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/YSXqOuAnbQ8PgmOWA4yVHVx_SsA/jR7jaQ../386.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/u14tH1RrxEcBqmufuiLSigcEGBA/Yhk8OA../387.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/5yPJ4DmCQVMTzvcgiMmKxcotggI/FhFA4w../397.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/MObOqrN2UMtc4ybcWWb9lm7x5Kw/h_XwmA../398.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/35PJR9dDmeYZBpbldvwvbmHbjFw/MXfYxw../399.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/JV4zpKXHgc1SSNiECvxY9JfMCp0/jD6H9g../400.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/-Unfgr_CARqhyFAqGCJo8X93s9A/BFbLtw../401.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/_dw93a4uYNDja1EBUnElJkzXxcA/yQM0eg../402.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/GnIEhIZx38OM6VjiGNnQmyaLhq0/cdMk3g../18.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/b5YMEg8FrUWuID-FHNM8c-tWJ7g/klvw8w../389.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/bBZW8LNbM5wt87K8LUH_WN_d1gc/dduOsg../285.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/rqOPsvDwlT-QYnxuVhwD6qOWVLI/Hw2MPQ../1.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/x1G5JwNDSty-H0HpZyVrYfLotEA/T0TG0w../variety-alcoholic-cocktail-drink.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/2Re5W8kSmKnk4CG67HGFK496xGo/MxrlTw../4dSMY3tVO9otcnZxsmOjVSAkjstGAVQt.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/e3CKqtiFQYal3Z7AO9TJHdyxPuQ/BaBK-Q../288.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/aRlH56Q5UrsLSzWuEJfJ3p8Mlpg/WOrIzQ../282.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/b5EuQku9VP9zS39Gr49_mJzRWEc/6660XA../286.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/cap05S2WXGmMSsaPHKXdqKflcXg/GxLdkA../284.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/K8U5GzDv-vVbwW938qdXaiFgxUA/AS1IJg../azzuro-pool-bar-adults.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/ULbtO9apUkrkSon3xJ1tiP4EWd0/E9zYqA../plagette-32_hkQos_xl.jpg",
+    "https://api.reelly.io/vault/ZZLvFZFt/Fd2M8PJuYHVep6qRa4XKthSEuPQ/bYVZkQ../plagette-32_xhhTx_xl.jpg"
+  ],
+  "countryId": "0dfc833c-8988-4b37-9307-8d5458cd7a19",
+  "cityId": "220b3401-cfaf-465c-96fb-a479470c71fb",
+  "areaId": "a2d18617-eda3-439f-a320-108451a9bef1",
+  "latitude": "25.02562300",
+  "longitude": "55.22659600",
+  "description": "##### Project general facts\n\nPlagette32 at Tilal Al Ghaf is the epitome of exclusive luxury residences with its private beach club designed for refined indulgence. From the lush amenities to themed zones, each section blends beauty with nature’s tranquillity beside crystalline waters. A serene escapade for reflection and family moments, a scenography in perfect harmony.  \n\nPlagette32 is an exceptional collaboration brought to life by the visionary minds of Nabil Gholam Architects and Bergman Design House. Nabil Gholam Architects, an esteemed international multidisciplinary team, boasts a rich portfolio spanning diverse projects in architecture and urbanism. Renowned for winning competitions and receiving prestigious awards, Nabil Gholam Architects brings innovation and expertise to Plagette32.\n\nPartnering in this venture is Bergman Design House, a luxury design studio founded by Marie Soliman and Albin Berglund in 2017. Specializing in exquisite interiors and architectural design for hospitality, commercial, residential, and superyacht sectors, Bergman Design House has curated a remarkable portfolio of international projects at exclusive addresses.\n\nThe 4 exclusive bungalows line the edge of the serene sandy lagoon, offering direct access to its crystalline water and neighbouring beach club. A series of hammered stone walls creates a playful rhythm and an iconic design where each bungalow boasts its own private garden, outdoor patio and pool. Purposefully grounded and blending within the natural topography, this intimate retreat is a wonderous haven for personal well-being. Its intricate designs are characterised by light and an organic palette with Zen influences gives you a sense of comfort.\n\nBespoke with a French touch, these 28 three-floor villas follow the snaking contours of the masterplan. They introduce greenery into the living quarters, oriented towards the lagoon on one side, and the park on the other; optimally framing the scenic landscape. The scenography of the living experience is set up with a procession of single and double height spaces leading from the entrance to the garden and the beyond, combining contemporary design with luxurious comfort. Optimal for a summer retreat.\n\n##### Finishing and materials\n\nPremium finishing with high quality materials\n\n##### Kitchen and appliances\n\nEquipped kitchen\n\n##### Furnishing\n\nNo\n\n##### Location description and benefits\n\nTilal Al Ghaf is a visionary mixed-use community that redefines modern living in Dubai. Nestled in a prime location, this masterfully planned development seamlessly integrates residential, commercial, and recreational elements to create a vibrant and sustainable neighborhood.\n\nSpread across a vast expanse, Tilal Al Ghaf offers a diverse range of living options, from contemporary villas and townhouses to apartments, providing residents with a choice that suits their lifestyle preferences. The community prioritizes green spaces, parks, and landscaped areas, fostering a connection with nature amidst the urban setting.\n\nDesigned with a holistic approach, Tilal Al Ghaf incorporates world-class amenities, including schools, healthcare facilities, shopping destinations, and recreational spaces. The centerpiece of this community is the stunning Lagoon Al Ghaf, a vast artificial lagoon surrounded by a sandy beach, offering residents a unique waterfront experience.\n",
+  "descriptionRu": null,
+  "developerId": "8f5e0a0a-9e90-467d-a8f6-a52ca7ca95ff",
+  "priceFrom": "0.00",
+  "bedroomsFrom": 0,
+  "bedroomsTo": 0,
+  "bathroomsFrom": null,
+  "bathroomsTo": null,
+  "sizeFrom": "0.00",
+  "sizeTo": "0.00",
+  "paymentPlan": null,
+  "isForYouChoice": false,
+  "projectedRoi": null,
+  "isInvestorFeatured": false,
+  "commission": null,
+  "plannedCompletionAt": null,
+  "isActive": true,
+  "parentProjectId": null,
+  "priority": 0,
+  "nameEn": "Plagette 32",
+  "nameRu": "Plagette 32",
+  "nameAr": null,
+  "price": null,
+  "bedrooms": null,
+  "bathrooms": null,
+  "size": null,
+  "externalId": "875",
+  "propertyUrl": null,
+  "buildingName": null,
+  "communityName": null,
+  "verified": false,
+  "reference": null,
+  "rera": null,
+  "furnishing": null,
+  "agentName": null,
+  "agentPhone": null,
+  "agentWhatsapp": null,
+  "agentEmail": null,
+  "agentPhoto": null,
+  "brokerName": null,
+  "brokerLogo": null,
+  "displayAddress": null,
+  "addedOn": null,
+  "agentInfo": null,
+  "brokerInfo": null,
+  "priceDuration": null,
+  "propertySubType": null,
+  "priceCurrency": "AED",
+  "type": "",
+  "sizeMin": null,
+  "status": "Under Construction",
+  "saleStatus": "Out of Stock",
+  "readiness": "1.8%",
+  "serviceCharge": "",
+  "completionDatetime": "2026-12-31T00:00:00.000Z",
+  "layoutsPdf": "https://api.reelly.io/vault/ZZLvFZFt/QdRbGQjxwewNF1mKJ_DmzC0allI/jAGrZg../Piagette-32-fp.pdf",
+  "brochureUrl": "https://drive.google.com/file/d/1OHBj36X0bfdXaRFkrhRVhiRXGdlMgArn/view?usp=sharing",
+  "depositDescription": null,
+  "videoUrl": "https://www.youtube.com/watch?v=eUrqF7mZ3n4",
+  "mapPoints": [],
+  "paymentPlansJson": [
+    {
+      "Payments": [
+        [
+          {
+            "Order": 5928,
+            "Payment_time": "Upon Handover",
+            "Percent_of_payment": "40.00"
+          }
+        ],
+        [
+          {
+            "Order": 5920,
+            "Payment_time": "During construction",
+            "Percent_of_payment": "50.00"
+          }
+        ],
+        [
+          {
+            "Order": 5919,
+            "Payment_time": "On booking",
+            "Percent_of_payment": "10.00"
+          }
+        ]
+      ],
+      "Plan_name": "Payment Plan",
+      "months_after_handover": 0
+    }
+  ],
+  "masterPlan": [
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/Qb8xyKI_6RcQNxl6oaIeUvYnkNY/6LAQDw../Frame+161+%282%29+%281%29.png"
+    }
+  ],
+  "lobby": [],
+  "interior": [
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/CGcnQu44ud6l1C42s6PNXes5vVo/tzJybw../403.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 846
+      },
+      "mime": "image/jpeg",
+      "name": "403.jpg",
+      "path": "/vault/ZZLvFZFt/CGcnQu44ud6l1C42s6PNXes5vVo/tzJybw../403.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/8TR25-ich42YlFeLmzXEnz9t3G8/8-PV1Q../404.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 846
+      },
+      "mime": "image/jpeg",
+      "name": "404.jpg",
+      "path": "/vault/ZZLvFZFt/8TR25-ich42YlFeLmzXEnz9t3G8/8-PV1Q../404.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/3CE7Ms1eVy1rIUZFS_06ODt_hiY/8jgRxg../405.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "405.jpg",
+      "path": "/vault/ZZLvFZFt/3CE7Ms1eVy1rIUZFS_06ODt_hiY/8jgRxg../405.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/XrgU--iobpfVKsLnbpHbldVjBD4/t4DlvQ../659.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 661
+      },
+      "mime": "image/jpeg",
+      "name": "659.jpg",
+      "path": "/vault/ZZLvFZFt/XrgU--iobpfVKsLnbpHbldVjBD4/t4DlvQ../659.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/ZcFpedOJxRXDC_xjEAOlcqKEqRI/fmTScg../660.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 846
+      },
+      "mime": "image/jpeg",
+      "name": "660.jpg",
+      "path": "/vault/ZZLvFZFt/ZcFpedOJxRXDC_xjEAOlcqKEqRI/fmTScg../660.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/XMQsKNc2g-um3jEk8_Or2VM7AFQ/ZNNC6Q../661.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "661.jpg",
+      "path": "/vault/ZZLvFZFt/XMQsKNc2g-um3jEk8_Or2VM7AFQ/ZNNC6Q../661.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/FrYG0ely_byp4g7CgCYLiOtTOo0/QEnSlA../662.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "662.jpg",
+      "path": "/vault/ZZLvFZFt/FrYG0ely_byp4g7CgCYLiOtTOo0/QEnSlA../662.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/n6twwEBF2TYqlYcWzVJiuAZP8bo/miFo6Q../663.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 846
+      },
+      "mime": "image/jpeg",
+      "name": "663.jpg",
+      "path": "/vault/ZZLvFZFt/n6twwEBF2TYqlYcWzVJiuAZP8bo/miFo6Q../663.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/jcIS-VwVMOcmprngLBVTCSx_fW4/9l9TKA../664.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "664.jpg",
+      "path": "/vault/ZZLvFZFt/jcIS-VwVMOcmprngLBVTCSx_fW4/9l9TKA../664.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/VJJrNZtU2cULrNSs4FvO0SEkA5k/Z_438w../665.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "665.jpg",
+      "path": "/vault/ZZLvFZFt/VJJrNZtU2cULrNSs4FvO0SEkA5k/Z_438w../665.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/kh_tpFZBplFWIn3Bpl_wrbhre88/NbHL2w../666.png",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/png",
+      "name": "666.png",
+      "path": "/vault/ZZLvFZFt/kh_tpFZBplFWIn3Bpl_wrbhre88/NbHL2w../666.png",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/NdYtw_ohvF5fNgp-NTR-EyaDQUs/XLNVng../667.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 846
+      },
+      "mime": "image/jpeg",
+      "name": "667.jpg",
+      "path": "/vault/ZZLvFZFt/NdYtw_ohvF5fNgp-NTR-EyaDQUs/XLNVng../667.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/ukkSR6MBKGnpNqjvjbRbhz9PIW4/kqDFvA../668.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 846
+      },
+      "mime": "image/jpeg",
+      "name": "668.jpg",
+      "path": "/vault/ZZLvFZFt/ukkSR6MBKGnpNqjvjbRbhz9PIW4/kqDFvA../668.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/JrWTmCL2ps0CGX1VGtEAliNOuZY/8KHzEw../384.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "384.jpg",
+      "path": "/vault/ZZLvFZFt/JrWTmCL2ps0CGX1VGtEAliNOuZY/8KHzEw../384.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/z-f3Pmm-LVX67Bk9KENRGob2VlU/5ZwYvg../385.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "385.jpg",
+      "path": "/vault/ZZLvFZFt/z-f3Pmm-LVX67Bk9KENRGob2VlU/5ZwYvg../385.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/YSXqOuAnbQ8PgmOWA4yVHVx_SsA/jR7jaQ../386.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 843
+      },
+      "mime": "image/jpeg",
+      "name": "386.jpg",
+      "path": "/vault/ZZLvFZFt/YSXqOuAnbQ8PgmOWA4yVHVx_SsA/jR7jaQ../386.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/u14tH1RrxEcBqmufuiLSigcEGBA/Yhk8OA../387.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "387.jpg",
+      "path": "/vault/ZZLvFZFt/u14tH1RrxEcBqmufuiLSigcEGBA/Yhk8OA../387.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/5yPJ4DmCQVMTzvcgiMmKxcotggI/FhFA4w../397.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 659
+      },
+      "mime": "image/jpeg",
+      "name": "397.jpg",
+      "path": "/vault/ZZLvFZFt/5yPJ4DmCQVMTzvcgiMmKxcotggI/FhFA4w../397.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/MObOqrN2UMtc4ybcWWb9lm7x5Kw/h_XwmA../398.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "398.jpg",
+      "path": "/vault/ZZLvFZFt/MObOqrN2UMtc4ybcWWb9lm7x5Kw/h_XwmA../398.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/35PJR9dDmeYZBpbldvwvbmHbjFw/MXfYxw../399.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "399.jpg",
+      "path": "/vault/ZZLvFZFt/35PJR9dDmeYZBpbldvwvbmHbjFw/MXfYxw../399.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/JV4zpKXHgc1SSNiECvxY9JfMCp0/jD6H9g../400.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "400.jpg",
+      "path": "/vault/ZZLvFZFt/JV4zpKXHgc1SSNiECvxY9JfMCp0/jD6H9g../400.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/-Unfgr_CARqhyFAqGCJo8X93s9A/BFbLtw../401.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "401.jpg",
+      "path": "/vault/ZZLvFZFt/-Unfgr_CARqhyFAqGCJo8X93s9A/BFbLtw../401.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/_dw93a4uYNDja1EBUnElJkzXxcA/yQM0eg../402.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "402.jpg",
+      "path": "/vault/ZZLvFZFt/_dw93a4uYNDja1EBUnElJkzXxcA/yQM0eg../402.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    }
+  ],
+  "architecture": [
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/fKnL1ZtwFNMHO0jQfTgqP_OSFVY/DXrAiw../383.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "383.jpg",
+      "path": "/vault/ZZLvFZFt/fKnL1ZtwFNMHO0jQfTgqP_OSFVY/DXrAiw../383.jpg",
+      "size": 150142,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/koJi3eNHF1Bm9BWBnPuFIfVOaFQ/9Cusgw../388.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "388.jpg",
+      "path": "/vault/ZZLvFZFt/koJi3eNHF1Bm9BWBnPuFIfVOaFQ/9Cusgw../388.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/4OFhq8fb83L1ifBuJW-_8aVtIA0/pJTJNw../390.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "390.jpg",
+      "path": "/vault/ZZLvFZFt/4OFhq8fb83L1ifBuJW-_8aVtIA0/pJTJNw../390.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/EvFALinIVFYSG7x-VNioSaEh5P4/J0yl2w../646.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "646.jpg",
+      "path": "/vault/ZZLvFZFt/EvFALinIVFYSG7x-VNioSaEh5P4/J0yl2w../646.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/JjNhSWlfpM3LMd9COuV8ln_GTbw/fKc5GQ../647.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "647.jpg",
+      "path": "/vault/ZZLvFZFt/JjNhSWlfpM3LMd9COuV8ln_GTbw/fKc5GQ../647.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/FHLP0UGuVu5L6dlubWFUP_oefM4/JQ9PIQ../648.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "648.jpg",
+      "path": "/vault/ZZLvFZFt/FHLP0UGuVu5L6dlubWFUP_oefM4/JQ9PIQ../648.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/5bKDcgkDMDwEOQeEdXBNhnV517c/xSgNJQ../649.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "649.jpg",
+      "path": "/vault/ZZLvFZFt/5bKDcgkDMDwEOQeEdXBNhnV517c/xSgNJQ../649.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/_qrULKcAhbkZ9c4eP1MaC8Jny6w/uLxHug../292.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 878
+      },
+      "mime": "image/jpeg",
+      "name": "292.jpg",
+      "path": "/vault/ZZLvFZFt/_qrULKcAhbkZ9c4eP1MaC8Jny6w/uLxHug../292.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/K9Svk8gXLWrccSDb6auIScOIEyI/5GaX5w../380.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "380.jpg",
+      "path": "/vault/ZZLvFZFt/K9Svk8gXLWrccSDb6auIScOIEyI/5GaX5w../380.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/dTKmOmQfcyYeGqUB8YCWB0nEAUI/HJcoxQ../381.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 845
+      },
+      "mime": "image/jpeg",
+      "name": "381.jpg",
+      "path": "/vault/ZZLvFZFt/dTKmOmQfcyYeGqUB8YCWB0nEAUI/HJcoxQ../381.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    },
+    {
+      "url": "https://api.reelly.io/vault/ZZLvFZFt/nM1nnFoliLtdAzv59gBoADdO4N8/Fqd1ng../382.jpg",
+      "meta": {
+        "width": 1500,
+        "height": 844
+      },
+      "mime": "image/jpeg",
+      "name": "382.jpg",
+      "path": "/vault/ZZLvFZFt/nM1nnFoliLtdAzv59gBoADdO4N8/Fqd1ng../382.jpg",
+      "size": 243124,
+      "type": "image",
+      "access": "public"
+    }
+  ],
+  "unitTypesJson": null,
+  "createdAt": "2026-03-17T20:37:11.119Z",
+  "updatedAt": "2026-03-17T20:37:11.119Z",
+  "developer": {
+    "id": "8f5e0a0a-9e90-467d-a8f6-a52ca7ca95ff",
+    "name": "Majid Al Futtaim Properties",
+    "nameRu": null,
+    "nameAr": null,
+    "slug": null,
+    "logo": null,
+    "previewImage": null,
+    "description": null,
+    "descriptionRu": null,
+    "avgPricesDescription": null,
+    "avgPrices": null,
+    "images": null,
+    "createdAt": "2026-03-17T20:36:46.326Z"
+  },
+  "area": {
+    "id": "a2d18617-eda3-439f-a320-108451a9bef1",
+    "cityId": "220b3401-cfaf-465c-96fb-a479470c71fb",
+    "nameEn": "Tilal Al Ghaf",
+    "nameRu": "Tilal Al Ghaf",
+    "nameAr": "Tilal Al Ghaf",
+    "description": null,
+    "descriptionRu": null,
+    "infrastructure": null,
+    "images": null,
+    "isActive": true,
+    "mainImage": "https://api.reelly.io/vault/ZZLvFZFt/GwYFXe8Dm17L11Xm9X6xIkZfYkU/OMtSgQ../380.jpg",
+    "slug": "tilal-al-ghaf-a2d1",
+    "isFeatured": false,
+    "priority": 0
+  }
+}

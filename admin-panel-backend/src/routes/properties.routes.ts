@@ -595,6 +595,29 @@ router.get('/stats', async (req: AuthRequest, res) => {
   }
 });
 
+/**
+ * GET /api/properties/simple-list
+ * Повертає лише ID та Name для off-plan проектів (для Ваших презентацій)
+ */
+router.get('/simple-list', async (req: AuthRequest, res) => {
+  try {
+    const repo = AppDataSource.getRepository(Property);
+    const projects = await repo.find({
+      where: { propertyType: PropertyType.OFF_PLAN },
+      select: ['id', 'name'],
+      order: { name: 'ASC' }
+    });
+    res.json({
+      success: true,
+      count: projects.length,
+      data: projects
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
 import { PdfService } from '../services/pdf.service';
 
 router.get('/:id/presentation', async (req, res) => {

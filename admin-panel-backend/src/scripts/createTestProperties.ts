@@ -5,7 +5,7 @@ import { Country } from '../entities/Country';
 import { City } from '../entities/City';
 import { Area } from '../entities/Area';
 import { Developer } from '../entities/Developer';
-import { PropertyUnit } from '../entities/PropertyUnit';
+import { PropertyUnit, UnitType } from '../entities/PropertyUnit';
 
 async function createTestProperties() {
   try {
@@ -66,7 +66,7 @@ async function createTestProperties() {
     if (!developer) {
       developer = await developerRepo.save({
         name: 'Emaar Properties',
-        logo: null,
+        logo: '',
         description: 'Leading real estate developer in Dubai',
       });
       console.log('✅ Created Emaar Properties developer');
@@ -104,35 +104,33 @@ async function createTestProperties() {
     });
 
     // Створюємо units для off-plan property
-    await unitRepo.save([
-      {
-        propertyId: offPlanProperty.id,
-        unitId: 'A-101',
-        type: 'apartment',
-        price: 500000,
-        totalSize: 50,
-        balconySize: 5,
-        planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
-      },
-      {
-        propertyId: offPlanProperty.id,
-        unitId: 'A-102',
-        type: 'apartment',
-        price: 750000,
-        totalSize: 100,
-        balconySize: 10,
-        planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
-      },
-      {
-        propertyId: offPlanProperty.id,
-        unitId: 'B-201',
-        type: 'penthouse',
-        price: 1500000,
-        totalSize: 150,
-        balconySize: 20,
-        planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
-      },
-    ]);
+    await unitRepo.save({
+      propertyId: offPlanProperty.id,
+      unitId: 'A-101',
+      type: UnitType.APARTMENT,
+      price: 500000,
+      totalSize: 50,
+      balconySize: 5,
+      planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
+    });
+    await unitRepo.save({
+      propertyId: offPlanProperty.id,
+      unitId: 'A-102',
+      type: UnitType.APARTMENT,
+      price: 750000,
+      totalSize: 100,
+      balconySize: 10,
+      planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
+    });
+    await unitRepo.save({
+      propertyId: offPlanProperty.id,
+      unitId: 'B-201',
+      type: UnitType.PENTHOUSE,
+      price: 1500000,
+      totalSize: 150,
+      balconySize: 20,
+      planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
+    });
 
     console.log(`✅ Created Off-Plan Property: ${offPlanProperty.name} (ID: ${offPlanProperty.id})`);
 
@@ -148,14 +146,18 @@ async function createTestProperties() {
       countryId: country.id,
       cityId: city.id,
       areaId: area.id,
-      developerId: null,
+      developerId: developer.id,
       latitude: 25.2048,
       longitude: 55.2708,
       description: 'Beautifully renovated modern apartment in the heart of Downtown Dubai. Features high-end finishes, spacious living areas, and stunning city views. Perfect for families or professionals seeking luxury living.',
-      price: 750000,
-      bedrooms: 2,
-      bathrooms: 2,
-      size: 120,
+      priceFrom: 750000,
+      priceTo: 750000,
+      bedroomsFrom: 2,
+      bedroomsTo: 2,
+      bathroomsFrom: 2,
+      bathroomsTo: 2,
+      sizeFrom: 120,
+      sizeTo: 120,
     });
 
     console.log(`✅ Created Secondary Property: ${secondaryProperty.name} (ID: ${secondaryProperty.id})`);
@@ -199,26 +201,24 @@ async function createTestProperties() {
     });
 
     // Створюємо units для beachfront property
-    await unitRepo.save([
-      {
-        propertyId: beachfrontProperty.id,
-        unitId: 'V-301',
-        type: 'villa',
-        price: 1200000,
-        totalSize: 150,
-        balconySize: 30,
-        planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
-      },
-      {
-        propertyId: beachfrontProperty.id,
-        unitId: 'V-302',
-        type: 'villa',
-        price: 2000000,
-        totalSize: 250,
-        balconySize: 50,
-        planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
-      },
-    ]);
+    await unitRepo.save({
+      propertyId: beachfrontProperty.id,
+      unitId: 'V-301',
+      type: UnitType.VILLA,
+      price: 1200000,
+      totalSize: 150,
+      balconySize: 30,
+      planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
+    });
+    await unitRepo.save({
+      propertyId: beachfrontProperty.id,
+      unitId: 'V-302',
+      type: UnitType.VILLA,
+      price: 2000000,
+      totalSize: 250,
+      balconySize: 50,
+      planImage: 'https://images.unsplash.com/photo-1600607687644-c7171b42498b?w=800',
+    });
 
     console.log(`✅ Created Off-Plan Property: ${beachfrontProperty.name} (ID: ${beachfrontProperty.id})`);
 
