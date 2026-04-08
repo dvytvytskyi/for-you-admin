@@ -26,8 +26,8 @@ type Options = {
   dryRun: boolean;
 };
 
-const MIN_CHARS = 1200;
-const MAX_CHARS = 1400;
+const MIN_CHARS = 1100;
+const MAX_CHARS = 1800;
 
 function parseArgs(argv: string[]): Options {
   const fileArg = argv.find((arg) => arg.startsWith('--file='));
