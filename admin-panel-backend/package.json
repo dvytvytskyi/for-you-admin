@@ -65,7 +65,9 @@
     "sync:pf-final": "ts-node-dev src/scripts/pf-sync-final.ts",
     "check:translation": "ts-node-dev src/scripts/check_translation_status.ts",
     "rewrite:offplan:en": "ts-node-dev src/scripts/rewrite-offplan-descriptions-en.ts",
-    "rewrite:offplan:en:live": "ts-node-dev src/scripts/rewrite-offplan-descriptions-en.ts --live"
+    "rewrite:offplan:en:live": "ts-node-dev src/scripts/rewrite-offplan-descriptions-en.ts --live",
+    "translate:offplan:ru": "ts-node-dev src/scripts/translate-offplan-descriptions-ru.ts",
+    "translate:offplan:ru:live": "ts-node-dev src/scripts/translate-offplan-descriptions-ru.ts --live"
   },
   "keywords": [],
   "author": "",
