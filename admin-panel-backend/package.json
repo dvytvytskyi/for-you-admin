@@ -70,7 +70,9 @@
     "translate:offplan:ru:live": "ts-node-dev src/scripts/translate-offplan-descriptions-ru.ts --live",
     "import:areas:content": "ts-node-dev src/scripts/import-areas-content.ts",
     "slug:properties:seo": "ts-node-dev src/scripts/backfill-property-seo-slugs.ts",
-    "slug:properties:seo:live": "ts-node-dev src/scripts/backfill-property-seo-slugs.ts --live"
+    "slug:properties:seo:live": "ts-node-dev src/scripts/backfill-property-seo-slugs.ts --live",
+    "import:news:updates": "ts-node-dev src/scripts/import-news-updates.ts",
+    "import:news:updates:live": "ts-node-dev src/scripts/import-news-updates.ts"
   },
   "keywords": [],
   "author": "",
