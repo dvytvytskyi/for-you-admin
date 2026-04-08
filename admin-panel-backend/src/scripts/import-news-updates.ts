@@ -29,6 +29,7 @@ type NewsUpdateInput = {
 type Options = {
   filePath: string;
   dryRun: boolean;
+  createMissing: boolean;
 };
 
 type DbNewsRow = {
@@ -41,7 +42,8 @@ function parseArgs(argv: string[]): Options {
   const fileArg = argv.find((arg) => arg.startsWith('--file='));
   return {
     filePath: fileArg ? fileArg.slice('--file='.length) : path.resolve(process.cwd(), '..', 'news_up.json'),
-    dryRun: argv.includes('--dry-run')
+    dryRun: argv.includes('--dry-run'),
+    createMissing: argv.includes('--create-missing')
   };
 }
 
@@ -108,6 +110,14 @@ function findNewsByFallback(item: NewsUpdateInput, rows: DbNewsRow[]): DbNewsRow
       if (normalizedMatches.length === 1) {
         return normalizedMatches[0];
       }
+
+      const partialMatches = rows.filter((row) => {
+        const rowTitle = normalizeForMatch(row.title);
+        return rowTitle.length > 0 && (normalizedTitle.includes(rowTitle) || rowTitle.includes(normalizedTitle));
+      });
+      if (partialMatches.length === 1) {
+        return partialMatches[0];
+      }
     }
   }
 
@@ -136,6 +146,7 @@ async function run(): Promise<void> {
 
   let found = 0;
   let missing = 0;
+  let createdNews = 0;
   let updatedNews = 0;
   let updatedContentRows = 0;
   let insertedContentRows = 0;
@@ -144,25 +155,85 @@ async function run(): Promise<void> {
     const slug = (item.slug || '').trim();
     const matchedNews = findNewsByFallback(item, dbNewsRows);
 
-    if (!matchedNews) {
-      missing += 1;
-      console.warn(`MISSING slug=${slug || '(empty)'} title=${(item.title || '').trim() || '(empty)'}`);
-      continue;
-    }
-
-    found += 1;
-    const newsId = matchedNews.id;
-
     const title = stripAnchors(cleanText(item.title));
     const titleRu = stripAnchors(cleanText(item.titleRu));
     const description = stripAnchors(cleanText(item.description));
     const descriptionRu = stripAnchors(cleanText(item.descriptionRu));
     const seoTitle = stripAnchors(cleanText(item.seoTitle));
     const seoDescription = stripAnchors(cleanText(item.seoDescription));
-    const logKey = slug || (item.title || '').trim() || newsId;
+
+    let newsId: string;
+
+    if (!matchedNews) {
+      if (!options.createMissing) {
+        missing += 1;
+        console.warn(`MISSING slug=${slug || '(empty)'} title=${(item.title || '').trim() || '(empty)'}`);
+        continue;
+      }
+
+      if (!title || !description) {
+        missing += 1;
+        console.warn(`MISSING_WITHOUT_REQUIRED_FIELDS slug=${slug || '(empty)'} title=${(item.title || '').trim() || '(empty)'}`);
+        continue;
+      }
+
+      if (options.dryRun) {
+        console.log(`DRY-RUN NEWS create key=${slug || title}`);
+        newsId = `dry-run-create:${slug || title}`;
+      } else {
+        const insertedRows = await AppDataSource.query(
+          `
+            INSERT INTO news (
+              id,
+              slug,
+              title,
+              "titleRu",
+              description,
+              "descriptionRu",
+              "seoTitle",
+              "seoDescription",
+              "imageUrl",
+              "isPublished",
+              "publishedAt",
+              "authorId",
+              "createdAt",
+              "updatedAt"
+            ) VALUES (
+              gen_random_uuid(),
+              $1,
+              $2,
+              $3,
+              $4,
+              $5,
+              $6,
+              $7,
+              NULL,
+              true,
+              NOW(),
+              NULL,
+              NOW(),
+              NOW()
+            )
+            RETURNING id
+          `,
+          [slug || null, title, titleRu, description, descriptionRu, seoTitle, seoDescription]
+        );
+        newsId = insertedRows[0].id as string;
+        createdNews += 1;
+        dbNewsRows.push({ id: newsId, slug: slug || null, title });
+        console.log(`CREATED NEWS key=${slug || title}`);
+      }
+    } else {
+      found += 1;
+      newsId = matchedNews.id;
+    }
+
+    const effectiveLogKey = slug || (item.title || '').trim() || newsId;
 
     if (options.dryRun) {
-      console.log(`DRY-RUN NEWS key=${logKey}`);
+      if (matchedNews) {
+        console.log(`DRY-RUN NEWS key=${effectiveLogKey}`);
+      }
     } else {
       await AppDataSource.query(
         `
@@ -180,7 +251,7 @@ async function run(): Promise<void> {
         [title, titleRu, description, descriptionRu, seoTitle, seoDescription, newsId]
       );
       updatedNews += 1;
-      console.log(`UPDATED NEWS key=${logKey}`);
+      console.log(`UPDATED NEWS key=${effectiveLogKey}`);
     }
 
     const contents = Array.isArray(item.contents) ? item.contents : [];
@@ -211,9 +282,9 @@ async function run(): Promise<void> {
 
       if (options.dryRun) {
         if (existing.length > 0) {
-          console.log(`  DRY-RUN CONTENT update key=${logKey} order=${order}`);
+          console.log(`  DRY-RUN CONTENT update key=${effectiveLogKey} order=${order}`);
         } else {
-          console.log(`  DRY-RUN CONTENT insert key=${logKey} order=${order}`);
+          console.log(`  DRY-RUN CONTENT insert key=${effectiveLogKey} order=${order}`);
         }
         continue;
       }
@@ -272,6 +343,7 @@ async function run(): Promise<void> {
   console.log(`Items in file: ${updates.length}`);
   console.log(`Matched records: ${found}`);
   console.log(`Missing slugs: ${missing}`);
+  console.log(`News rows created: ${options.dryRun ? 0 : createdNews}`);
   console.log(`News rows updated: ${options.dryRun ? 0 : updatedNews}`);
   console.log(`News content rows updated: ${options.dryRun ? 0 : updatedContentRows}`);
   console.log(`News content rows inserted: ${options.dryRun ? 0 : insertedContentRows}`);
