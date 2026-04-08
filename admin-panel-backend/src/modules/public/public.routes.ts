@@ -2191,12 +2191,49 @@ router.get('/news/:slug', authenticateApiKeyWithSecret, async (req: AuthRequest,
 // GET /api/public/map - Get lightweight property data for map (id, coordinates, price)
 router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    const { propertyType, search, priceFrom, priceTo, bedrooms, areaIds, developerId } = req.query;
-    console.log('[Public API] GET /api/public/map request', { propertyType, search, priceFrom, priceTo, bedrooms, areaIds, developerId });
+    const {
+      propertyType,
+      search,
+      priceFrom,
+      priceTo,
+      bedrooms,
+      areaIds,
+      areaId,
+      locationId,
+      areaSlug,
+      areaSlugs,
+      cityId,
+      developerId,
+      developerIds
+    } = req.query;
+    console.log('[Public API] GET /api/public/map request', {
+      propertyType,
+      search,
+      priceFrom,
+      priceTo,
+      bedrooms,
+      areaIds,
+      areaId,
+      locationId,
+      areaSlug,
+      areaSlugs,
+      cityId,
+      developerId,
+      developerIds
+    });
+
+    const parseCsv = (value: unknown): string[] => {
+      if (!value) return [];
+      return String(value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+    };
 
     const queryBuilder = AppDataSource.getRepository(Property)
       .createQueryBuilder('property')
       .leftJoinAndSelect('property.area', 'area')
+      .leftJoinAndSelect('property.parentProject', 'parentProject')
       .select([
         'property.id',
         'property.latitude',
@@ -2206,7 +2243,9 @@ router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
         'property.propertyType',
         'property.name',
         'property.photos',
-        'area.nameEn'
+        'area.nameEn',
+        'area.slug',
+        'parentProject.coverImage'
       ])
       .where('property.latitude IS NOT NULL')
       .andWhere('property.longitude IS NOT NULL')
@@ -2216,15 +2255,34 @@ router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
       queryBuilder.andWhere('property.propertyType = :propertyType', { propertyType });
     }
 
-    if (developerId) {
-      queryBuilder.andWhere('property.developerId = :developerId', { developerId });
+    const developerFilterIds = [
+      ...parseCsv(developerId),
+      ...parseCsv(developerIds)
+    ];
+    if (developerFilterIds.length > 0) {
+      queryBuilder.andWhere('property.developerId IN (:...developerFilterIds)', { developerFilterIds });
     }
 
-    if (areaIds) {
-      const ids = (areaIds as string).split(',').map(id => id.trim()).filter(id => id.length > 0);
-      if (ids.length > 0) {
-        queryBuilder.andWhere('property.areaId IN (:...areaIdsParams)', { areaIdsParams: ids });
-      }
+    const areaIdFilter = [
+      ...parseCsv(areaIds),
+      ...parseCsv(areaId),
+      ...parseCsv(locationId)
+    ];
+    if (areaIdFilter.length > 0) {
+      queryBuilder.andWhere('property.areaId IN (:...areaIdFilter)', { areaIdFilter });
+    }
+
+    const areaSlugFilter = [
+      ...parseCsv(areaSlug),
+      ...parseCsv(areaSlugs)
+    ].map((slug) => slug.toLowerCase());
+    if (areaSlugFilter.length > 0) {
+      queryBuilder.andWhere('LOWER(area.slug) IN (:...areaSlugFilter)', { areaSlugFilter });
+    }
+
+    const cityIdFilter = parseCsv(cityId);
+    if (cityIdFilter.length > 0) {
+      queryBuilder.andWhere('property.cityId IN (:...cityIdFilter)', { cityIdFilter });
     }
 
     if (priceFrom) {
@@ -2285,12 +2343,14 @@ router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
 
     const mapPoints = properties.map(p => {
       let image = null;
-      if (p.photos && p.photos.length > 0) {
-        image = p.photos[0];
-        if (image.startsWith('/storage') || image.startsWith('/uploads')) {
-          const domain = process.env.BACKEND_URL || 'https://admin.foryou-realestate.com';
-          image = `${domain}${image}`;
-        }
+      const finalPhotos = p.photos && p.photos.length > 0
+        ? p.photos
+        : (p.propertyType === PropertyType.SECONDARY && p.parentProject?.coverImage
+          ? [p.parentProject.coverImage]
+          : []);
+
+      if (finalPhotos.length > 0) {
+        image = normalizeUrl(finalPhotos[0]);
       }
 
       return {
@@ -2320,7 +2380,7 @@ router.get('/areas-simple', authenticateApiKeyWithSecret, async (req: AuthReques
   try {
     const areas = await AppDataSource.getRepository(Area)
       .createQueryBuilder('area')
-      .select(['area.id', 'area.nameEn', 'area.nameRu', 'area.cityId'])
+      .select(['area.id', 'area.slug', 'area.nameEn', 'area.nameRu', 'area.cityId'])
       .where('area.isactive = :isActive', { isActive: true })
       .andWhere(qb => {
         const subQuery = qb.subQuery()
@@ -2334,8 +2394,16 @@ router.get('/areas-simple', authenticateApiKeyWithSecret, async (req: AuthReques
       .orderBy('area.nameEn', 'ASC')
       .getMany();
 
+    const payload = areas.map((area) => ({
+      id: area.id,
+      slug: area.slug || generateSlug(area.nameEn),
+      nameEn: area.nameEn,
+      nameRu: area.nameRu,
+      cityId: area.cityId
+    }));
+
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    res.json(successResponse(areas));
+    res.json(successResponse(payload));
   } catch (error: any) {
     res.status(500).json(errorResponse('Failed to fetch areas', error.message));
   }
