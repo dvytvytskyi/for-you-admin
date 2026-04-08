@@ -79,6 +79,13 @@ function generateSlug(title: string): string {
     .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
 }
 
+const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://foryou-realestate.com').replace(/\/+$/g, '');
+
+function toCanonicalUrl(path: string): string {
+  const safePath = path.startsWith('/') ? path : `/${path}`;
+  return `${PUBLIC_SITE_URL}${safePath}`;
+}
+
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PROPERTY_ID_SUFFIX_REGEX = /(?:^property-|-)([0-9a-f]{8})$/i;
 
@@ -1891,6 +1898,10 @@ router.get('/properties', authenticateApiKeyWithSecret, async (req: AuthRequest,
       total: totalCount,
       meta: {
         total: totalCount,
+        seo: {
+          canonicalPath: '/properties',
+          canonicalUrl: toCanonicalUrl('/properties')
+        }
       },
       pagination: {
         total: totalCount,
@@ -2645,11 +2656,14 @@ router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequ
       finalPhotos = [property.parentProject.coverImage];
     }
 
+    const canonicalPath = `/properties/${property.slug || `property-${property.id.slice(0, 8)}`}`;
+
     const response = {
       ...property,
       photos: finalPhotos,
       images: transformPhotos(finalPhotos),
-      canonicalPath: `/properties/${property.slug || `property-${property.id.slice(0, 8)}`}`,
+      canonicalPath,
+      canonicalUrl: toCanonicalUrl(canonicalPath),
       priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
       priceAED: property.price ? Conversions.usdToAed(property.price) : null,
       sizeFromSqft: property.sizeFrom ? Conversions.sqmToSqft(property.sizeFrom) : null,
