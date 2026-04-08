@@ -261,7 +261,7 @@ async function fetchSecondaryRows(offset: number, limit?: number, onlyMissingRu?
       p."communityname" AS "communityName",
       p.bedrooms,
       p.bathrooms,
-      p.area::text AS "areaValue",
+      p.size::text AS "areaValue",
       a."nameEn" AS "areaName",
       c."nameEn" AS "cityName",
       p."updatedAt"::text AS "updatedAt"
