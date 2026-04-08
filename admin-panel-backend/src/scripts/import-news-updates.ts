@@ -203,7 +203,7 @@ async function run(): Promise<void> {
           SELECT id
           FROM news_contents
           WHERE "newsId" = $1 AND "order" = $2
-          ORDER BY "createdAt" ASC
+          ORDER BY id ASC
           LIMIT 1
         `,
         [newsId, order]
