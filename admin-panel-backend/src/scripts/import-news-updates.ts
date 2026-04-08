@@ -163,6 +163,7 @@ async function run(): Promise<void> {
     const seoDescription = stripAnchors(cleanText(item.seoDescription));
 
     let newsId: string;
+    let isDryRunCreate = false;
 
     if (!matchedNews) {
       if (!options.createMissing) {
@@ -179,7 +180,8 @@ async function run(): Promise<void> {
 
       if (options.dryRun) {
         console.log(`DRY-RUN NEWS create key=${slug || title}`);
-        newsId = `dry-run-create:${slug || title}`;
+        newsId = '00000000-0000-0000-0000-000000000000';
+        isDryRunCreate = true;
       } else {
         const insertedRows = await AppDataSource.query(
           `
@@ -269,16 +271,18 @@ async function run(): Promise<void> {
       const blockDescription = stripAnchors(cleanText(block.description));
       const blockDescriptionRu = stripAnchors(cleanText(block.descriptionRu));
 
-      const existing = await AppDataSource.query(
-        `
-          SELECT id
-          FROM news_contents
-          WHERE "newsId" = $1 AND "order" = $2
-          ORDER BY id ASC
-          LIMIT 1
-        `,
-        [newsId, order]
-      );
+      const existing = isDryRunCreate
+        ? []
+        : await AppDataSource.query(
+            `
+              SELECT id
+              FROM news_contents
+              WHERE "newsId" = $1 AND "order" = $2
+              ORDER BY id ASC
+              LIMIT 1
+            `,
+            [newsId, order]
+          );
 
       if (options.dryRun) {
         if (existing.length > 0) {
