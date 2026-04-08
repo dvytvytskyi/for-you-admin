@@ -63,7 +63,9 @@
     "db:health-check": "ts-node-dev src/scripts/check-db-health.ts",
     "sync:pf-projects": "ts-node-dev src/scripts/syncPropertyFinderProjects.ts",
     "sync:pf-final": "ts-node-dev src/scripts/pf-sync-final.ts",
-    "check:translation": "ts-node-dev src/scripts/check_translation_status.ts"
+    "check:translation": "ts-node-dev src/scripts/check_translation_status.ts",
+    "rewrite:offplan:en": "ts-node-dev src/scripts/rewrite-offplan-descriptions-en.ts",
+    "rewrite:offplan:en:live": "ts-node-dev src/scripts/rewrite-offplan-descriptions-en.ts --live"
   },
   "keywords": [],
   "author": "",
