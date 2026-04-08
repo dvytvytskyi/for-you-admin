@@ -135,9 +135,9 @@ async function run(): Promise<void> {
           SELECT id, slug, "nameEn"
           FROM areas
           WHERE
-            ($1::text IS NOT NULL AND slug = $1)
+            ($1::text IS NOT NULL AND (slug = $1 OR slug LIKE ($1 || '-%')))
             OR
-            ($1::text IS NULL AND $2::text IS NOT NULL AND "nameEn" = $2)
+            ($2::text IS NOT NULL AND "nameEn" = $2)
           LIMIT 1
         `,
         [entry.slug || null, entry.nameEn || null]
@@ -152,9 +152,9 @@ async function run(): Promise<void> {
             content_quick_access_description_en = $3,
             content_quick_access_description_ru = $4
           WHERE
-            ($5::text IS NOT NULL AND slug = $5)
+            ($5::text IS NOT NULL AND (slug = $5 OR slug LIKE ($5 || '-%')))
             OR
-            ($5::text IS NULL AND $6::text IS NOT NULL AND "nameEn" = $6)
+            ($6::text IS NOT NULL AND "nameEn" = $6)
           RETURNING id, slug, "nameEn"
         `,
         [
