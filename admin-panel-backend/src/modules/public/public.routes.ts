@@ -225,6 +225,25 @@ const normalizeUrl = (url: string | null | undefined) => {
   return `${domain}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
+const normalizeMapImageUrl = (value: any): string | null => {
+  if (typeof value !== 'string') return null;
+
+  const firstCandidate = value
+    .split(',')
+    .map((item) => item.trim())
+    .find((item) => item.length > 0) || '';
+
+  if (!firstCandidate) return null;
+
+  // Skip unsupported URL formats for map marker images.
+  if (firstCandidate.startsWith('blob:') || firstCandidate.startsWith('data:')) {
+    return null;
+  }
+
+  const normalized = normalizeUrl(firstCandidate);
+  return normalized && /^https?:\/\//i.test(normalized) ? normalized : null;
+};
+
 // GET /api/public/news/latest - Get 3 most recent news articles
 router.get('/news/latest', authenticateApiKeyWithSecret, async (req, res) => {
   try {
@@ -2401,21 +2420,22 @@ router.get('/map', authenticateApiKeyWithSecret, async (req: AuthRequest, res) =
     const properties = await queryBuilder.getMany();
 
     const mapPoints = properties.map(p => {
-      let image = null;
-      const finalPhotos = p.photos && p.photos.length > 0
-        ? p.photos
-        : (p.propertyType === PropertyType.SECONDARY && p.parentProject?.coverImage
-          ? [p.parentProject.coverImage]
-          : []);
+      const propertyPhotos = parseSimpleArray(p.photos);
+      const projectCoverPhotos = parseSimpleArray(p.parentProject?.coverImage);
+      const imageCandidates = [...propertyPhotos, ...projectCoverPhotos];
 
-      if (finalPhotos.length > 0) {
-        image = normalizeUrl(finalPhotos[0]);
-      }
+      const image = imageCandidates
+        .map((candidate) => normalizeMapImageUrl(candidate))
+        .find((candidate) => !!candidate) || null;
 
       return {
         id: p.id,
         name: p.name,
         image,
+        mainImage: image,
+        previewImage: image,
+        photo: image,
+        thumbnail: image,
         area: p.area?.nameEn,
         lat: typeof p.latitude === 'string' ? parseFloat(p.latitude) : p.latitude,
         lng: typeof p.longitude === 'string' ? parseFloat(p.longitude) : p.longitude,
