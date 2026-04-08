@@ -31,6 +31,12 @@ type Options = {
   dryRun: boolean;
 };
 
+type DbNewsRow = {
+  id: string;
+  slug: string | null;
+  title: string | null;
+};
+
 function parseArgs(argv: string[]): Options {
   const fileArg = argv.find((arg) => arg.startsWith('--file='));
   return {
@@ -73,6 +79,41 @@ function stripAnchors(value: string | null): string | null {
   return value.replace(/<a\s+[^>]*>(.*?)<\/a>/gi, '$1').trim();
 }
 
+function normalizeForMatch(value?: string | null): string {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[^a-z0-9а-яёіїєґ]+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findNewsByFallback(item: NewsUpdateInput, rows: DbNewsRow[]): DbNewsRow | null {
+  const slug = (item.slug || '').trim();
+  if (slug) {
+    const bySlug = rows.find((row) => (row.slug || '').trim() === slug);
+    if (bySlug) return bySlug;
+  }
+
+  const inputTitle = (item.title || '').trim();
+  if (inputTitle) {
+    const inputTitleLower = inputTitle.toLowerCase();
+    const exactTitleMatch = rows.find((row) => (row.title || '').trim().toLowerCase() === inputTitleLower);
+    if (exactTitleMatch) return exactTitleMatch;
+
+    const normalizedTitle = normalizeForMatch(inputTitle);
+    if (normalizedTitle) {
+      const normalizedMatches = rows.filter((row) => normalizeForMatch(row.title) === normalizedTitle);
+      if (normalizedMatches.length === 1) {
+        return normalizedMatches[0];
+      }
+    }
+  }
+
+  return null;
+}
+
 async function run(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const absolutePath = path.isAbsolute(options.filePath)
@@ -89,6 +130,10 @@ async function run(): Promise<void> {
     await AppDataSource.initialize();
   }
 
+  const dbNewsRows = (await AppDataSource.query(
+    'SELECT id, slug, title FROM news'
+  )) as DbNewsRow[];
+
   let found = 0;
   let missing = 0;
   let updatedNews = 0;
@@ -97,24 +142,16 @@ async function run(): Promise<void> {
 
   for (const item of updates) {
     const slug = (item.slug || '').trim();
-    if (!slug) {
-      console.warn('SKIP item without slug');
-      continue;
-    }
+    const matchedNews = findNewsByFallback(item, dbNewsRows);
 
-    const newsRows = await AppDataSource.query(
-      'SELECT id, slug FROM news WHERE slug = $1 LIMIT 1',
-      [slug]
-    );
-
-    if (newsRows.length === 0) {
+    if (!matchedNews) {
       missing += 1;
-      console.warn(`MISSING slug=${slug}`);
+      console.warn(`MISSING slug=${slug || '(empty)'} title=${(item.title || '').trim() || '(empty)'}`);
       continue;
     }
 
     found += 1;
-    const newsId = newsRows[0].id as string;
+    const newsId = matchedNews.id;
 
     const title = stripAnchors(cleanText(item.title));
     const titleRu = stripAnchors(cleanText(item.titleRu));
@@ -122,9 +159,10 @@ async function run(): Promise<void> {
     const descriptionRu = stripAnchors(cleanText(item.descriptionRu));
     const seoTitle = stripAnchors(cleanText(item.seoTitle));
     const seoDescription = stripAnchors(cleanText(item.seoDescription));
+    const logKey = slug || (item.title || '').trim() || newsId;
 
     if (options.dryRun) {
-      console.log(`DRY-RUN NEWS slug=${slug}`);
+      console.log(`DRY-RUN NEWS key=${logKey}`);
     } else {
       await AppDataSource.query(
         `
@@ -142,7 +180,7 @@ async function run(): Promise<void> {
         [title, titleRu, description, descriptionRu, seoTitle, seoDescription, newsId]
       );
       updatedNews += 1;
-      console.log(`UPDATED NEWS slug=${slug}`);
+      console.log(`UPDATED NEWS key=${logKey}`);
     }
 
     const contents = Array.isArray(item.contents) ? item.contents : [];
@@ -173,9 +211,9 @@ async function run(): Promise<void> {
 
       if (options.dryRun) {
         if (existing.length > 0) {
-          console.log(`  DRY-RUN CONTENT update slug=${slug} order=${order}`);
+          console.log(`  DRY-RUN CONTENT update key=${logKey} order=${order}`);
         } else {
-          console.log(`  DRY-RUN CONTENT insert slug=${slug} order=${order}`);
+          console.log(`  DRY-RUN CONTENT insert key=${logKey} order=${order}`);
         }
         continue;
       }
@@ -232,7 +270,7 @@ async function run(): Promise<void> {
   console.log('================================================');
   console.log(`File: ${absolutePath}`);
   console.log(`Items in file: ${updates.length}`);
-  console.log(`Matched by slug: ${found}`);
+  console.log(`Matched records: ${found}`);
   console.log(`Missing slugs: ${missing}`);
   console.log(`News rows updated: ${options.dryRun ? 0 : updatedNews}`);
   console.log(`News content rows updated: ${options.dryRun ? 0 : updatedContentRows}`);
