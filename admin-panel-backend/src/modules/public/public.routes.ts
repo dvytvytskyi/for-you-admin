@@ -79,6 +79,54 @@ function generateSlug(title: string): string {
     .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const PROPERTY_ID_SUFFIX_REGEX = /(?:^property-|-)([0-9a-f]{8})$/i;
+
+const joinPropertyRelations = (qb: any, relations: string[]) => {
+  const aliases: Record<string, string> = {
+    country: 'country',
+    city: 'city',
+    area: 'area',
+    developer: 'developer',
+    facilities: 'facilities',
+    units: 'units',
+    parentProject: 'parentProject'
+  };
+
+  relations.forEach((relation) => {
+    const alias = aliases[relation] || relation;
+    qb.leftJoinAndSelect(`property.${relation}`, alias);
+  });
+};
+
+async function findPropertyByIdentifier(identifier: string, relations: string[] = []): Promise<Property | null> {
+  const repo = AppDataSource.getRepository(Property);
+
+  if (UUID_REGEX.test(identifier)) {
+    const byId = await repo.findOne({ where: { id: identifier }, relations });
+    if (byId) return byId;
+  }
+
+  const bySlug = await repo.findOne({ where: { slug: identifier }, relations });
+  if (bySlug) return bySlug;
+
+  const suffixMatch = identifier.match(PROPERTY_ID_SUFFIX_REGEX);
+  if (suffixMatch) {
+    const idSuffix = suffixMatch[1].toLowerCase();
+    const qb = repo.createQueryBuilder('property');
+    joinPropertyRelations(qb, relations);
+
+    const bySuffix = await qb
+      .where('LOWER(LEFT(property.id::text, 8)) = :idSuffix', { idSuffix })
+      .orderBy('property."updatedAt"', 'DESC')
+      .getOne();
+
+    if (bySuffix) return bySuffix;
+  }
+
+  return null;
+}
+
 const parseSimpleArray = (val: any): string[] => {
   if (!val) return [];
   if (Array.isArray(val)) {
@@ -2439,51 +2487,16 @@ router.get('/developers-simple', authenticateApiKeyWithSecret, async (req: AuthR
 // GET /api/public/properties/:id/summary - Get lightweight property detail for map popup
 router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id);
-    let property = null;
-
-    if (isUuid) {
-        property = await AppDataSource.getRepository(Property).findOne({
-            where: { id: req.params.id },
-            relations: ['area', 'city', 'developer'],
-            select: {
-              id: true,
-              name: true,
-              price: true,
-              priceFrom: true,
-              photos: true,
-              propertyType: true,
-              bedroomsFrom: true,
-              sizeFrom: true,
-              bedrooms: true,
-              size: true,
-              area: {
-                id: true,
-                nameEn: true,
-                nameRu: true,
-                nameAr: true
-              },
-              city: {
-                id: true,
-                nameEn: true,
-                nameRu: true,
-                nameAr: true
-              },
-              developer: {
-                id: true,
-                name: true,
-                logo: true
-              }
-            }
-        });
-    }
+    const identifier = req.params.id;
+    const isUuid = UUID_REGEX.test(identifier);
+    let property = await findPropertyByIdentifier(identifier, ['area', 'city', 'developer']);
 
     if (!property) {
       // Logic for Property Finder projects if regular property is not found
       const pfProject = await AppDataSource.getRepository(PropertyFinderProject).findOne({
-        where: isUuid 
-            ? [{ id: req.params.id }, { pfId: req.params.id }] 
-            : [{ pfId: req.params.id }]
+        where: isUuid
+          ? [{ id: identifier }, { pfId: identifier }]
+          : [{ pfId: identifier }]
       });
 
       if (!pfProject) {
@@ -2594,16 +2607,7 @@ router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: 
 router.get('/properties/:id/units', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
     const { id: identifier } = req.params;
-    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(identifier);
-
-    const property = await AppDataSource.getRepository(Property).findOne({
-      where: isUuid ? { id: identifier } : { slug: identifier },
-      relations: ['units'],
-      select: {
-        id: true,
-        units: true
-      }
-    });
+    const property = await findPropertyByIdentifier(identifier, ['units']);
 
     if (!property) {
       return res.status(404).json(errorResponse('Property not found'));
@@ -2620,12 +2624,15 @@ router.get('/properties/:id/units', authenticateApiKeyWithSecret, async (req: Au
 router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
     const identifier = req.params.id;
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(identifier);
-
-    const property = await AppDataSource.getRepository(Property).findOne({
-      where: isUuid ? { id: identifier } : { slug: identifier },
-      relations: ['country', 'city', 'area', 'developer', 'facilities', 'units', 'parentProject'],
-    });
+    const property = await findPropertyByIdentifier(identifier, [
+      'country',
+      'city',
+      'area',
+      'developer',
+      'facilities',
+      'units',
+      'parentProject'
+    ]);
 
     if (!property) {
       console.warn(`[Public API] 404: Property not found with identifier: ${identifier} (isUuid: ${isUuid})`);
@@ -2642,6 +2649,7 @@ router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequ
       ...property,
       photos: finalPhotos,
       images: transformPhotos(finalPhotos),
+      canonicalPath: `/properties/${property.slug || `property-${property.id.slice(0, 8)}`}`,
       priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
       priceAED: property.price ? Conversions.usdToAed(property.price) : null,
       sizeFromSqft: property.sizeFrom ? Conversions.sqmToSqft(property.sizeFrom) : null,

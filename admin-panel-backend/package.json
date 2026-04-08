@@ -68,7 +68,9 @@
     "rewrite:offplan:en:live": "ts-node-dev src/scripts/rewrite-offplan-descriptions-en.ts --live",
     "translate:offplan:ru": "ts-node-dev src/scripts/translate-offplan-descriptions-ru.ts",
     "translate:offplan:ru:live": "ts-node-dev src/scripts/translate-offplan-descriptions-ru.ts --live",
-    "import:areas:content": "ts-node-dev src/scripts/import-areas-content.ts"
+    "import:areas:content": "ts-node-dev src/scripts/import-areas-content.ts",
+    "slug:properties:seo": "ts-node-dev src/scripts/backfill-property-seo-slugs.ts",
+    "slug:properties:seo:live": "ts-node-dev src/scripts/backfill-property-seo-slugs.ts --live"
   },
   "keywords": [],
   "author": "",
