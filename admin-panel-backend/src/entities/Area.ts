@@ -47,6 +47,18 @@ export class Area {
   @Column('text', { array: true, nullable: true })
   images?: string[]; // Масив URL фото (до 8 штук, 3x4 або 4x3)
 
+  @Column({ name: 'content_general_information_en', type: 'text', nullable: true })
+  contentGeneralInformationEn?: string;
+
+  @Column({ name: 'content_general_information_ru', type: 'text', nullable: true })
+  contentGeneralInformationRu?: string;
+
+  @Column({ name: 'content_quick_access_description_en', type: 'text', nullable: true })
+  contentQuickAccessDescriptionEn?: string;
+
+  @Column({ name: 'content_quick_access_description_ru', type: 'text', nullable: true })
+  contentQuickAccessDescriptionRu?: string;
+
   @Column({ name: 'isactive', default: true })
   isActive!: boolean;
 

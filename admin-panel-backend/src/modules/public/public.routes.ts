@@ -95,6 +95,44 @@ const parseSimpleArray = (val: any): string[] => {
   return [];
 };
 
+const AREA_PROXIMITY_POINTS = [
+  {
+    id: 'burj-khalifa',
+    titleEn: 'Burj Khalifa',
+    titleRu: 'Башня Халифа',
+    coordinates: [55.2744, 25.1972] as [number, number]
+  },
+  {
+    id: 'dubai-marina',
+    titleEn: 'Dubai Marina',
+    titleRu: 'Дубай Марина',
+    coordinates: [55.1403, 25.08] as [number, number]
+  },
+  {
+    id: 'dubai-airport',
+    titleEn: 'Dubai Airport',
+    titleRu: 'Международный аэропорт Дубая',
+    coordinates: [55.3657, 25.2532] as [number, number]
+  },
+  {
+    id: 'dubai-hills',
+    titleEn: 'Dubai Hills',
+    titleRu: 'Дубай Хиллс',
+    coordinates: [55.244, 25.1048] as [number, number]
+  }
+];
+
+const buildAreaContent = (area: any) => ({
+  generalInformation: {
+    en: area.content_general_information_en || null,
+    ru: area.content_general_information_ru || null
+  },
+  quickAccessDescription: {
+    en: area.content_quick_access_description_en || null,
+    ru: area.content_quick_access_description_ru || null
+  }
+});
+
 const transformPhotos = (photos: any) => {
   const photosArray = parseSimpleArray(photos);
   return photosArray.map(photo => {
@@ -853,13 +891,19 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
            area."cityId",
            area."nameEn",
            area."nameRu",
+           area."nameAr",
            area.description,
            area."descriptionRu",
+           area.infrastructure,
            area.images,
            area.mainimage,
            area.slug,
            area.isfeatured,
-           area.priority
+           area.priority,
+           area.content_general_information_en,
+           area.content_general_information_ru,
+           area.content_quick_access_description_en,
+           area.content_quick_access_description_ru
          FROM areas area
          ${whereClause}
          ORDER BY area.priority DESC, area."nameEn" ASC
@@ -922,14 +966,18 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
 
           return {
             id: area.id,
+            cityId: area.cityId,
             nameEn: area.nameEn,
             nameRu: area.nameRu,
+            nameAr: area.nameAr,
             slug: area.slug || generateSlug(area.nameEn),
             mainImage,
             images: imagesArray,
             descriptionEn: area.description?.description || '',
             descriptionRu: area.descriptionRu?.description || '',
             infrastructure: area.infrastructure || null,
+            content: buildAreaContent(area),
+            proximityPoints: AREA_PROXIMITY_POINTS,
             city: city ? {
               id: (city as any).id,
               nameEn: (city as any).nameEn,
@@ -2567,8 +2615,10 @@ router.get('/areas/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, 
     const response = {
       id: area.id,
       slug: area.slug,
+      cityId: area.cityId,
       nameEn: area.nameEn,
       nameRu: area.nameRu,
+      nameAr: area.nameAr,
       mainImage,
       images: imagesArray,
       isActive: area.isActive,
@@ -2576,6 +2626,18 @@ router.get('/areas/:id', authenticateApiKeyWithSecret, async (req: AuthRequest, 
       priority: area.priority,
       description: area.description,
       descriptionRu: area.descriptionRu,
+      infrastructure: area.infrastructure || null,
+      content: {
+        generalInformation: {
+          en: area.contentGeneralInformationEn || null,
+          ru: area.contentGeneralInformationRu || null
+        },
+        quickAccessDescription: {
+          en: area.contentQuickAccessDescriptionEn || null,
+          ru: area.contentQuickAccessDescriptionRu || null
+        }
+      },
+      proximityPoints: AREA_PROXIMITY_POINTS,
       city: area.city ? {
         id: area.city.id,
         nameEn: area.city.nameEn
