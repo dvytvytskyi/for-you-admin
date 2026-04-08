@@ -134,7 +134,12 @@ function keywordListForPrompt(property: OffPlanRow): string {
   return unique.slice(0, 12).join(', ');
 }
 
-function buildPrompt(property: OffPlanRow, minChars: number, maxChars: number): string {
+function buildPrompt(
+  property: OffPlanRow,
+  minChars: number,
+  maxChars: number,
+  feedback?: { reason: string; charCount?: number }
+): string {
   const plainSource = stripHtml(property.description || '');
   const sourceShort = plainSource.slice(0, 1400);
 
@@ -144,6 +149,21 @@ function buildPrompt(property: OffPlanRow, minChars: number, maxChars: number): 
   const completion = property.plannedCompletionAt || property.completionDatetime || property.readiness || 'on request';
   const paymentPlan = property.paymentPlan || 'flexible payment plan';
   const priceFrom = property.priceFrom ? String(property.priceFrom) : 'on request';
+  const preferredMin = Math.max(minChars, 1280);
+  const preferredMax = Math.min(maxChars, 1420);
+
+  const correctionBlock = feedback
+    ? [
+        '',
+        'Correction from previous failed attempt:',
+        `- Previous validation failure: ${feedback.reason}`,
+        ...(typeof feedback.charCount === 'number'
+          ? [`- Previous plain-text length: ${feedback.charCount} characters.`]
+          : []),
+        '- Rewrite from scratch and correct the problem completely.',
+        `- Keep the new plain-text length between ${preferredMin} and ${preferredMax} characters so it safely passes the strict ${minChars}-${maxChars} rule.`
+      ].join('\n')
+    : '';
 
   return [
     'You are a senior SEO copywriter for premium UAE real estate.',
@@ -156,10 +176,13 @@ function buildPrompt(property: OffPlanRow, minChars: number, maxChars: number): 
     '  2) <h2>Location description and benefits</h2>',
     '- Optionally include these sections only if relevant: ',
     '  <h2>Kitchen and appliances</h2>, <h2>Furnishing</h2>.',
-    `- Text length (without HTML tags) must be between ${minChars} and ${maxChars} characters.`,
+    `- Text length (without HTML tags) must be between ${minChars} and ${maxChars} characters. Preferred target band: ${preferredMin}-${preferredMax}.`,
     '- Keep it factual and consistent with source context. No invented numbers, no fake guarantees.',
     '- Keep style premium, concrete, and natural. Avoid clichés.',
     '- Integrate SEO keywords naturally, no stuffing.',
+    '- Write substantial section bodies. Thin outputs will be rejected.',
+    '- Each required section should contribute meaningful detail about lifestyle, design, amenities, connectivity, buyer appeal, or investment relevance.',
+    '- Do not mention that this text is optimized for SEO.',
     '',
     'Project context:',
     `- Project name: ${property.name}`,
@@ -174,6 +197,7 @@ function buildPrompt(property: OffPlanRow, minChars: number, maxChars: number): 
     '',
     'Current source description excerpt:',
     sourceShort || 'No source description available.',
+    correctionBlock,
     '',
     'Output only JSON. Do not add markdown fences.'
   ].join('\n');
@@ -433,20 +457,21 @@ async function run(): Promise<void> {
     const property = sliced[index];
 
     const originalDescription = property.description || '';
-    const prompt = buildPrompt(property, options.minChars, options.maxChars);
-
     let acceptedHtml: string | null = null;
     let validationReason = 'unknown';
     let charCount = 0;
     let similarity = 0;
+    let lastFeedback: { reason: string; charCount?: number } | undefined;
 
-    for (let attempt = 1; attempt <= 2; attempt += 1) {
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
       try {
+        const prompt = buildPrompt(property, options.minChars, options.maxChars, lastFeedback);
         const raw = await callGroqWithRetry(groqApiKey, prompt, options.model, options.maxRetries);
         const parsed = parseRewritePayload(raw);
 
         if (!parsed) {
           validationReason = 'invalid-json-response';
+          lastFeedback = { reason: validationReason };
           continue;
         }
 
@@ -456,6 +481,7 @@ async function run(): Promise<void> {
 
         if (!validation.ok) {
           validationReason = validation.reason || 'validation-failed';
+          lastFeedback = { reason: validationReason, charCount };
           continue;
         }
 
@@ -463,6 +489,7 @@ async function run(): Promise<void> {
         break;
       } catch (error: any) {
         validationReason = `request-failed:${error.message}`;
+        lastFeedback = { reason: validationReason };
       }
     }
 
