@@ -2611,9 +2611,13 @@ router.get('/properties/:id/summary', authenticateApiKeyWithSecret, async (req: 
       priceAED: property.price ? Conversions.usdToAed(property.price) : null,
       priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
       bedrooms: property.propertyType === 'off-plan' ? property.bedroomsFrom : property.bedrooms,
-      size: property.propertyType === 'off-plan' ? property.sizeFrom : property.size,
+      size: property.propertyType === 'off-plan' ? null : property.size,
       bedroomsFrom: property.propertyType === 'off-plan' ? property.bedroomsFrom : null,
-      sizeFrom: property.propertyType === 'off-plan' ? property.sizeFrom : null,
+      sizeFrom: property.propertyType === 'off-plan' ? (property.sizeFrom ? Conversions.sqftToSqm(Number(property.sizeFrom)) : null) : null,
+      sizeTo: property.propertyType === 'off-plan' ? (property.sizeTo ? Conversions.sqftToSqm(Number(property.sizeTo)) : null) : null,
+      sizeFromSqft: property.propertyType === 'off-plan' && property.sizeFrom ? Number(property.sizeFrom) : null,
+      sizeToSqft: property.propertyType === 'off-plan' && property.sizeTo ? Number(property.sizeTo) : null,
+      sizeSqft: property.propertyType === 'off-plan' ? null : (property.size ? Conversions.sqmToSqft(property.size) : null),
       location: location,
       area: property.area ? {
         id: property.area.id,
@@ -2692,9 +2696,20 @@ router.get('/properties/:id', authenticateApiKeyWithSecret, async (req: AuthRequ
       canonicalUrl: toCanonicalUrl(canonicalPath),
       priceFromAED: property.priceFrom ? Conversions.usdToAed(property.priceFrom) : null,
       priceAED: property.price ? Conversions.usdToAed(property.price) : null,
-      sizeFromSqft: property.sizeFrom ? Conversions.sqmToSqft(property.sizeFrom) : null,
-      sizeToSqft: property.sizeTo ? Conversions.sqmToSqft(property.sizeTo) : null,
-      sizeSqft: property.size ? Conversions.sqmToSqft(property.size) : null,
+      size: property.propertyType === 'off-plan' ? null : property.size,
+      sizeFrom: property.propertyType === 'off-plan'
+        ? (property.sizeFrom ? Conversions.sqftToSqm(Number(property.sizeFrom)) : null)
+        : property.sizeFrom,
+      sizeTo: property.propertyType === 'off-plan'
+        ? (property.sizeTo ? Conversions.sqftToSqm(Number(property.sizeTo)) : null)
+        : property.sizeTo,
+      sizeFromSqft: property.propertyType === 'off-plan'
+        ? (property.sizeFrom ? Number(property.sizeFrom) : null)
+        : (property.sizeFrom ? Conversions.sqmToSqft(property.sizeFrom) : null),
+      sizeToSqft: property.propertyType === 'off-plan'
+        ? (property.sizeTo ? Number(property.sizeTo) : null)
+        : (property.sizeTo ? Conversions.sqmToSqft(property.sizeTo) : null),
+      sizeSqft: property.propertyType === 'off-plan' ? null : (property.size ? Conversions.sqmToSqft(property.size) : null),
       // Додаємо назву оригінального проекту для зручності
       projectName: property.propertyType !== PropertyType.SECONDARY 
         ? property.name 
