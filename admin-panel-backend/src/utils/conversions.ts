@@ -9,5 +9,9 @@ export class Conversions {
   static sqmToSqft(sqm: number): number {
     return Math.round(sqm * this.SQM_TO_SQFT);
   }
+
+  static sqftToSqm(sqft: number): number {
+    return Math.round((sqft / this.SQM_TO_SQFT) * 100) / 100;
+  }
 }
 
