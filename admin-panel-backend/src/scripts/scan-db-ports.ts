@@ -3,7 +3,7 @@ import { DataSource } from 'typeorm';
 import { Property } from '../entities/Property';
 import { entities } from '../entities';
 
-const CREDENTIALS = 'postgresql://admin:REDACTED_DB_PASSWORD@localhost';
+const CREDENTIALS = `postgresql://admin:${process.env.DB_PASS ?? ''}@localhost`;
 const PORTS = [5432, 5434, 5435, 5436];
 const DB_NAME = 'foryou_admin_panel'; // Also try 'admin_panel' if needed
 

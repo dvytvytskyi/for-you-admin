@@ -12,11 +12,12 @@ async function resetAdminPassword() {
         const user = await userRepository.findOne({ where: { email: adminEmail } });
 
         if (user) {
-            const password = 'REDACTED_PASSWORD';
+            const password = process.env.ADMIN_PASSWORD;
+            if (!password) { console.error('❌ Set ADMIN_PASSWORD env var'); process.exit(1); }
             const hash = await bcrypt.hash(password, 10);
             user.passwordHash = hash;
             await userRepository.save(user);
-            console.log(`✅ Password for ${adminEmail} has been reset to REDACTED_PASSWORD`);
+            console.log(`✅ Password for ${adminEmail} has been reset.`);
         } else {
             console.log(`❌ User ${adminEmail} not found`);
         }

@@ -7,7 +7,7 @@ async function verify() {
         host: '127.0.0.1',
         port: 5432,
         username: 'postgres',
-        password: 'postgres',
+        password: process.env.DB_PASS ?? '',
         database: 'for_you_real_estate',
         synchronize: false,
         logging: false,

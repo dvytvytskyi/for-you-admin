@@ -8,7 +8,7 @@ async function checkProperty() {
         host: 'localhost',
         port: 5432,
         username: 'postgres',
-        password: 'postgres',
+        password: process.env.DB_PASS ?? '',
         database: 'for_you_real_estate',
         entities: entities,
         synchronize: false,

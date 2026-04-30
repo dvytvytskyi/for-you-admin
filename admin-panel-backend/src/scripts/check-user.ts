@@ -6,7 +6,7 @@ async function verify() {
         host: '127.0.0.1',
         port: 5435,
         username: 'admin',
-        password: 'admin123',
+        password: process.env.DB_PASS ?? '',
         database: 'admin_panel',
         synchronize: false,
         logging: false,

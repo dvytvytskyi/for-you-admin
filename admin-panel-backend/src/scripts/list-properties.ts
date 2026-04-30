@@ -7,7 +7,7 @@ async function listProperties() {
         host: '127.0.0.1',
         port: 5432,
         username: 'postgres',
-        password: 'postgres',
+        password: process.env.DB_PASS ?? '',
         database: 'admin_panel_propart',
         entities: entities,
         synchronize: false,

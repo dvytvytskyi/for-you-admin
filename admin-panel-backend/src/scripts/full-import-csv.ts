@@ -215,7 +215,7 @@ async function startFullImport() {
             host: 'localhost',
             port: 5434,
             username: 'admin',
-            password: 'admin123',
+            password: process.env.DB_PASS ?? '',
             database: 'admin_panel',
             entities: [MinimalProperty, MinimalPropertyUnit, MinimalCountry, MinimalCity, MinimalArea, MinimalDeveloper, MinimalFacility],
             synchronize: false,

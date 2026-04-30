@@ -57,6 +57,14 @@ import-errors.json
 # Script output files
 area-projects.md
 
+# Local credentials and one-off content artifacts
+admin-panel-backend/google-service-account.json
+*-service-account*.json
+article-test-*.md
+content-plan-*.md
+seo-news-prompt.md
+news-autopublish-pipeline-*.json
+
 
 # Database Data
 docker-data/

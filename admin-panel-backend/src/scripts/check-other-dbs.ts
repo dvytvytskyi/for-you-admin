@@ -11,7 +11,7 @@ async function checkPostgresPort() {
         host: 'localhost',
         port: 5432,
         username: 'postgres',
-        password: 'postgres',
+        password: process.env.DB_PASS ?? '',
         database: 'for_you_real_estate',
         synchronize: false,
         logging: false,
@@ -36,7 +36,7 @@ async function checkNewAdminPort() {
         host: 'localhost',
         port: 5435, // mapped to 5432 in container
         username: 'admin',
-        password: 'admin123',
+        password: process.env.DB_PASS ?? '',
         database: 'admin_panel',
         entities: entities, // Try with our entities
         synchronize: false,

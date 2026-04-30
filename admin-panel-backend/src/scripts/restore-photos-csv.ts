@@ -70,7 +70,7 @@ async function importFromCSV() {
             host: 'localhost', // Hardcoded safe defaults for this script
             port: 5434,
             username: 'admin',
-            password: 'admin123',
+            password: process.env.DB_PASS ?? '',
             database: 'admin_panel',
             entities: [Property, PropertyUnit, Country, City, Area, Developer, Facility],
             synchronize: false, // DISABLED to prevent schema corruption

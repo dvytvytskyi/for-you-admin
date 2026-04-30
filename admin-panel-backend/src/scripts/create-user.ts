@@ -7,7 +7,7 @@ async function createUser() {
         host: '127.0.0.1',
         port: 5435,
         username: 'admin',
-        password: 'admin123',
+        password: process.env.DB_PASS ?? '',
         database: 'admin_panel',
         synchronize: false,
         logging: false,
@@ -18,7 +18,7 @@ async function createUser() {
         console.log('Connected to admin_panel.');
 
         const email = 'dvytvytskyi@gmail.com';
-        const password = 'REDACTED_PASSWORD';
+        const password = process.env.USER_PASSWORD ?? '';
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Check if user exists first to be safe (though we know they don't from previous check)

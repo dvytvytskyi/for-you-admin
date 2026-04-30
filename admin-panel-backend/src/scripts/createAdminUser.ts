@@ -11,15 +11,15 @@ async function createAdminUser() {
     const userRepository = AppDataSource.getRepository(User);
     
     // Створюємо обох адміністраторів (з env та з документації)
+    const pass1 = process.env.ADMIN_PASS_1;
+    const pass2 = process.env.ADMIN_PASS_2;
+    if (!pass1 || !pass2) {
+      console.error('❌ Set ADMIN_PASS_1 and ADMIN_PASS_2 env vars before running this script.');
+      process.exit(1);
+    }
     const admins = [
-      {
-        email: 'admin@foryou.ae',
-        password: 'admin123', // Пароль з .env
-      },
-      {
-        email: 'admin@foryou-realestate.com',
-        password: 'REDACTED_ADMIN_PASSWORD', // Пароль з документації
-      }
+      { email: 'admin@foryou.ae', password: pass1 },
+      { email: 'admin@foryou-realestate.com', password: pass2 },
     ];
 
     for (const admin of admins) {
@@ -57,17 +57,7 @@ async function createAdminUser() {
     }
 
     console.log('');
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('✅ ВСІ АДМІНІСТРАТОРИ ГОТОВІ!');
-    console.log('');
-    console.log('📧 Дані для входу:');
-    console.log('   1. Email: admin@foryou.ae');
-    console.log('      Password: admin123');
-    console.log('');
-    console.log('   2. Email: admin@foryou-realestate.com');
-    console.log('      Password: REDACTED_ADMIN_PASSWORD');
-    console.log('═══════════════════════════════════════════════════════════');
-    console.log('');
+    console.log('✅ ALL ADMINS READY. Check email/credentials in your secure vault.');
 
     await AppDataSource.destroy();
     process.exit(0);

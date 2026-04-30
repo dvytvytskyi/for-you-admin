@@ -1,0 +1,11 @@
+name = "foryou-geo-router"
+main = "cloudflare-geo-worker.js"
+compatibility_date = "2024-01-01"
+account_id = "2c0ba256e718f11cebb8dad4a4d92763"
+
+routes = [
+  { pattern = "foryou-realestate.com/*", zone_name = "foryou-realestate.com" },
+  { pattern = "api.foryou-realestate.com/*", zone_name = "foryou-realestate.com" },
+  { pattern = "www.foryou-realestate.com/*", zone_name = "foryou-realestate.com" },
+  { pattern = "dashboards.foryou-realestate.com/*", zone_name = "foryou-realestate.com" }
+]
