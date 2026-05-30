@@ -13,6 +13,7 @@ import { News } from '../../entities/News';
 import { Vacancy, VacancyStatus } from '../../entities/Vacancy';
 import { VacancyRequest } from '../../entities/VacancyRequest';
 import { PropertyFinderProject } from '../../entities/PropertyFinderProject';
+import { PropertyFinderService } from '../../services/property-finder.service';
 import { successResponse, errorResponse } from '../../utils/response';
 import { Conversions } from '../../utils/conversions';
 import { authenticateApiKeyWithSecret, AuthRequest } from '../../middleware/auth';
@@ -80,10 +81,17 @@ function generateSlug(title: string): string {
 }
 
 const PUBLIC_SITE_URL = (process.env.PUBLIC_SITE_URL || 'https://foryou-realestate.com').replace(/\/+$/g, '');
+const BACKEND_BASE_URL = (process.env.BACKEND_URL || process.env.PUBLIC_SITE_URL || 'https://admin.foryou-realestate.com').replace(/\/+$/g, '');
 
 function toCanonicalUrl(path: string): string {
   const safePath = path.startsWith('/') ? path : `/${path}`;
   return `${PUBLIC_SITE_URL}${safePath}`;
+}
+
+function buildImageProxyUrl(imageUrl: string | null | undefined, title?: string | null) {
+  if (!imageUrl) return null;
+  const url = `${BACKEND_BASE_URL}/api/images?url=${encodeURIComponent(imageUrl)}${title ? `&title=${encodeURIComponent(title)}` : ''}`;
+  return url;
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -225,6 +233,22 @@ const normalizeUrl = (url: string | null | undefined) => {
   return `${domain}${path.startsWith('/') ? '' : '/'}${path}`;
 };
 
+const normalizeTopProjects = (projects: Array<{ name?: string; slug?: string }> | null | undefined) => {
+  return (projects || [])
+    .filter((project) => project && typeof project.slug === 'string' && project.slug.trim().length > 0)
+    .map((project) => {
+      const slug = project.slug!.trim();
+      const path = `/properties/${slug}`;
+
+      return {
+        name: project.name || null,
+        slug,
+        path,
+        url: toCanonicalUrl(path),
+      };
+    });
+};
+
 const normalizeMapImageUrl = (value: any): string | null => {
   if (typeof value !== 'string') return null;
 
@@ -265,7 +289,7 @@ router.get('/news/latest', authenticateApiKeyWithSecret, async (req, res) => {
       titleRu: item.titleRu,
       description: item.description,
       descriptionRu: item.descriptionRu,
-      image: item.imageUrl,
+      image: buildImageProxyUrl(item.imageUrl, item.title),
       publishedAt: item.publishedAt,
     }));
 
@@ -1086,6 +1110,14 @@ router.get('/areas', authenticateApiKeyWithSecret, async (req: AuthRequest, res)
   }
 });
 
+// The authoritative list of developer slugs we expose publicly (18 developers)
+const ALLOWED_DEVELOPER_SLUGS = [
+  'emaar', 'azizi', 'binghatti', 'sobha', 'ellington',
+  'meraas', 'samana', 'object-1',
+  'rak-properties', 'deyaar', 'nakheel', 'danube', 'majid-al-futtaim',
+  'select-group', 'omniyat', 'dubai-properties', 'vincitore', 'union-properties',
+];
+
 // GET /api/public/developers - Get all developers with project counts
 // GET /api/public/developers/featured - Get featured developers
 router.get('/developers/featured', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
@@ -1193,25 +1225,74 @@ router.get('/developers/featured', authenticateApiKeyWithSecret, async (req: Aut
 
 router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
   try {
-    const { summary, page = '1', limit = '20' } = req.query;
+    const { summary, page = '1', limit = '20', ids } = req.query;
     const isSummary = summary === 'true';
     const pageNum = parseInt(page.toString(), 10) || 1;
     const limitNum = parseInt(limit.toString(), 10) || 20;
     const skip = (pageNum - 1) * limitNum;
 
+    // ?ids=uuid1,uuid2 OR ?ids=slug1,slug2 — fetch specific developers (for "related developers" block)
+    const idsFilter = ids
+      ? (ids as string).split(',').map(s => s.trim()).filter(Boolean)
+      : null;
+
     console.log('[Public API] GET /api/public/developers request:', {
       isSummary,
       page: pageNum,
       limit: limitNum,
+      idsFilter: idsFilter?.length ?? null,
       hasApiKey: !!req.apiKey,
     });
 
-    // Отримуємо developers з пагінацією
-    const [developers, totalCount] = await AppDataSource.getRepository(Developer).findAndCount({
-      order: { name: 'ASC' },
-      skip,
-      take: limitNum,
-    });
+    let developers: Developer[];
+    let totalCount: number;
+
+    if (idsFilter && idsFilter.length > 0) {
+      const { In } = require('typeorm');
+      const uuidIds = idsFilter.filter((value) => UUID_REGEX.test(value));
+      const slugIds = idsFilter.filter((value) => !UUID_REGEX.test(value));
+
+      const whereClauses: any[] = [];
+      if (uuidIds.length > 0) whereClauses.push({ id: In(uuidIds) });
+      if (slugIds.length > 0) whereClauses.push({ slug: In(slugIds) });
+
+      developers = whereClauses.length > 0
+        ? await AppDataSource.getRepository(Developer).find({
+          where: whereClauses,
+          order: { name: 'ASC' },
+        })
+        : [];
+
+      // Fallback: support ids by generated slug for legacy records with null slug
+      const foundKeys = new Set<string>();
+      developers.forEach((d) => {
+        foundKeys.add(d.id);
+        if (d.slug) foundKeys.add(d.slug);
+      });
+
+      const missingIds = idsFilter.filter(v => !foundKeys.has(v));
+      if (missingIds.length > 0) {
+        const allDevs = await AppDataSource.getRepository(Developer).find();
+        const byGeneratedSlug = allDevs.filter(d => missingIds.includes(d.slug || generateSlug(d.name)));
+        const existingIds = new Set(developers.map(d => d.id));
+        byGeneratedSlug.forEach((d) => {
+          if (!existingIds.has(d.id)) developers.push(d);
+        });
+      }
+
+      // Keep the same public access policy for ids-filtered requests
+      developers = developers.filter((d) => ALLOWED_DEVELOPER_SLUGS.includes(d.slug || generateSlug(d.name)));
+      totalCount = developers.length;
+    } else {
+      // Only expose allowed developers; respect ALLOWED_DEVELOPER_SLUGS list
+      const { In } = require('typeorm');
+      [developers, totalCount] = await AppDataSource.getRepository(Developer).findAndCount({
+        where: { slug: In(ALLOWED_DEVELOPER_SLUGS) },
+        order: { name: 'ASC' },
+        skip,
+        take: limitNum,
+      });
+    }
 
     const developerIds = developers.map(d => d.id);
 
@@ -1258,6 +1339,30 @@ router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest,
       });
     });
 
+    // Fetch one cover photo per developer from their projects (first photo from most recent property)
+    const coverImageMap = new Map<string, string | null>();
+    if (developerIds.length > 0) {
+      const coverRows: { developerId: string; photo: string }[] = await AppDataSource.query(`
+        SELECT DISTINCT ON ("developerId") "developerId", photo
+        FROM (
+          SELECT "developerId", "createdAt",
+            CASE
+              WHEN photos LIKE '[%' THEN (photos::jsonb)->>0
+              WHEN photos LIKE 'http%' THEN split_part(photos, ',', 1)
+              ELSE NULL
+            END AS photo
+          FROM properties
+          WHERE "developerId" = ANY($1)
+            AND photos IS NOT NULL
+            AND photos <> ''
+            AND photos <> '[]'
+        ) sub
+        WHERE photo IS NOT NULL AND photo <> ''
+        ORDER BY "developerId", "createdAt" DESC
+      `, [developerIds]);
+      coverRows.forEach(r => r.photo && coverImageMap.set(r.developerId, normalizeUrl(r.photo)));
+    }
+
     const result = developers.map(developer => {
       const counts = developerPropertyCounts.get(developer.id) || { total: 0, offPlan: 0, secondary: 0 };
 
@@ -1293,14 +1398,16 @@ router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest,
           slug: developerSlug,
           logo,
           previewImage,
-          images: imagesArray, // Send filtered images back
+          coverImage: coverImageMap.get(developer.id) || null,
+          images: imagesArray,
           shortDescription,
-          projectsCount: counts.offPlan, // Usually we care about off-plan in developer lists
+          heroSummary: developer.heroSummary || null,
+          projectsCount: counts.offPlan,
           totalProjects: counts.total
         };
       }
 
-      // Full object (though main EP should probably be for list)
+      // Full object
       return {
         id: developer.id,
         name: developer.name,
@@ -1309,9 +1416,27 @@ router.get('/developers', authenticateApiKeyWithSecret, async (req: AuthRequest,
         slug: developerSlug,
         logo,
         previewImage,
+        coverImage: coverImageMap.get(developer.id) || null,
         description: developer.description || null,
         descriptionEn: developer.description || null,
         descriptionRu: developer.descriptionRu || null,
+        heroSummary: developer.heroSummary || null,
+        whyInvest: developer.whyInvest || [],
+        whyInvestRu: developer.whyInvestRu || [],
+        avgPrices: developer.avgPrices || [],
+        avgPricesDescription: developer.avgPricesDescription || null,
+        avgPricesDescriptionRu: developer.avgPricesDescriptionRu || null,
+        pros: developer.pros || [],
+        prosRu: developer.prosRu || [],
+        cons: developer.cons || [],
+        consRu: developer.consRu || [],
+        faqItems: developer.faqItems || [],
+        topProjects: normalizeTopProjects(developer.topProjects),
+        relatedDeveloperIds: developer.relatedDeveloperIds || [],
+        seoTitle: developer.seoTitle || null,
+        seoDescription: developer.seoDescription || null,
+        canonicalPath: developer.canonicalPath || null,
+        isPublished: developer.isPublished ?? true,
         images: imagesArray,
         projectsCount: {
           total: counts.total,
@@ -1370,6 +1495,12 @@ router.get('/developers/:identifier', authenticateApiKeyWithSecret, async (req: 
       return res.status(404).json(errorResponse('Developer not found'));
     }
 
+    // Block access to developers not in our allowed list
+    const devSlug = developer.slug || generateSlug(developer.name);
+    if (!ALLOWED_DEVELOPER_SLUGS.includes(devSlug)) {
+      return res.status(404).json(errorResponse('Developer not found'));
+    }
+
     // Отримуємо підрахунок properties для цього developer
     const countsQuery = await AppDataSource
       .getRepository(Property)
@@ -1395,6 +1526,33 @@ router.get('/developers/:identifier', authenticateApiKeyWithSecret, async (req: 
     const logo = normalizeUrl(developer.logo) || null;
     const gallery = (developer.images || []).map(img => normalizeUrl(img)).filter(Boolean) as string[];
 
+    // Keep cover image logic aligned with GET /api/public/developers?summary=true
+    let coverImage: string | null = null;
+    const coverRows: { photo: string | null }[] = await AppDataSource.query(`
+      SELECT photo
+      FROM (
+        SELECT
+          CASE
+            WHEN photos LIKE '[%' THEN (photos::jsonb)->>0
+            WHEN photos LIKE 'http%' THEN split_part(photos, ',', 1)
+            ELSE NULL
+          END AS photo,
+          "createdAt"
+        FROM properties
+        WHERE "developerId" = $1
+          AND photos IS NOT NULL
+          AND photos <> ''
+          AND photos <> '[]'
+      ) sub
+      WHERE photo IS NOT NULL AND photo <> ''
+      ORDER BY "createdAt" DESC
+      LIMIT 1
+    `, [developer.id]);
+
+    if (coverRows.length > 0 && coverRows[0].photo) {
+      coverImage = normalizeUrl(coverRows[0].photo);
+    }
+
     const developerResponse = {
       id: developer.id,
       name: developer.name,
@@ -1403,11 +1561,30 @@ router.get('/developers/:identifier', authenticateApiKeyWithSecret, async (req: 
       nameAr: developer.nameAr || null,
       slug: developer.slug || generateSlug(developer.name),
       logo,
+      coverImage,
       description: developer.description || null,
       descriptionRu: developer.descriptionRu || null,
+      heroSummary: developer.heroSummary || null,
+      whyInvest: developer.whyInvest || [],
+      whyInvestRu: developer.whyInvestRu || [],
       avgPricesDescription: developer.avgPricesDescription || null,
+      avgPricesDescriptionRu: developer.avgPricesDescriptionRu || null,
       avgPrices: developer.avgPrices || [],
       images: gallery,
+      pros: developer.pros || [],
+      prosRu: developer.prosRu || [],
+      cons: developer.cons || [],
+      consRu: developer.consRu || [],
+      faqItems: developer.faqItems || [],
+      topProjects: normalizeTopProjects(developer.topProjects),
+      paymentPlans: developer.paymentPlans || [],
+      handoverPipeline: developer.handoverPipeline || [],
+      relatedDeveloperIds: developer.relatedDeveloperIds || [],
+      seoTitle: developer.seoTitle || null,
+      seoDescription: developer.seoDescription || null,
+      canonicalPath: developer.canonicalPath || null,
+      isPublished: developer.isPublished ?? true,
+      noindex: !(developer.isPublished ?? true) || counts.total === 0,
       areas: (developer.areas || []).map(a => ({
         id: a.id,
         nameEn: a.nameEn,
@@ -1437,12 +1614,141 @@ router.get('/developers/:identifier', authenticateApiKeyWithSecret, async (req: 
         secondary: counts.secondary,
       },
       createdAt: developer.createdAt,
+      updatedAt: developer.updatedAt || null,
     };
 
     res.json(successResponse(developerResponse));
   } catch (error: any) {
     console.error('Error fetching developer:', error);
     res.status(500).json(errorResponse('Failed to fetch developer', error.message));
+  }
+});
+
+// GET /api/public/developers/:slug/projects - Paginated projects list for a developer
+router.get('/developers/:slug/projects', authenticateApiKeyWithSecret, async (req: AuthRequest, res) => {
+  try {
+    const { slug } = req.params;
+    const pageNum = parseInt((req.query.page as string) || '1', 10) || 1;
+    const limitNum = Math.min(parseInt((req.query.limit as string) || '12', 10) || 12, 50);
+    const typeFilter = req.query.type as string | undefined; // 'off-plan' | 'secondary'
+    const skip = (pageNum - 1) * limitNum;
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+
+    // Resolve developer
+    let developer = await AppDataSource.getRepository(Developer).findOne({
+      where: isUuid ? { id: slug } : { slug },
+      select: ['id', 'name', 'slug'],
+    });
+
+    if (!developer && !isUuid) {
+      const allDevs = await AppDataSource.getRepository(Developer).find({ select: ['id', 'name', 'slug'] });
+      developer = allDevs.find(d => (d.slug || generateSlug(d.name)) === slug) ?? null;
+    }
+
+    if (!developer) {
+      return res.status(404).json(errorResponse('Developer not found'));
+    }
+
+    // Block access to developers not in our allowed list
+    const resolvedSlug = developer.slug || generateSlug(developer.name);
+    if (!ALLOWED_DEVELOPER_SLUGS.includes(resolvedSlug)) {
+      return res.status(404).json(errorResponse('Developer not found'));
+    }
+
+    const qb = AppDataSource.getRepository(Property)
+      .createQueryBuilder('property')
+      .leftJoinAndSelect('property.area', 'area')
+      .where('property.developerId = :developerId', { developerId: developer.id });
+
+    if (typeFilter === 'off-plan') {
+      qb.andWhere("property.propertyType IN ('off-plan', 'new-launches', 'exclusive-for-you')");
+    } else if (typeFilter === 'secondary') {
+      qb.andWhere("property.propertyType IN ('secondary', 'rent', 'commercial')");
+    }
+
+    const [properties, total] = await qb
+      .orderBy('property.createdAt', 'DESC')
+      .skip(skip)
+      .take(limitNum)
+      .getManyAndCount();
+
+    const extractFirstPhoto = (value: any): string | null => {
+      if (!value) return null;
+
+      if (Array.isArray(value)) {
+        const first = value.find((item) => typeof item === 'string' && item.trim().length > 0);
+        return typeof first === 'string' ? first.trim() : null;
+      }
+
+      if (typeof value === 'string') {
+        const raw = value.trim();
+        if (!raw || raw === '[]') return null;
+
+        if (raw.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              const first = parsed.find((item) => typeof item === 'string' && item.trim().length > 0);
+              return typeof first === 'string' ? first.trim() : null;
+            }
+          } catch {
+            // Fallback below handles non-JSON strings safely
+          }
+        }
+
+        const firstCandidate = raw.split(',').map((item) => item.trim()).find(Boolean);
+        return firstCandidate || null;
+      }
+
+      return null;
+    };
+
+    const data = properties.map(p => {
+      const projectName = ((p as any).projectName || p.buildingName || null);
+      const normalizedProjectName = typeof projectName === 'string' && projectName.trim().length > 0
+        ? projectName.trim()
+        : null;
+
+      const rawLegacyName = typeof p.name === 'string' ? p.name.trim() : '';
+      const legacyWordCount = rawLegacyName ? rawLegacyName.split(/\s+/).length : 0;
+      const legacyLooksLikeDescription = rawLegacyName.length > 120 || legacyWordCount > 18;
+      const displayName = normalizedProjectName || (!legacyLooksLikeDescription && rawLegacyName ? rawLegacyName : null);
+
+      const rawImages = ((p as any).images || []) as string[];
+      const normalizedImages = rawImages.slice(0, 3).map((img: string) => normalizeUrl(img)).filter(Boolean);
+
+      const firstPhotoRaw = extractFirstPhoto((p as any).photos) || extractFirstPhoto((p as any).images);
+      const coverImage = normalizeUrl(firstPhotoRaw);
+
+      return {
+        id: p.id,
+        name: displayName,
+        slug: (p as any).slug || generateSlug(displayName || p.id),
+        coverImage,
+        propertyType: p.propertyType,
+        priceFrom: p.priceFrom || p.price || null,
+        handover: (p as any).handoverDate || (p as any).completionDate || null,
+        area: p.area ? { id: p.area.id, nameEn: p.area.nameEn, slug: p.area.slug || generateSlug(p.area.nameEn) } : null,
+        images: normalizedImages,
+        bedrooms: (p as any).bedrooms || null,
+      };
+    });
+
+    res.json(successResponse({
+      data,
+      meta: {
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      },
+    }));
+  } catch (error: any) {
+    console.error('Error fetching developer projects:', error);
+    res.status(500).json(errorResponse('Failed to fetch developer projects', error.message));
   }
 });
 
@@ -2245,7 +2551,7 @@ router.get('/news/:slug', authenticateApiKeyWithSecret, async (req: AuthRequest,
       titleRu: (newsItem as any).titleRu || null,
       description: newsItem.description,
       descriptionRu: (newsItem as any).descriptionRu || null,
-      image: newsItem.imageUrl || null,
+      image: buildImageProxyUrl(newsItem.imageUrl, newsItem.title),
       publishedAt: newsItem.publishedAt,
       contents: (newsItem.contents || []).sort((a, b) => a.order - b.order).map(content => ({
         type: content.type,
@@ -2253,7 +2559,7 @@ router.get('/news/:slug', authenticateApiKeyWithSecret, async (req: AuthRequest,
         titleRu: (content as any).titleRu || null,
         description: content.description || null,
         descriptionRu: (content as any).descriptionRu || null,
-        imageUrl: content.imageUrl || null,
+        imageUrl: buildImageProxyUrl(content.imageUrl, content.title),
         videoUrl: content.videoUrl || null,
         order: content.order,
       })),
@@ -2816,63 +3122,31 @@ router.get('/facilities-list', authenticateApiKeyWithSecret, async (req: AuthReq
 // GET /api/public/property-finder/projects - Get all PF projects with filtering and pagination
 router.get('/property-finder/projects', authenticateApiKeyWithSecret, async (req, res) => {
   try {
-    const { 
-      search, 
-      category, 
-      completionStatus, 
-      developerId,
-      page = 1, 
-      limit = 24 
-    } = req.query;
-
-    const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
-    const limitNum = Math.max(1, parseInt(limit as string, 10) || 24);
-    const skip = (pageNum - 1) * limitNum;
-
-    const queryBuilder = AppDataSource.getRepository(PropertyFinderProject)
-      .createQueryBuilder('project');
-
-    // Filters
-    if (search) {
-      queryBuilder.andWhere(new Brackets(qb => {
-        qb.where("project.title->>'en' ILIKE :search", { search: `%${search}%` })
-          .orWhere("project.title->>'ar' ILIKE :search", { search: `%${search}%` })
-          .orWhere("project.pfId ILIKE :search", { search: `%${search}%` });
-      }));
-    }
-
-    if (category) {
-      queryBuilder.andWhere("project.fullData->>'category' = :category", { category });
-    }
-
-    if (completionStatus) {
-      queryBuilder.andWhere("project.fullData->>'completionStatus' ILIKE :status", { status: `%${completionStatus}%` });
-    }
-
-    if (developerId) {
-       // Search by developer ID or Name in JSON
-       queryBuilder.andWhere("project.developer->>'id' = :devId", { devId: developerId });
-    }
-
-    const [items, total] = await queryBuilder
-      .orderBy('project.updatedAt', 'DESC')
-      .skip(skip)
-      .take(limitNum)
-      .getManyAndCount();
-
-    res.json(successResponse({
-      items,
-      pagination: {
-        total,
-        page: pageNum,
-        perPage: limitNum,
-        totalPages: Math.ceil(total / limitNum)
-      }
-    }));
-
+    const pfService = new PropertyFinderService();
+    const filters = {
+      page: parseInt(req.query.page as string) || 1,
+      perPage: parseInt(req.query.limit as string) || parseInt(req.query.perPage as string) || 24,
+      ...req.query
+    };
+    
+    const result = await pfService.getProjects(filters);
+    res.json(successResponse(result));
   } catch (error: any) {
     console.error('Error fetching public PF projects:', error);
     res.status(500).json(errorResponse('Failed to fetch projects', error.message));
+  }
+});
+
+// GET /api/public/property-finder/map - Get PF map markers
+router.get('/property-finder/map', authenticateApiKeyWithSecret, async (req, res) => {
+  try {
+    const pfService = new PropertyFinderService();
+    const { status } = req.query;
+    const projects = await pfService.getProjectsForMap(status as string);
+    res.json(successResponse(projects));
+  } catch (error: any) {
+    console.error('Error fetching public PF map markers:', error);
+    res.status(500).json(errorResponse('Failed to fetch PF map markers', error.message));
   }
 });
 
