@@ -641,7 +641,7 @@ export default function AddNewsPage() {
                         </h2>
                       )}
                       {formData.description && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 whitespace-pre-line">
                           {formData.description}
                         </p>
                       )}
@@ -654,7 +654,7 @@ export default function AddNewsPage() {
                         </h2>
                       )}
                       {formData.descriptionRu && (
-                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
+                        <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3 whitespace-pre-line">
                           {formData.descriptionRu}
                         </p>
                       )}
@@ -681,7 +681,7 @@ export default function AddNewsPage() {
                             </h5>
                           )}
                           {content.description && (
-                            <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2 whitespace-pre-line">
                               {content.description}
                             </p>
                           )}
@@ -694,7 +694,7 @@ export default function AddNewsPage() {
                             </h5>
                           )}
                           {content.descriptionRu && (
-                            <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2 whitespace-pre-line">
                               {content.descriptionRu}
                             </p>
                           )}

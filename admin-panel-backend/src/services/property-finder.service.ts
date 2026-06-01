@@ -498,9 +498,9 @@ export class PropertyFinderService {
       // Type filter (Sale or Rent)
       if (type && type !== 'all') {
           if (type === 'rent') {
-             query.andWhere("EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(project.units) = 'array' THEN project.units ELSE '[]'::jsonb END) AS unit WHERE unit->>'offeringType' = 'rent' OR unit->'price'->>'type' = 'yearly' OR (unit->'price'->'amounts'->>'yearly')::numeric > 0)");
+             query.andWhere("(EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(project.units) = 'array' THEN project.units ELSE '[]'::jsonb END) AS unit WHERE unit->>'offeringType' = 'rent' OR unit->'price'->>'type' = 'yearly' OR (unit->'price'->'amounts'->>'yearly')::numeric > 0) OR (jsonb_array_length(CASE WHEN jsonb_typeof(project.units) = 'array' THEN project.units ELSE '[]'::jsonb END) = 0 AND project.\"offeringType\" = 'rent'))");
           } else {
-             query.andWhere("EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(project.units) = 'array' THEN project.units ELSE '[]'::jsonb END) AS unit WHERE unit->>'offeringType' = 'sale' OR unit->'price'->>'type' = 'sale' OR unit->'price'->>'type' IS NULL OR (unit->'price'->'amounts'->>'sale')::numeric > 0)");
+             query.andWhere("(EXISTS (SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(project.units) = 'array' THEN project.units ELSE '[]'::jsonb END) AS unit WHERE unit->>'offeringType' = 'sale' OR unit->'price'->>'type' = 'sale' OR unit->'price'->>'type' IS NULL OR (unit->'price'->'amounts'->>'sale')::numeric > 0) OR (jsonb_array_length(CASE WHEN jsonb_typeof(project.units) = 'array' THEN project.units ELSE '[]'::jsonb END) = 0 AND project.\"offeringType\" = 'sale'))");
           }
       }
 
@@ -662,13 +662,17 @@ export class PropertyFinderService {
                     p."coverImage" as image,
                     COALESCE(p."location"->'coordinates'->>'lat', p."location"->'coordinates'->>'latitude') as lat,
                     COALESCE(p."location"->'coordinates'->>'lon', p."location"->'coordinates'->>'lng', p."location"->'coordinates'->>'longitude') as lng,
-                    EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.units) = 'array' THEN p.units ELSE '[]'::jsonb END) AS u 
-                        WHERE u->>'offeringType' = 'sale' OR u->'price'->>'type' = 'sale' OR u->'price'->>'type' IS NULL OR (u->'price'->'amounts'->>'sale')::numeric > 0
+                    (
+                        EXISTS (
+                            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.units) = 'array' THEN p.units ELSE '[]'::jsonb END) AS u 
+                            WHERE u->>'offeringType' = 'sale' OR u->'price'->>'type' = 'sale' OR u->'price'->>'type' IS NULL OR (u->'price'->'amounts'->>'sale')::numeric > 0
+                        ) OR (jsonb_array_length(CASE WHEN jsonb_typeof(p.units) = 'array' THEN p.units ELSE '[]'::jsonb END) = 0 AND p."offeringType" = 'sale')
                     ) as has_sale,
-                    EXISTS (
-                        SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.units) = 'array' THEN p.units ELSE '[]'::jsonb END) AS u 
-                        WHERE u->>'offeringType' = 'rent' OR u->'price'->>'type' = 'yearly' OR (u->'price'->'amounts'->>'yearly')::numeric > 0
+                    (
+                        EXISTS (
+                            SELECT 1 FROM jsonb_array_elements(CASE WHEN jsonb_typeof(p.units) = 'array' THEN p.units ELSE '[]'::jsonb END) AS u 
+                            WHERE u->>'offeringType' = 'rent' OR u->'price'->>'type' = 'yearly' OR (u->'price'->'amounts'->>'yearly')::numeric > 0
+                        ) OR (jsonb_array_length(CASE WHEN jsonb_typeof(p.units) = 'array' THEN p.units ELSE '[]'::jsonb END) = 0 AND p."offeringType" = 'rent')
                     ) as has_rent,
                     (
                         SELECT MIN((u->'price'->'amounts'->>'sale')::numeric) 

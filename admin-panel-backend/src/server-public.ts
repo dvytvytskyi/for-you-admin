@@ -38,6 +38,7 @@ import seoRoutes from './routes/seo.routes';
 import seoSyncRoutes from './modules/admin/seo-sync.routes';
 import landingV2Routes from './modules/public/landing-v2.routes';
 import presentationsRoutes from './modules/public/presentations.routes';
+import sitemapRoutes from './routes/sitemap.routes';
 
 import { AmoCrmService } from './services/amo-crm.service';
 import { PropertyFinderService } from './services/property-finder.service';
@@ -99,6 +100,9 @@ app.use('/api/property-finder', propertyFinderRoutes);
 app.use('/api/seo', seoRoutes);
 app.use('/api/seo-sync', seoSyncRoutes);
 app.use('/api/v2/landing', landingV2Routes);
+
+// Sitemap — served at /sitemap.xml (no /api prefix for crawler compatibility)
+app.use('/', sitemapRoutes);
 
 
 // Routes з префіксом /v1 для мобільного додатку

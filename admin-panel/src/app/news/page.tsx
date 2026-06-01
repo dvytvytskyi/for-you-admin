@@ -165,7 +165,7 @@ export default function NewsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="px-5 py-4">
-                      <span className="block text-gray-500 text-theme-sm dark:text-gray-400 line-clamp-2">
+                      <span className="block text-gray-500 text-theme-sm dark:text-gray-400 line-clamp-2 whitespace-pre-line">
                         {item.content || '-'}
                       </span>
                     </TableCell>

@@ -51,7 +51,65 @@ export class Developer {
   @Column('text', { array: true, nullable: true })
   images?: string[]; // Масив URL фото
 
+  @Column('jsonb', { nullable: true })
+  pros?: string[];
+
+  @Column('jsonb', { nullable: true })
+  prosRu?: string[];
+
+  @Column('jsonb', { nullable: true })
+  cons?: string[];
+
+  @Column('jsonb', { nullable: true })
+  consRu?: string[];
+
+  @Column('jsonb', { nullable: true })
+  faqItems?: { question: string; answer: string; questionRu?: string; answerRu?: string }[];
+
+  @Column('jsonb', { nullable: true })
+  paymentPlans?: { name: string; during: number; after: number; note?: string }[];
+
+  @Column('jsonb', { nullable: true })
+  handoverPipeline?: { year: number; quarter: string; projectName: string; slug?: string }[];
+
+  @Column('text', { array: true, nullable: true })
+  relatedDeveloperIds?: string[];
+
+  @Column({ nullable: true })
+  seoTitle?: string;
+
+  @Column('text', { nullable: true })
+  seoDescription?: string;
+
+  @Column({ default: true })
+  isPublished!: boolean;
+
+  // Developer page content fields (added in migration 026)
+  @Column('text', { nullable: true })
+  heroSummary?: string;
+
+  @Column('jsonb', { nullable: true })
+  whyInvest?: string[];
+
+  @Column('jsonb', { nullable: true })
+  whyInvestRu?: string[];
+
+  @Column('text', { nullable: true })
+  avgPricesDescriptionRu?: string;
+
+  @Column('jsonb', { nullable: true })
+  topProjects?: { name: string; slug: string }[];
+
+  @Column('text', { nullable: true })
+  canonicalPath?: string;
+
+  @Column({ nullable: true, default: 'index' })
+  indexingPolicy?: string;
+
   @CreateDateColumn()
   createdAt!: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  updatedAt?: Date;
 }
 

@@ -2,11 +2,40 @@ import express from 'express';
 import { AppDataSource } from '../../config/database';
 import { Property } from '../../entities/Property';
 import { PropertyUnit } from '../../entities/PropertyUnit';
+import { News } from '../../entities/News';
 import { successResponse, errorResponse } from '../../utils/response';
 import { AmoCrmService } from '../../services/amo-crm.service';
 
 const router = express.Router();
 const amoCrmService = new AmoCrmService();
+
+/**
+ * GET /api/v2/landing/sitemap-news
+ * Returns lightweight published news records for sitemap generation.
+ */
+router.get('/sitemap-news', async (req, res) => {
+  try {
+    const newsRepo = AppDataSource.getRepository(News);
+    const publishedNews = await newsRepo.find({
+      where: { isPublished: true },
+      order: { publishedAt: 'DESC' },
+      select: ['slug', 'publishedAt', 'updatedAt'],
+    });
+
+    const result = publishedNews
+      .filter((item) => !!item.slug)
+      .map((item) => ({
+        slug: item.slug,
+        publishedAt: item.publishedAt,
+        updatedAt: item.updatedAt,
+      }));
+
+    return res.json(result);
+  } catch (error: any) {
+    console.error('Error in sitemap-news:', error);
+    return res.status(500).json(errorResponse(error.message));
+  }
+});
 
 /**
  * GET /api/v2/landing/sitemap-catalog

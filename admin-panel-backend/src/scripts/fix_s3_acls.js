@@ -1,7 +1,8 @@
 const { S3Client, ListObjectsV2Command, PutObjectAclCommand } = require('@aws-sdk/client-s3');
 const dotenv = require('dotenv');
+const path = require('path');
 
-dotenv.config({ path: '/Users/vytvytskyi/admin_for_you/admin-panel-backend/.env' });
+dotenv.config();
 
 const S3_CONFIG = {
     bucketName: process.env.S3_BUCKET_NAME || 'foryou',
@@ -22,37 +23,47 @@ const s3Client = new S3Client({
 });
 
 async function fixAcls() {
+    const prefixes = process.argv
+        .slice(2)
+        .map((arg) => arg.replace(/^--prefix=/, '').trim())
+        .filter(Boolean);
+    const targetPrefixes = prefixes.length > 0 ? prefixes : ['property-finder/'];
+
     console.log(`Starting to fix ACLs for bucket: ${S3_CONFIG.bucketName}...`);
+    console.log(`Target prefixes: ${targetPrefixes.join(', ')}`);
     
-    let continuationToken = undefined;
     let count = 0;
     
-    do {
-        const listCommand = new ListObjectsV2Command({
-            Bucket: S3_CONFIG.bucketName,
-            Prefix: 'property-finder/',
-            ContinuationToken: continuationToken
-        });
-        
-        const listResponse = await s3Client.send(listCommand);
-        const contents = listResponse.Contents || [];
-        
-        for (const object of contents) {
-            try {
-                await s3Client.send(new PutObjectAclCommand({
-                    Bucket: S3_CONFIG.bucketName,
-                    Key: object.Key,
-                    ACL: 'public-read'
-                }));
-                count++;
-                if (count % 50 === 0) console.log(`Fixed ${count} objects...`);
-            } catch (err) {
-                console.error(`Failed to fix ACL for ${object.Key}:`, err.message);
+    for (const prefix of targetPrefixes) {
+        let continuationToken = undefined;
+
+        do {
+            const listCommand = new ListObjectsV2Command({
+                Bucket: S3_CONFIG.bucketName,
+                Prefix: prefix,
+                ContinuationToken: continuationToken
+            });
+
+            const listResponse = await s3Client.send(listCommand);
+            const contents = listResponse.Contents || [];
+
+            for (const object of contents) {
+                try {
+                    await s3Client.send(new PutObjectAclCommand({
+                        Bucket: S3_CONFIG.bucketName,
+                        Key: object.Key,
+                        ACL: 'public-read'
+                    }));
+                    count++;
+                    if (count % 50 === 0) console.log(`Fixed ${count} objects...`);
+                } catch (err) {
+                    console.error(`Failed to fix ACL for ${object.Key}:`, err.message);
+                }
             }
-        }
-        
-        continuationToken = listResponse.NextContinuationToken;
-    } while (continuationToken);
+
+            continuationToken = listResponse.NextContinuationToken;
+        } while (continuationToken);
+    }
     
     console.log(`Finished! Total objects fixed: ${count}`);
 }

@@ -511,7 +511,16 @@ router.put('/developers/:id', async (req, res) => {
       avgPrices, 
       areas, 
       communities, 
-      images 
+      images,
+      pros,
+      cons,
+      faqItems,
+      paymentPlans,
+      handoverPipeline,
+      relatedDeveloperIds,
+      seoTitle,
+      seoDescription,
+      isPublished,
     } = req.body;
 
     const developerRepo = AppDataSource.getRepository(Developer);
@@ -551,6 +560,17 @@ router.put('/developers/:id', async (req, res) => {
     if (avgPricesDescription !== undefined) developer.avgPricesDescription = avgPricesDescription || '';
     if (avgPrices !== undefined) developer.avgPrices = avgPrices;
     if (images !== undefined) developer.images = images;
+
+    if (pros !== undefined) developer.pros = pros;
+    if (cons !== undefined) developer.cons = cons;
+    if (faqItems !== undefined) developer.faqItems = faqItems;
+    if (paymentPlans !== undefined) developer.paymentPlans = paymentPlans;
+    if (handoverPipeline !== undefined) developer.handoverPipeline = handoverPipeline;
+    if (relatedDeveloperIds !== undefined) developer.relatedDeveloperIds = relatedDeveloperIds;
+    if (seoTitle !== undefined) developer.seoTitle = seoTitle;
+    if (seoDescription !== undefined) developer.seoDescription = seoDescription;
+    if (isPublished !== undefined) developer.isPublished = Boolean(isPublished);
+    developer.updatedAt = new Date();
 
     // Handle areas (ManyToMany)
     if (areas !== undefined && Array.isArray(areas)) {
