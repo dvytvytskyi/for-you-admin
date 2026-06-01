@@ -497,7 +497,11 @@ export class PropertyFinderService {
 
       // Type filter (Sale or Rent)
       if (type && type !== 'all') {
-          query.andWhere("project.offeringType = :type", { type });
+          if (type === 'rent') {
+             query.andWhere("EXISTS (SELECT 1 FROM jsonb_array_elements(project.units) AS unit WHERE unit->>'offeringType' = 'rent' OR unit->'price'->>'type' = 'yearly' OR (unit->'price'->'amounts'->>'yearly')::numeric > 0)");
+          } else {
+             query.andWhere("EXISTS (SELECT 1 FROM jsonb_array_elements(project.units) AS unit WHERE unit->>'offeringType' = 'sale' OR unit->'price'->>'type' = 'sale' OR unit->'price'->>'type' IS NULL OR (unit->'price'->'amounts'->>'sale')::numeric > 0)");
+          }
       }
 
       // Sorting
@@ -538,8 +542,29 @@ export class PropertyFinderService {
           const mappedItems = items.map((project: any) => {
               const fullData = project.fullData || {};
               const media = fullData.media || {};
-              const isRent = fullData.price?.type === 'yearly' || (!fullData.price?.amounts?.sale && fullData.price?.amounts?.yearly);
-              const displayPrice = isRent ? (fullData.price?.amounts?.yearly || 0) : (Number(project.startingPrice) || 0);
+              
+              let displayPrice = 0;
+              let isRent = false;
+
+              if (type === 'rent') {
+                  isRent = true;
+                  const rentUnits = (project.units || []).filter((u: any) => u.offeringType === 'rent' || u.price?.type === 'yearly' || Number(u.price?.amounts?.yearly || 0) > 0);
+                  if (rentUnits.length > 0) {
+                      displayPrice = Math.min(...rentUnits.map((u: any) => Number(u.price?.amounts?.yearly || u.price?.value || 0)).filter((p: number) => p > 0));
+                  }
+                  if (displayPrice === Infinity || displayPrice === 0) displayPrice = fullData.price?.amounts?.yearly || 0;
+              } else if (type === 'sale') {
+                  isRent = false;
+                  const saleUnits = (project.units || []).filter((u: any) => u.offeringType === 'sale' || u.price?.type === 'sale' || !u.price?.type || Number(u.price?.amounts?.sale || 0) > 0);
+                  if (saleUnits.length > 0) {
+                      displayPrice = Math.min(...saleUnits.map((u: any) => Number(u.price?.amounts?.sale || u.price?.value || 0)).filter((p: number) => p > 0));
+                  }
+                  if (displayPrice === Infinity || displayPrice === 0) displayPrice = Number(project.startingPrice) || fullData.price?.amounts?.sale || 0;
+              } else {
+                  // Fallback to default
+                  isRent = fullData.price?.type === 'yearly' || (!fullData.price?.amounts?.sale && fullData.price?.amounts?.yearly);
+                  displayPrice = isRent ? (fullData.price?.amounts?.yearly || 0) : (Number(project.startingPrice) || 0);
+              }
 
               return {
                   ...project,
@@ -626,21 +651,73 @@ export class PropertyFinderService {
         }
 
         const query = `
+            WITH ProjectData AS (
+                SELECT 
+                    p."pfId" as id,
+                    CASE 
+                        WHEN jsonb_typeof(p."title") = 'string' THEN p."title"->>0 
+                        ELSE COALESCE(p."title"->>'en', p."title"->>'en_custom', 'Unnamed Project')
+                    END as name,
+                    COALESCE(p."location"->>'name', p."location"->>'path_name', 'Dubai') as area,
+                    p."coverImage" as image,
+                    COALESCE(p."location"->'coordinates'->>'lat', p."location"->'coordinates'->>'latitude') as lat,
+                    COALESCE(p."location"->'coordinates'->>'lon', p."location"->'coordinates'->>'lng', p."location"->'coordinates'->>'longitude') as lng,
+                    EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(p.units) AS u 
+                        WHERE u->>'offeringType' = 'sale' OR u->'price'->>'type' = 'sale' OR u->'price'->>'type' IS NULL OR (u->'price'->'amounts'->>'sale')::numeric > 0
+                    ) as has_sale,
+                    EXISTS (
+                        SELECT 1 FROM jsonb_array_elements(p.units) AS u 
+                        WHERE u->>'offeringType' = 'rent' OR u->'price'->>'type' = 'yearly' OR (u->'price'->'amounts'->>'yearly')::numeric > 0
+                    ) as has_rent,
+                    (
+                        SELECT MIN((u->'price'->'amounts'->>'sale')::numeric) 
+                        FROM jsonb_array_elements(p.units) AS u 
+                        WHERE (u->'price'->'amounts'->>'sale')::numeric > 0
+                    ) as min_sale_price,
+                    (
+                        SELECT MIN((u->'price'->'amounts'->>'yearly')::numeric) 
+                        FROM jsonb_array_elements(p.units) AS u 
+                        WHERE (u->'price'->'amounts'->>'yearly')::numeric > 0
+                    ) as min_rent_price,
+                    p."startingPrice",
+                    p."offeringType"
+                FROM property_finder_projects p
+                WHERE (p."location"->'coordinates'->>'lat' IS NOT NULL OR p."location"->'coordinates'->>'latitude' IS NOT NULL)
+                ${statusFilter}
+            )
             SELECT 
-                "pfId" as id,
-                CASE 
-                    WHEN jsonb_typeof("title") = 'string' THEN "title"->>0 
-                    ELSE COALESCE("title"->>'en', "title"->>'en_custom', 'Unnamed Project')
-                END as name,
+                id,
+                name,
+                COALESCE(min_sale_price, "startingPrice") as price,
+                area,
+                'sale' as type,
+                image,
+                lat,
+                lng
+            FROM ProjectData WHERE has_sale = true
+            UNION ALL
+            SELECT 
+                id,
+                name,
+                COALESCE(min_rent_price, "startingPrice") as price,
+                area,
+                'rent' as type,
+                image,
+                lat,
+                lng
+            FROM ProjectData WHERE has_rent = true AND has_sale = false
+            UNION ALL
+            SELECT 
+                id,
+                name,
                 "startingPrice" as price,
-                COALESCE("location"->>'name', "location"->>'path_name', 'Dubai') as area,
+                area,
                 "offeringType" as type,
-                "coverImage" as image,
-                COALESCE("location"->'coordinates'->>'lat', "location"->'coordinates'->>'latitude') as lat,
-                COALESCE("location"->'coordinates'->>'lon', "location"->'coordinates'->>'lng', "location"->'coordinates'->>'longitude') as lng
-            FROM property_finder_projects
-            WHERE ("location"->'coordinates'->>'lat' IS NOT NULL OR "location"->'coordinates'->>'latitude' IS NOT NULL)
-            ${statusFilter};
+                image,
+                lat,
+                lng
+            FROM ProjectData WHERE has_sale = false AND has_rent = false;
         `;
         try {
             return await AppDataSource.query(query);
