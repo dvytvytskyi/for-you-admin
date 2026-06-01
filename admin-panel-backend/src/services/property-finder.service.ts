@@ -706,7 +706,7 @@ export class PropertyFinderService {
                 image,
                 lat,
                 lng
-            FROM ProjectData WHERE has_rent = true AND has_sale = false
+            FROM ProjectData WHERE has_rent = true
             UNION ALL
             SELECT 
                 id,
