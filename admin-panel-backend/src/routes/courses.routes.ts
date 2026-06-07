@@ -2,16 +2,12 @@ import express from 'express';
 import { AppDataSource } from '../config/database';
 import { Course } from '../entities/Course';
 import { CourseProgress } from '../entities/CourseProgress';
-import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
+import { authenticateJWTOrApiKey } from '../middleware/auth';
 import { successResponse } from '../utils/response';
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey) return authenticateAPIKey(req, res, next);
-  return authenticateJWT(req, res, next);
-});
+router.use(authenticateJWTOrApiKey);
 
 router.get('/', async (req, res) => {
   const courses = await AppDataSource.getRepository(Course).find({

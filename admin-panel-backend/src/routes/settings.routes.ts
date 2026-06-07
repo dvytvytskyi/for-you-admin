@@ -6,17 +6,13 @@ import { Area } from '../entities/Area';
 import { Facility } from '../entities/Facility';
 import { Developer } from '../entities/Developer';
 import { DeveloperCommunity } from '../entities/DeveloperCommunity';
-import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
+import { authenticateJWTOrApiKey } from '../middleware/auth';
 import { successResponse } from '../utils/response';
 import { getFacilityTranslations } from '../utils/facilityTranslations';
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey) return authenticateAPIKey(req, res, next);
-  return authenticateJWT(req, res, next);
-});
+router.use(authenticateJWTOrApiKey);
 
 // Helper function to parse simple-array images from database
 // TypeORM simple-array stores as comma-separated string, PostgreSQL returns as {url1,url2} format

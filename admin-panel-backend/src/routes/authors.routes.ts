@@ -1,17 +1,12 @@
 import express from 'express';
 import { AppDataSource } from '../config/database';
 import { Author } from '../entities/Author';
-import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
+import { authenticateJWTOrApiKey } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/response';
 
 const router = express.Router();
 
-// Auth middleware for all routes
-router.use((req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey) return authenticateAPIKey(req, res, next);
-  return authenticateJWT(req, res, next);
-});
+router.use(authenticateJWTOrApiKey);
 
 // GET /authors - List all authors
 router.get('/', async (req, res) => {

@@ -3,16 +3,12 @@ import { AppDataSource } from '../config/database';
 import { CourseProgress } from '../entities/CourseProgress';
 import { Course } from '../entities/Course';
 import { User } from '../entities/User';
-import { authenticateJWT, authenticateAPIKey } from '../middleware/auth';
-import { successResponse } from '../utils/response';
+import { authenticateJWTOrApiKey } from '../middleware/auth';
+import { successResponse, errorResponse } from '../utils/response';
 
 const router = express.Router();
 
-router.use((req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey) return authenticateAPIKey(req, res, next);
-  return authenticateJWT(req, res, next);
-});
+router.use(authenticateJWTOrApiKey);
 
 // GET /api/course-progress/:userId - Get all progress for a user
 router.get('/:userId', async (req, res) => {
