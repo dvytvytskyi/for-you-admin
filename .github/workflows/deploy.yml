@@ -27,7 +27,7 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         source: "."
-        target: "/home/${{ secrets.SERVER_USER }}/admin_for_you"
+        target: "/root/admin_for_you"
 
     - name: 🚀 Executing remote SSH commands (Start Deployment)
       uses: appleboy/ssh-action@v1.0.3
@@ -36,6 +36,6 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd /home/${{ secrets.SERVER_USER }}/admin_for_you
+          cd /root/admin_for_you
           chmod +x full_deploy.sh
           ./full_deploy.sh
