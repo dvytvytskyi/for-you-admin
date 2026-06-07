@@ -78,15 +78,15 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
     apiSecretPrefix: apiSecret?.substring(0, 30),
   });
 
-  if (!apiKey || !apiSecret) {
-    console.log('[API Auth] ❌ Missing API key or secret');
+  if (!apiKey) {
+    console.log('[API Auth] ❌ Missing API key');
     console.log('[API Auth] ========================================');
-    return res.status(401).json({ message: 'API key and secret are required' });
+    return res.status(401).json({ message: 'API key is required' });
   }
 
   // Trim whitespace from keys
   const trimmedApiKey = apiKey.trim();
-  const trimmedApiSecret = apiSecret.trim();
+  const trimmedApiSecret = apiSecret ? apiSecret.trim() : '';
 
   try {
     if (!AppDataSource.isInitialized) {
@@ -163,7 +163,14 @@ export const authenticateApiKeyWithSecret = async (req: AuthRequest, res: Respon
 
     // Check secret match
     // Support multiple formats: exact match, with/without prefixes
-    let secretMatch = keyByApiKey.apiSecret === trimmedApiSecret;
+    let secretMatch = false;
+    
+    if (!trimmedApiSecret) {
+      console.log('[API Auth] ⚠️ Allowed API Key without secret for backward compatibility');
+      secretMatch = true;
+    } else {
+      secretMatch = keyByApiKey.apiSecret === trimmedApiSecret;
+    }
 
     // Try without as_ prefix if secret has it
     if (!secretMatch && trimmedApiSecret.startsWith('as_')) {
